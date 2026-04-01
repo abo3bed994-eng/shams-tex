@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -12,6 +13,7 @@ import {
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption } from "@/context/AppContext";
@@ -29,24 +31,65 @@ const PRESET_COLORS: ColorOption[] = [
   { name: "رمادي", hex: "#888880", quantity: 35 },
   { name: "وردي", hex: "#FADBD8", quantity: 20 },
   { name: "بنفسجي", hex: "#6C3483", quantity: 20 },
+  { name: "فضي", hex: "#C0C0C0", quantity: 30 },
+  { name: "بني", hex: "#7D6608", quantity: 20 },
 ];
-
-const CATEGORIES = ["حرير", "قطن", "ساتان", "كتان", "فيلفيت", "شيفون", "أخرى"];
 
 export default function AddProductScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, setProducts } = useApp();
+  const { products, setProducts, settings } = useApp();
+
+  const CATEGORIES = settings.categories.filter((c) => c !== "الكل");
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(CATEGORIES[0] ?? "حرير");
   const [retailPrice, setRetailPrice] = useState("");
   const [wholesalePrice, setWholesalePrice] = useState("");
   const [description, setDescription] = useState("");
   const [selectedColors, setSelectedColors] = useState<ColorOption[]>([]);
+  const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى معرض الصور");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 5,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const uris = result.assets.map((a) => a.uri);
+      setImages((prev) => [...prev, ...uris].slice(0, 5));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى الكاميرا");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setImages((prev) => [...prev, result.assets[0].uri].slice(0, 5));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const toggleColor = (color: ColorOption) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,7 +111,7 @@ export default function AddProductScreen() {
     const newProduct = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
       name,
-      images: [],
+      images,
       retailPrice: Number(retailPrice),
       wholesalePrice: Number(wholesalePrice),
       category,
@@ -81,9 +124,17 @@ export default function AddProductScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(false);
     Alert.alert("تم", "تمت إضافة المنتج بنجاح", [
-      { text: "إضافة آخر", onPress: () => {
-        setName(""); setRetailPrice(""); setWholesalePrice(""); setDescription(""); setSelectedColors([]);
-      }},
+      {
+        text: "إضافة آخر",
+        onPress: () => {
+          setName("");
+          setRetailPrice("");
+          setWholesalePrice("");
+          setDescription("");
+          setSelectedColors([]);
+          setImages([]);
+        },
+      },
       { text: "الرجوع", onPress: () => router.back() },
     ]);
   };
@@ -97,7 +148,69 @@ export default function AddProductScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+            صور المنتج
+          </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.imagesRow}
+          >
+            <Pressable
+              onPress={() =>
+                Alert.alert("إضافة صورة", "اختر مصدر الصورة", [
+                  { text: "من المعرض", onPress: pickImage },
+                  { text: "التقاط صورة", onPress: takePhoto },
+                  { text: "إلغاء", style: "cancel" },
+                ])
+              }
+              style={[
+                styles.addImageBtn,
+                { borderColor: colors.gold + "66", backgroundColor: colors.surface },
+              ]}
+            >
+              <Feather name="camera" size={24} color={colors.gold} />
+              <Text style={[styles.addImageText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+                إضافة صورة
+              </Text>
+            </Pressable>
+
+            {images.map((uri, index) => (
+              <View key={index} style={styles.imageThumb}>
+                <Image
+                  source={{ uri }}
+                  style={styles.thumbImage}
+                  resizeMode="cover"
+                />
+                <Pressable
+                  onPress={() => removeImage(index)}
+                  style={[styles.removeImageBtn, { backgroundColor: colors.destructive }]}
+                >
+                  <Feather name="x" size={12} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+          {images.length > 0 && (
+            <Text style={[styles.imageCount, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              {images.length} / 5 صور
+            </Text>
+          )}
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+          ]}
+        >
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
             معلومات الخامة
           </Text>
@@ -134,7 +247,11 @@ export default function AddProductScreen() {
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
               الفئة
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catsRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.catsRow}
+            >
               {CATEGORIES.map((cat) => (
                 <Pressable
                   key={cat}
@@ -164,7 +281,12 @@ export default function AddProductScreen() {
           </View>
         </View>
 
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+          ]}
+        >
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
             الأسعار
           </Text>
@@ -200,7 +322,12 @@ export default function AddProductScreen() {
           </View>
         </View>
 
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+          ]}
+        >
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
             الألوان المتاحة ({selectedColors.length} مختار)
           </Text>
@@ -221,8 +348,18 @@ export default function AddProductScreen() {
                     },
                   ]}
                 >
-                  <View style={[styles.colorSwatchSmall, { backgroundColor: color.hex, borderColor: colors.border }]} />
-                  <Text style={[styles.colorOptionText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
+                  <View
+                    style={[
+                      styles.colorSwatchSmall,
+                      { backgroundColor: color.hex, borderColor: colors.border },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.colorOptionText,
+                      { color: colors.foreground, fontFamily: "Inter_400Regular" },
+                    ]}
+                  >
                     {color.name}
                   </Text>
                   {selected && <Feather name="check" size={12} color={colors.gold} />}
@@ -260,6 +397,31 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 14 },
   section: { padding: 16, borderWidth: 1, gap: 14 },
   sectionTitle: { fontSize: 15, textAlign: "right" },
+  imagesRow: { gap: 10, flexDirection: "row-reverse" },
+  addImageBtn: {
+    width: 90,
+    height: 90,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  addImageText: { fontSize: 10, textAlign: "center" },
+  imageThumb: { width: 90, height: 90, borderRadius: 10, overflow: "hidden" },
+  thumbImage: { width: 90, height: 90 },
+  removeImageBtn: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageCount: { fontSize: 11, textAlign: "right" },
   fieldGroup: { gap: 6 },
   fieldLabel: { fontSize: 12, textAlign: "right" },
   textInput: {
@@ -278,11 +440,7 @@ const styles = StyleSheet.create({
   catText: { fontSize: 13 },
   pricesRow: { flexDirection: "row-reverse", gap: 12 },
   priceField: { flex: 1, gap: 6 },
-  colorGrid: {
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    gap: 8,
-  },
+  colorGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 },
   colorOption: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -293,9 +451,5 @@ const styles = StyleSheet.create({
   },
   colorSwatchSmall: { width: 20, height: 20, borderRadius: 10, borderWidth: 1 },
   colorOptionText: { fontSize: 12 },
-  footer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
+  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
 });

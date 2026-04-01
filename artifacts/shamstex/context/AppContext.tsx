@@ -72,25 +72,66 @@ export interface Notification {
   read: boolean;
 }
 
+export interface ContactEntry {
+  id: string;
+  label: string;
+  number: string;
+  icon: string;
+}
+
+export interface SocialEntry {
+  id: string;
+  label: string;
+  icon: string;
+  url: string;
+}
+
+export interface AppSettings {
+  contacts: ContactEntry[];
+  social: SocialEntry[];
+  aboutTitle: string;
+  aboutText: string;
+  categories: string[];
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
+  contacts: [
+    { id: "1", label: "الدعم الفني", number: "+20 100 000 0001", icon: "headphones" },
+    { id: "2", label: "المبيعات", number: "+20 100 000 0002", icon: "shopping-bag" },
+    { id: "3", label: "الجملة والتجار", number: "+20 100 000 0003", icon: "briefcase" },
+  ],
+  social: [
+    { id: "1", label: "واتساب", icon: "message-circle", url: "https://wa.me/201000000001" },
+    { id: "2", label: "إنستغرام", icon: "instagram", url: "https://instagram.com/shamstex" },
+    { id: "3", label: "فيسبوك", icon: "facebook", url: "https://facebook.com/shamstex" },
+  ],
+  aboutTitle: "شمس تكس",
+  aboutText:
+    "شركة متخصصة في توريد أفخر أنواع الأقمشة، نخدم عملاءنا منذ أكثر من 15 عاماً بجودة لا مثيل لها وخدمة على أعلى مستوى.",
+  categories: ["الكل", "حرير", "قطن", "ساتان", "كتان", "فيلفيت", "شيفون"],
+};
+
 interface AppContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   products: Product[];
-  setProducts: (products: Product[]) => void;
+  setProducts: (products: Product[]) => Promise<void>;
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
   removeFromCart: (productId: string, colorName: string) => void;
   updateCartItem: (productId: string, colorName: string, quantity: number) => void;
   clearCart: () => void;
   orders: Order[];
-  setOrders: (orders: Order[]) => void;
-  addOrder: (order: Order) => void;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  setOrders: (orders: Order[]) => Promise<void>;
+  addOrder: (order: Order) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   tabs: Tab[];
-  setTabs: (tabs: Tab[]) => void;
+  setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
-  addNotification: (notification: Notification) => void;
-  markNotificationRead: (id: string) => void;
+  addNotification: (notification: Notification) => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  settings: AppSettings;
+  setSettings: (settings: AppSettings) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -208,6 +249,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrdersState] = useState<Order[]>([]);
   const [tabs, setTabsState] = useState<Tab[]>(DEFAULT_TABS);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -216,19 +258,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPersistedData = async () => {
     try {
-      const [userData, productsData, ordersData, tabsData, notificationsData] = await Promise.all([
-        AsyncStorage.getItem("user"),
-        AsyncStorage.getItem("products"),
-        AsyncStorage.getItem("orders"),
-        AsyncStorage.getItem("tabs"),
-        AsyncStorage.getItem("notifications"),
-      ]);
+      const [userData, productsData, ordersData, tabsData, notificationsData, settingsData] =
+        await Promise.all([
+          AsyncStorage.getItem("user"),
+          AsyncStorage.getItem("products"),
+          AsyncStorage.getItem("orders"),
+          AsyncStorage.getItem("tabs"),
+          AsyncStorage.getItem("notifications"),
+          AsyncStorage.getItem("settings"),
+        ]);
 
       if (userData) setUserState(JSON.parse(userData));
       if (productsData) setProductsState(JSON.parse(productsData));
       if (ordersData) setOrdersState(JSON.parse(ordersData));
       if (tabsData) setTabsState(JSON.parse(tabsData));
       if (notificationsData) setNotifications(JSON.parse(notificationsData));
+      if (settingsData) setSettingsState(JSON.parse(settingsData));
     } catch (e) {
     } finally {
       setIsLoading(false);
@@ -275,7 +320,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (productId: string, colorName: string, quantity: number) => {
       setCart((prev) =>
         quantity === 0
-          ? prev.filter((c) => !(c.productId === productId && c.colorName === colorName))
+          ? prev.filter(
+              (c) => !(c.productId === productId && c.colorName === colorName)
+            )
           : prev.map((c) =>
               c.productId === productId && c.colorName === colorName
                 ? { ...c, quantity }
@@ -336,6 +383,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [notifications]
   );
 
+  const setSettings = useCallback(async (s: AppSettings) => {
+    setSettingsState(s);
+    await AsyncStorage.setItem("settings", JSON.stringify(s));
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -357,6 +409,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         notifications,
         addNotification,
         markNotificationRead,
+        settings,
+        setSettings,
         isLoading,
       }}
     >
