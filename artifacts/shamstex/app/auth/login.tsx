@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,17 +18,34 @@ import { useApp } from "@/context/AppContext";
 import GoldButton from "@/components/GoldButton";
 import { Feather } from "@expo/vector-icons";
 
+type Step = "phone" | "otp" | "name";
+
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { setUser } = useApp();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [name, setName] = useState("");
+  const [step, setStep] = useState<Step>("phone");
   const [loading, setLoading] = useState(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const demoRole =
+    phone === "0000000001"
+      ? "admin"
+      : phone === "0000000002"
+      ? "merchant"
+      : phone === "0000000003"
+      ? "employee"
+      : "customer";
+
+  const isKnownDemo =
+    phone === "0000000001" ||
+    phone === "0000000002" ||
+    phone === "0000000003";
 
   const handleSendOtp = async () => {
     if (phone.length < 10) return;
@@ -41,17 +59,32 @@ export default function LoginScreen() {
   const handleVerifyOtp = async () => {
     if (otp.length < 4) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isKnownDemo) {
+      const autoNames: Record<string, string> = {
+        "0000000001": "مدير النظام",
+        "0000000002": "تاجر",
+        "0000000003": "موظف",
+      };
+      await finishLogin(autoNames[phone]);
+    } else {
+      setLoading(false);
+      setStep("name");
+    }
+  };
+
+  const handleNameSubmit = async () => {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) return;
+    await finishLogin(trimmed);
+  };
+
+  const finishLogin = async (displayName: string) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-
-    const demoRole = phone === "0000000001" ? "admin" :
-                     phone === "0000000002" ? "merchant" :
-                     phone === "0000000003" ? "employee" : "customer";
-
+    await new Promise((r) => setTimeout(r, 600));
     await setUser({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       phone,
-      name: demoRole === "admin" ? "مدير النظام" : demoRole === "merchant" ? "تاجر" : demoRole === "employee" ? "موظف" : "عميل جديد",
+      name: displayName,
       role: demoRole,
     });
     setLoading(false);
@@ -72,14 +105,19 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View style={[styles.logoCircle, { borderColor: colors.gold + "44" }]}>
-            <Feather name="sun" size={40} color={colors.gold} />
-          </View>
+          <Image
+            source={require("../../assets/images/icon.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
             Shams Tex
           </Text>
           <Text
-            style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
+            style={[
+              styles.subtitle,
+              { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+            ]}
           >
             أقمشة فاخرة لكل مناسبة
           </Text>
@@ -95,13 +133,18 @@ export default function LoginScreen() {
             },
           ]}
         >
-          {step === "phone" ? (
+          {step === "phone" && (
             <>
-              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              <Text
+                style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
+              >
                 تسجيل الدخول
               </Text>
               <Text
-                style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
+                style={[
+                  styles.cardSubtitle,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                ]}
               >
                 أدخل رقم هاتفك لاستلام رمز التحقق
               </Text>
@@ -109,12 +152,19 @@ export default function LoginScreen() {
               <View
                 style={[
                   styles.inputWrapper,
-                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
+                  {
+                    backgroundColor: colors.input,
+                    borderColor: colors.border,
+                    borderRadius: colors.radius - 4,
+                  },
                 ]}
               >
                 <Feather name="phone" size={18} color={colors.mutedForeground} />
                 <TextInput
-                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+                  style={[
+                    styles.input,
+                    { color: colors.foreground, fontFamily: "Inter_400Regular" },
+                  ]}
                   placeholder="رقم الهاتف"
                   placeholderTextColor={colors.mutedForeground}
                   value={phone}
@@ -135,23 +185,33 @@ export default function LoginScreen() {
               />
 
               <Text
-                style={[styles.demo, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
+                style={[
+                  styles.demo,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                ]}
               >
                 للتجربة: 0000000001 (مدير) | 0000000002 (تاجر)
               </Text>
             </>
-          ) : (
+          )}
+
+          {step === "otp" && (
             <>
               <View style={styles.backRow}>
                 <Pressable onPress={() => setStep("phone")}>
                   <Feather name="arrow-right" size={20} color={colors.foreground} />
                 </Pressable>
               </View>
-              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              <Text
+                style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
+              >
                 رمز التحقق
               </Text>
               <Text
-                style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
+                style={[
+                  styles.cardSubtitle,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                ]}
               >
                 تم إرسال الرمز إلى {phone}
               </Text>
@@ -159,12 +219,23 @@ export default function LoginScreen() {
               <View
                 style={[
                   styles.inputWrapper,
-                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
+                  {
+                    backgroundColor: colors.input,
+                    borderColor: colors.border,
+                    borderRadius: colors.radius - 4,
+                  },
                 ]}
               >
                 <Feather name="lock" size={18} color={colors.mutedForeground} />
                 <TextInput
-                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 8 }]}
+                  style={[
+                    styles.input,
+                    {
+                      color: colors.foreground,
+                      fontFamily: "Inter_700Bold",
+                      letterSpacing: 8,
+                    },
+                  ]}
                   placeholder="_ _ _ _"
                   placeholderTextColor={colors.mutedForeground}
                   value={otp}
@@ -186,6 +257,64 @@ export default function LoginScreen() {
               />
             </>
           )}
+
+          {step === "name" && (
+            <>
+              <View style={styles.backRow}>
+                <Pressable onPress={() => setStep("otp")}>
+                  <Feather name="arrow-right" size={20} color={colors.foreground} />
+                </Pressable>
+              </View>
+              <Text
+                style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
+              >
+                ما اسمك؟
+              </Text>
+              <Text
+                style={[
+                  styles.cardSubtitle,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                ]}
+              >
+                أدخل اسمك لإكمال التسجيل
+              </Text>
+
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: colors.input,
+                    borderColor: colors.border,
+                    borderRadius: colors.radius - 4,
+                  },
+                ]}
+              >
+                <Feather name="user" size={18} color={colors.mutedForeground} />
+                <TextInput
+                  style={[
+                    styles.input,
+                    { color: colors.foreground, fontFamily: "Inter_400Regular" },
+                  ]}
+                  placeholder="الاسم الكامل"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={name}
+                  onChangeText={setName}
+                  textAlign="right"
+                  returnKeyType="done"
+                  autoFocus
+                  onSubmitEditing={handleNameSubmit}
+                />
+              </View>
+
+              <GoldButton
+                label="إكمال التسجيل"
+                onPress={handleNameSubmit}
+                loading={loading}
+                disabled={name.trim().length < 2}
+                style={{ width: "100%" }}
+              />
+            </>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -194,43 +323,14 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: {
-    paddingHorizontal: 24,
-    gap: 32,
-  },
-  header: {
-    alignItems: "center",
-    gap: 12,
-  },
-  logoCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brand: {
-    fontSize: 28,
-    letterSpacing: 3,
-  },
-  subtitle: {
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  card: {
-    padding: 24,
-    borderWidth: 1,
-    gap: 16,
-  },
-  cardTitle: {
-    fontSize: 20,
-    textAlign: "right",
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    textAlign: "right",
-  },
+  content: { paddingHorizontal: 24, gap: 32 },
+  header: { alignItems: "center", gap: 10 },
+  logo: { width: 110, height: 110 },
+  brand: { fontSize: 28, letterSpacing: 3 },
+  subtitle: { fontSize: 14, letterSpacing: 1 },
+  card: { padding: 24, borderWidth: 1, gap: 16 },
+  cardTitle: { fontSize: 20, textAlign: "right" },
+  cardSubtitle: { fontSize: 13, textAlign: "right" },
   inputWrapper: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -239,19 +339,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderWidth: 1,
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    height: "100%",
-  },
-  backRow: {
-    flexDirection: "row-reverse",
-    marginBottom: -8,
-  },
-  demo: {
-    fontSize: 11,
-    textAlign: "center",
-    marginTop: 4,
-    lineHeight: 18,
-  },
+  input: { flex: 1, fontSize: 16, height: "100%" },
+  backRow: { flexDirection: "row-reverse", marginBottom: -8 },
+  demo: { fontSize: 11, textAlign: "center", marginTop: 4, lineHeight: 18 },
 });

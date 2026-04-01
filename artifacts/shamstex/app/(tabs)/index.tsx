@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  FlatList,
   Image,
   Platform,
   Pressable,
@@ -21,13 +20,14 @@ const CATEGORIES = ["الكل", "حرير", "قطن", "ساتان", "كتان", 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, products, notifications } = useApp();
+  const { user, products, notifications, cart } = useApp();
   const [activeCategory, setActiveCategory] = useState("الكل");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const filteredProducts =
     activeCategory === "الكل"
@@ -44,24 +44,52 @@ export default function HomeScreen() {
           { paddingTop: topPad + 8, borderBottomColor: colors.border },
         ]}
       >
-        <Pressable
-          onPress={() => router.push("/notifications")}
-          style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Feather name="bell" size={22} color={colors.foreground} />
-          {unreadCount > 0 && (
-            <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-              <Text style={[styles.badgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
-                {unreadCount}
-              </Text>
-            </View>
-          )}
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable
+            onPress={() => router.push("/notifications")}
+            style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Feather name="bell" size={22} color={colors.foreground} />
+            {unreadCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: colors.gold }]}>
+                <Text
+                  style={[
+                    styles.badgeText,
+                    { color: colors.background, fontFamily: "Inter_700Bold" },
+                  ]}
+                >
+                  {unreadCount}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push("/cart")}
+            style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Feather name="shopping-cart" size={22} color={colors.foreground} />
+            {cartCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: colors.gold }]}>
+                <Text
+                  style={[
+                    styles.badgeText,
+                    { color: colors.background, fontFamily: "Inter_700Bold" },
+                  ]}
+                >
+                  {cartCount > 9 ? "9+" : cartCount}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
 
         <View style={styles.headerCenter}>
-          <Text style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-            Shams Tex
-          </Text>
+          <Image
+            source={require("../../assets/images/icon.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
 
         <Pressable
@@ -75,7 +103,9 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Text style={[styles.avatarText, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+          <Text
+            style={[styles.avatarText, { color: colors.gold, fontFamily: "Inter_700Bold" }]}
+          >
             {user?.name?.charAt(0) ?? "؟"}
           </Text>
         </Pressable>
@@ -83,21 +113,49 @@ export default function HomeScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 100 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: bottomPad + 100 },
+        ]}
       >
         <View style={styles.welcomeBanner}>
-          <View style={[styles.bannerCard, { backgroundColor: colors.surface, borderColor: colors.gold + "33" }]}>
+          <View
+            style={[
+              styles.bannerCard,
+              { backgroundColor: colors.surface, borderColor: colors.gold + "33" },
+            ]}
+          >
             <View style={styles.bannerText}>
-              <Text style={[styles.greeting, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              <Text
+                style={[
+                  styles.greeting,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                ]}
+              >
                 أهلاً بك
               </Text>
-              <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              <Text
+                style={[
+                  styles.userName,
+                  { color: colors.foreground, fontFamily: "Inter_700Bold" },
+                ]}
+              >
                 {user?.name ?? "زائر"}
               </Text>
               {user?.role === "merchant" && (
-                <View style={[styles.merchantBadge, { backgroundColor: colors.gold + "22" }]}>
+                <View
+                  style={[
+                    styles.merchantBadge,
+                    { backgroundColor: colors.gold + "22" },
+                  ]}
+                >
                   <Feather name="award" size={12} color={colors.gold} />
-                  <Text style={[styles.merchantText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
+                  <Text
+                    style={[
+                      styles.merchantText,
+                      { color: colors.gold, fontFamily: "Inter_600SemiBold" },
+                    ]}
+                  >
                     تاجر موثّق
                   </Text>
                 </View>
@@ -111,14 +169,61 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesScroll}
+        >
+          {CATEGORIES.map((cat) => (
+            <Pressable
+              key={cat}
+              onPress={() => setActiveCategory(cat)}
+              style={({ pressed }) => [
+                styles.categoryChip,
+                {
+                  backgroundColor:
+                    activeCategory === cat ? colors.gold : colors.surface,
+                  borderColor: activeCategory === cat ? colors.gold : colors.border,
+                  borderRadius: 20,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  {
+                    color:
+                      activeCategory === cat ? colors.background : colors.foreground,
+                    fontFamily:
+                      activeCategory === cat ? "Inter_600SemiBold" : "Inter_400Regular",
+                  },
+                ]}
+              >
+                {cat}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Pressable onPress={() => router.push("/(tabs)/products")}>
-              <Text style={[styles.seeAll, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+              <Text
+                style={[
+                  styles.seeAll,
+                  { color: colors.gold, fontFamily: "Inter_500Medium" },
+                ]}
+              >
                 عرض الكل
               </Text>
             </Pressable>
-            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: colors.foreground, fontFamily: "Inter_700Bold" },
+              ]}
+            >
               المنتجات المميزة
             </Text>
           </View>
@@ -132,51 +237,39 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        <View style={styles.section}>
-          <Text
-            style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: "right" }]}
-          >
-            تصفح حسب الفئة
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesScroll}>
-            {CATEGORIES.map((cat) => (
-              <Pressable
-                key={cat}
-                onPress={() => setActiveCategory(cat)}
-                style={({ pressed }) => [
-                  styles.categoryChip,
-                  {
-                    backgroundColor:
-                      activeCategory === cat ? colors.gold : colors.surface,
-                    borderColor: activeCategory === cat ? colors.gold : colors.border,
-                    borderRadius: 20,
-                    opacity: pressed ? 0.8 : 1,
-                  },
+        {activeCategory !== "الكل" && (
+          <View style={styles.section}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: colors.foreground,
+                  fontFamily: "Inter_700Bold",
+                  textAlign: "right",
+                },
+              ]}
+            >
+              {activeCategory}
+            </Text>
+            {filteredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onPress={() => router.push(`/product/${product.id}`)}
+              />
+            ))}
+            {filteredProducts.length === 0 && (
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    {
-                      color: activeCategory === cat ? colors.background : colors.foreground,
-                      fontFamily: activeCategory === cat ? "Inter_600SemiBold" : "Inter_400Regular",
-                    },
-                  ]}
-                >
-                  {cat}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {filteredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onPress={() => router.push(`/product/${product.id}`)}
-            />
-          ))}
-        </View>
+                لا توجد منتجات في هذه الفئة
+              </Text>
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -187,18 +280,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
   },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-  },
-  brandName: {
-    fontSize: 20,
-    letterSpacing: 2,
-  },
+  headerCenter: { flex: 1, alignItems: "center" },
+  headerLogo: { width: 80, height: 44 },
+  headerLeft: { flexDirection: "row-reverse", gap: 2 },
   iconBtn: {
     width: 42,
     height: 42,
@@ -209,16 +297,15 @@ const styles = StyleSheet.create({
   badge: {
     position: "absolute",
     top: 6,
-    right: 6,
-    width: 16,
+    right: 4,
+    minWidth: 16,
     height: 16,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 3,
   },
-  badgeText: {
-    fontSize: 9,
-  },
+  badgeText: { fontSize: 9 },
   avatarBtn: {
     width: 38,
     height: 38,
@@ -227,13 +314,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 16,
-  },
+  avatarText: { fontSize: 16 },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 20,
-    gap: 24,
+    paddingTop: 16,
+    gap: 20,
   },
   welcomeBanner: {},
   bannerCard: {
@@ -249,12 +334,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 4,
   },
-  greeting: {
-    fontSize: 12,
-  },
-  userName: {
-    fontSize: 18,
-  },
+  greeting: { fontSize: 12 },
+  userName: { fontSize: 18 },
   merchantBadge: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -265,30 +346,11 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: 4,
   },
-  merchantText: {
-    fontSize: 11,
-  },
-  bannerImage: {
-    width: 130,
-    height: 130,
-  },
-  section: {
-    gap: 16,
-  },
-  sectionHeader: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  sectionTitle: {
-    fontSize: 18,
-  },
-  seeAll: {
-    fontSize: 13,
-  },
+  merchantText: { fontSize: 11 },
+  bannerImage: { width: 130, height: 130 },
   categoriesScroll: {
     gap: 10,
-    paddingLeft: 4,
+    paddingHorizontal: 4,
     flexDirection: "row-reverse",
   },
   categoryChip: {
@@ -296,7 +358,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
   },
-  categoryChipText: {
-    fontSize: 13,
+  categoryChipText: { fontSize: 13 },
+  section: { gap: 14 },
+  sectionHeader: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
+  sectionTitle: { fontSize: 18 },
+  seeAll: { fontSize: 13 },
+  emptyText: { textAlign: "center", fontSize: 14, paddingVertical: 20 },
 });

@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Dimensions, Image, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
-
-const { width } = Dimensions.get("window");
 
 export default function SplashScreenComponent({ onFinish }: { onFinish: () => void }) {
   const colors = useColors();
@@ -62,22 +60,17 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
           },
         ]}
       >
-        <View
-          style={[
-            styles.logoCircle,
-            { backgroundColor: "#FFFFFF", borderColor: colors.gold, borderWidth: 2 },
-          ]}
-        >
-          <Image
-            source={require("../assets/images/icon.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={require("../assets/images/icon.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </Animated.View>
 
       <Animated.View style={[styles.textBlock, { opacity: textFade }]}>
-        <Text style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+        <Text
+          style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}
+        >
           Shams Tex
         </Text>
         <Animated.View
@@ -101,39 +94,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 36,
+    gap: 32,
   },
-  logoContainer: {
-    alignItems: "center",
-  },
-  logoCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  logo: {
-    width: 150,
-    height: 150,
-  },
-  textBlock: {
-    alignItems: "center",
-    gap: 10,
-  },
-  brandName: {
-    fontSize: 34,
-    letterSpacing: 4,
-    textAlign: "center",
-  },
-  line: {
-    height: 1.5,
-    opacity: 0.7,
-  },
-  tagline: {
-    fontSize: 14,
-    textAlign: "center",
-    letterSpacing: 1,
-  },
+  logoContainer: { alignItems: "center" },
+  logo: { width: 180, height: 180 },
+  textBlock: { alignItems: "center", gap: 10 },
+  brandName: { fontSize: 34, letterSpacing: 4, textAlign: "center" },
+  line: { height: 1.5, opacity: 0.7 },
+  tagline: { fontSize: 14, textAlign: "center", letterSpacing: 1 },
 });
