@@ -1,0 +1,186 @@
+import React, { useState } from "react";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { router } from "expo-router";
+import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColors } from "@/hooks/useColors";
+import { useApp, Order, OrderStatus } from "@/context/AppContext";
+import OrderCard from "@/components/OrderCard";
+
+type FilterType = "all" | "received" | "preparing" | "ready";
+
+export default function OrdersScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const { user, orders, updateOrderStatus } = useApp();
+  const [filter, setFilter] = useState<FilterType>("all");
+
+  const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const isAdmin = user?.role === "admin" || user?.role === "employee";
+
+  const myOrders = isAdmin
+    ? orders
+    : orders.filter((o) => o.userId === user?.id);
+
+  const filtered =
+    filter === "all" ? myOrders : myOrders.filter((o) => o.status === filter);
+
+  const FILTERS: { key: FilterType; label: string }[] = [
+    { key: "all", label: "الكل" },
+    { key: "received", label: "مستلم" },
+    { key: "preparing", label: "تجهيز" },
+    { key: "ready", label: "جاهز" },
+  ];
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: topPad + 8, borderBottomColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+          {isAdmin ? "إدارة الطلبات" : "طلباتي"}
+        </Text>
+        {!isAdmin && (
+          <Pressable
+            onPress={() => router.push("/cart")}
+            style={({ pressed }) => [styles.cartBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Feather name="shopping-cart" size={22} color={colors.foreground} />
+          </Pressable>
+        )}
+      </View>
+
+      <View
+        style={[
+          styles.filterRow,
+          { borderBottomColor: colors.border },
+        ]}
+      >
+        {FILTERS.map(({ key, label }) => (
+          <Pressable
+            key={key}
+            onPress={() => setFilter(key)}
+            style={[
+              styles.filterBtn,
+              {
+                borderBottomWidth: filter === key ? 2 : 0,
+                borderBottomColor: colors.gold,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                {
+                  color: filter === key ? colors.gold : colors.mutedForeground,
+                  fontFamily: filter === key ? "Inter_600SemiBold" : "Inter_400Regular",
+                },
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 100 }]}
+      >
+        {filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <Feather name="package" size={48} color={colors.mutedForeground} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+              {isAdmin ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
+            </Text>
+            {!isAdmin && (
+              <Pressable
+                onPress={() => router.push("/(tabs)/products")}
+                style={({ pressed }) => [
+                  styles.shopBtn,
+                  {
+                    backgroundColor: colors.gold,
+                    borderRadius: colors.radius,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.shopBtnText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
+                  تصفح المنتجات
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        ) : (
+          filtered.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              isAdmin={isAdmin}
+              onPress={() => router.push(`/order/${order.id}`)}
+              onStatusChange={
+                isAdmin
+                  ? (status: OrderStatus) => updateOrderStatus(order.id, status)
+                  : undefined
+              }
+            />
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  title: { fontSize: 22 },
+  cartBtn: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterRow: {
+    flexDirection: "row-reverse",
+    borderBottomWidth: 1,
+  },
+  filterBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  filterText: { fontSize: 13 },
+  list: { padding: 16 },
+  empty: {
+    alignItems: "center",
+    paddingTop: 80,
+    gap: 16,
+  },
+  emptyText: { fontSize: 16 },
+  shopBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  shopBtnText: { fontSize: 15 },
+});
