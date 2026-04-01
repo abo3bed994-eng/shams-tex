@@ -8,7 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -23,19 +23,22 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const { user, isLoading } = useApp();
-  const [showSplash, setShowSplash] = useState(true);
+  const [splashDone, setSplashDone] = useState(false);
+  const navigated = useRef(false);
 
-  const handleSplashFinish = () => {
-    setShowSplash(false);
-    if (!user) {
-      router.replace("/auth/login");
-    } else {
-      router.replace("/(tabs)");
+  useEffect(() => {
+    if (splashDone && !isLoading && !navigated.current) {
+      navigated.current = true;
+      if (user) {
+        router.replace("/(tabs)");
+      } else {
+        router.replace("/auth/login");
+      }
     }
-  };
+  }, [splashDone, isLoading, user]);
 
-  if (showSplash || isLoading) {
-    return <SplashScreenComponent onFinish={handleSplashFinish} />;
+  if (!splashDone) {
+    return <SplashScreenComponent onFinish={() => setSplashDone(true)} />;
   }
 
   return (
