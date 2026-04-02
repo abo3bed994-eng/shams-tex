@@ -360,7 +360,7 @@ export default function ProductDetailScreen() {
     orderType === "weight"
       ? weightColorCount > 0 && totalWeight > 0
         ? `إضافة للسلة — ${(displayPrice * totalWeight).toFixed(0)} ج.م`
-        : "حدد الوزن لكل لون"
+        : "حدد المطلوب من كل لون"
       : totalPieces > 0
       ? `إضافة ${totalPieces} أثواب للسلة`
       : "اختر الألوان والكميات";
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   piecesNoteText: { fontSize: 12, flex: 1, textAlign: "right" },
-  footer: { paddingHorizontal: 16, paddingTop: 6, borderTopWidth: 1 },
+  footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1 },
   outOfStockBanner: {
     flexDirection: "row-reverse",
     alignItems: "center",
