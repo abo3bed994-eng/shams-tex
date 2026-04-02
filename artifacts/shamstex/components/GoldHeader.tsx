@@ -1,6 +1,6 @@
 import React from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 
@@ -34,7 +34,7 @@ export default function GoldHeader({ title, onBack, rightElement, subtitle }: Go
             onPress={onBack}
             style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Feather name="arrow-right" size={22} color={colors.foreground} />
+            <Icon name="arrow-right" size={22} color={colors.foreground} />
           </Pressable>
         ) : (
           <View style={styles.placeholder} />

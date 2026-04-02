@@ -21,8 +21,7 @@ import { persistImageUri } from "@/utils/persistImage";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
-const CONTACT_ICONS = ["headphones", "phone", "shopping-bag", "briefcase", "user", "mail"];
-const SOCIAL_ICONS = ["message-circle", "instagram", "facebook", "twitter", "youtube", "globe"];
+const SOCIAL_ICONS = ["message-circle", "instagram", "facebook", "tiktok", "twitter", "youtube", "globe"];
 
 function Field({
   label,
@@ -82,10 +81,15 @@ export default function AdminSettingsScreen() {
   const { settings, setSettings } = useApp();
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
-  const [draft, setDraft] = useState<AppSettings>({ ...settings });
+  const [draft, setDraft] = useState<AppSettings>({
+    ...settings,
+    subcategories: settings.subcategories ?? {},
+    stats: settings.stats ?? { clients: "+500", products: "+50", years: "15+" },
+  });
   const [saving, setSaving] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [mediaLoading, setMediaLoading] = useState(false);
+  const [newSubMap, setNewSubMap] = useState<Record<string, string>>({});
 
   const pickBannerImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -102,10 +106,7 @@ export default function AdminSettingsScreen() {
 
   const pickBannerVideo = async () => {
     const current = draft.bannerVideoUris ?? [];
-    if (current.length >= 3) {
-      Alert.alert("الحد الأقصى", "يمكن إضافة 3 فيديوهات كحد أقصى");
-      return;
-    }
+    if (current.length >= 3) { Alert.alert("الحد الأقصى", "يمكن إضافة 3 فيديوهات كحد أقصى"); return; }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 1 });
@@ -166,6 +167,16 @@ export default function AdminSettingsScreen() {
     setDraft((d) => ({ ...d, social: d.social.filter((s) => s.id !== id) }));
   };
 
+  const addSocial = () => {
+    const newEntry: SocialEntry = {
+      id: Date.now().toString(),
+      label: "رابط جديد",
+      icon: "globe",
+      url: "https://",
+    };
+    setDraft((d) => ({ ...d, social: [...d.social, newEntry] }));
+  };
+
   const addCategory = () => {
     const trimmed = newCategory.trim();
     if (!trimmed || draft.categories.includes(trimmed)) return;
@@ -175,7 +186,59 @@ export default function AdminSettingsScreen() {
 
   const deleteCategory = (cat: string) => {
     if (cat === "الكل") return;
-    setDraft((d) => ({ ...d, categories: d.categories.filter((c) => c !== cat) }));
+    setDraft((d) => ({
+      ...d,
+      categories: d.categories.filter((c) => c !== cat),
+      subcategories: Object.fromEntries(
+        Object.entries(d.subcategories ?? {}).filter(([k]) => k !== cat)
+      ),
+    }));
+  };
+
+  const moveCategoryUp = (idx: number) => {
+    if (idx <= 1) return;
+    setDraft((d) => {
+      const cats = [...d.categories];
+      [cats[idx], cats[idx - 1]] = [cats[idx - 1], cats[idx]];
+      return { ...d, categories: cats };
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const moveCategoryDown = (idx: number) => {
+    if (idx === 0) return;
+    setDraft((d) => {
+      if (idx >= d.categories.length - 1) return d;
+      const cats = [...d.categories];
+      [cats[idx], cats[idx + 1]] = [cats[idx + 1], cats[idx]];
+      return { ...d, categories: cats };
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const addSubcategory = (cat: string) => {
+    const trimmed = (newSubMap[cat] ?? "").trim();
+    if (!trimmed) return;
+    const existing = (draft.subcategories ?? {})[cat] ?? [];
+    if (existing.includes(trimmed)) return;
+    setDraft((d) => ({
+      ...d,
+      subcategories: {
+        ...(d.subcategories ?? {}),
+        [cat]: [...existing, trimmed],
+      },
+    }));
+    setNewSubMap((prev) => ({ ...prev, [cat]: "" }));
+  };
+
+  const deleteSubcategory = (cat: string, sub: string) => {
+    setDraft((d) => ({
+      ...d,
+      subcategories: {
+        ...(d.subcategories ?? {}),
+        [cat]: ((d.subcategories ?? {})[cat] ?? []).filter((s) => s !== sub),
+      },
+    }));
   };
 
   const Card = ({ children, title }: { children: React.ReactNode; title: string }) => (
@@ -186,6 +249,8 @@ export default function AdminSettingsScreen() {
       {children}
     </View>
   );
+
+  const editableCategories = draft.categories.filter((c) => c !== "الكل");
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -225,6 +290,35 @@ export default function AdminSettingsScreen() {
               placeholder="اكتب نبذة عن الشركة..."
               placeholderTextColor={colors.mutedForeground}
             />
+          </View>
+        </Card>
+
+        <Card title="الإحصائيات">
+          <View style={styles.statsRow}>
+            <View style={{ flex: 1 }}>
+              <Field
+                label="عدد العملاء"
+                value={draft.stats?.clients ?? "+500"}
+                onChange={(v) => setDraft((d) => ({ ...d, stats: { ...(d.stats ?? {}), clients: v } as any }))}
+                placeholder="+500"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field
+                label="عدد الخامات"
+                value={draft.stats?.products ?? "+50"}
+                onChange={(v) => setDraft((d) => ({ ...d, stats: { ...(d.stats ?? {}), products: v } as any }))}
+                placeholder="+50"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field
+                label="سنوات الخبرة"
+                value={draft.stats?.years ?? "15+"}
+                onChange={(v) => setDraft((d) => ({ ...d, stats: { ...(d.stats ?? {}), years: v } as any }))}
+                placeholder="15+"
+              />
+            </View>
           </View>
         </Card>
 
@@ -291,29 +385,49 @@ export default function AdminSettingsScreen() {
         </Card>
 
         <Card title="فئات المنتجات">
-          <View style={styles.tagsWrap}>
-            {draft.categories.map((cat) => (
+          <View style={[styles.catFixedRow, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}>
+            <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>الكل</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>ثابت</Text>
+          </View>
+
+          {editableCategories.map((cat, i) => {
+            const realIdx = draft.categories.indexOf(cat);
+            const isFirst = realIdx === 1;
+            const isLast = realIdx === draft.categories.length - 1;
+            return (
               <View
                 key={cat}
-                style={[
-                  styles.tag,
-                  {
-                    backgroundColor: cat === "الكل" ? colors.gold + "33" : colors.surface,
-                    borderColor: cat === "الكل" ? colors.gold : colors.border,
-                  },
-                ]}
+                style={[styles.catListRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
-                <Text style={[styles.tagText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
+                <View style={styles.catRowArrows}>
+                  <Pressable
+                    onPress={() => moveCategoryUp(realIdx)}
+                    disabled={isFirst}
+                    style={[styles.arrowBtn, { opacity: isFirst ? 0.3 : 1 }]}
+                  >
+                    <Icon name="chevron-up" size={16} color={colors.gold} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => moveCategoryDown(realIdx)}
+                    disabled={isLast}
+                    style={[styles.arrowBtn, { opacity: isLast ? 0.3 : 1 }]}
+                  >
+                    <Icon name="chevron-down" size={16} color={colors.gold} />
+                  </Pressable>
+                </View>
+                <Text style={[styles.catListName, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
                   {cat}
                 </Text>
-                {cat !== "الكل" && (
-                  <Pressable onPress={() => deleteCategory(cat)}>
-                    <Icon name="x" size={14} color={colors.mutedForeground} />
-                  </Pressable>
-                )}
+                <Pressable
+                  onPress={() => deleteCategory(cat)}
+                  style={[styles.deleteCatBtn, { alignSelf: "center" }]}
+                >
+                  <Icon name="x" size={14} color={colors.destructive} />
+                </Pressable>
               </View>
-            ))}
-          </View>
+            );
+          })}
+
           <View style={styles.addRow}>
             <GoldButton
               label="إضافة"
@@ -344,19 +458,80 @@ export default function AdminSettingsScreen() {
           </View>
         </Card>
 
+        <Card title="الفئات الفرعية">
+          {editableCategories.length === 0 ? (
+            <Text style={{ color: colors.mutedForeground, textAlign: "right", fontSize: 13, fontFamily: "Inter_400Regular" }}>
+              أضف فئات رئيسية أولاً
+            </Text>
+          ) : (
+            editableCategories.map((cat) => {
+              const subs = (draft.subcategories ?? {})[cat] ?? [];
+              return (
+                <View key={cat} style={[styles.subCatGroup, { borderColor: colors.border }]}>
+                  <Text style={[styles.subCatGroupTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                    {cat}
+                  </Text>
+                  {subs.length > 0 && (
+                    <View style={styles.subTagsWrap}>
+                      {subs.map((sub) => (
+                        <View
+                          key={sub}
+                          style={[styles.subTag, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        >
+                          <Pressable
+                            onPress={() => deleteSubcategory(cat, sub)}
+                            style={{ padding: 2 }}
+                          >
+                            <Icon name="x" size={12} color={colors.mutedForeground} />
+                          </Pressable>
+                          <Text style={[styles.subTagText, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}>
+                            {sub}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  <View style={styles.addRow}>
+                    <GoldButton
+                      label="إضافة"
+                      onPress={() => addSubcategory(cat)}
+                      size="sm"
+                      style={{ minWidth: 80 }}
+                      disabled={!(newSubMap[cat] ?? "").trim()}
+                    />
+                    <TextInput
+                      style={[
+                        styles.addInput,
+                        {
+                          flex: 1,
+                          color: colors.foreground,
+                          backgroundColor: colors.input,
+                          borderColor: colors.border,
+                          fontFamily: "Inter_400Regular",
+                        },
+                      ]}
+                      value={newSubMap[cat] ?? ""}
+                      onChangeText={(v) => setNewSubMap((prev) => ({ ...prev, [cat]: v }))}
+                      placeholder={`فئة فرعية من ${cat}`}
+                      placeholderTextColor={colors.mutedForeground}
+                      textAlign="right"
+                      onSubmitEditing={() => addSubcategory(cat)}
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </Card>
+
         <Card title="أرقام التواصل">
           {draft.contacts.map((contact) => (
             <View
               key={contact.id}
-              style={[
-                styles.entryBox,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
+              style={[styles.entryBox, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
-              <Pressable
-                onPress={() => deleteContact(contact.id)}
-                style={styles.deleteBtn}
-              >
+              <Pressable onPress={() => deleteContact(contact.id)} style={styles.deleteBtn}>
                 <Icon name="trash-2" size={16} color={colors.destructive} />
               </Pressable>
               <View style={styles.entryFields}>
@@ -389,15 +564,9 @@ export default function AdminSettingsScreen() {
           {draft.social.map((item) => (
             <View
               key={item.id}
-              style={[
-                styles.entryBox,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
+              style={[styles.entryBox, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
-              <Pressable
-                onPress={() => deleteSocial(item.id)}
-                style={styles.deleteBtn}
-              >
+              <Pressable onPress={() => deleteSocial(item.id)} style={styles.deleteBtn}>
                 <Icon name="trash-2" size={16} color={colors.destructive} />
               </Pressable>
               <View style={styles.entryFields}>
@@ -414,9 +583,38 @@ export default function AdminSettingsScreen() {
                   placeholder="https://..."
                   keyboardType="url"
                 />
+                <View style={{ gap: 5 }}>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
+                    الأيقونة
+                  </Text>
+                  <View style={styles.iconRow}>
+                    {SOCIAL_ICONS.map((ic) => (
+                      <Pressable
+                        key={ic}
+                        onPress={() => updateSocial(item.id, "icon", ic)}
+                        style={[
+                          styles.iconBtn,
+                          {
+                            backgroundColor: item.icon === ic ? colors.gold + "33" : colors.surface,
+                            borderColor: item.icon === ic ? colors.gold : colors.border,
+                          },
+                        ]}
+                      >
+                        <Icon name={ic} size={18} color={item.icon === ic ? colors.gold : colors.mutedForeground} />
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
               </View>
             </View>
           ))}
+          <GoldButton
+            label="إضافة رابط"
+            onPress={addSocial}
+            variant="outline"
+            size="sm"
+            style={{ width: "100%" }}
+          />
         </Card>
       </ScrollView>
 
@@ -465,21 +663,50 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: "top",
   },
-  tagsWrap: {
+  statsRow: {
     flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    gap: 8,
+    gap: 10,
   },
-  tag: {
+  catFixedRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  tagText: { fontSize: 12 },
+  catListRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  catRowArrows: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+  },
+  arrowBtn: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catListName: {
+    flex: 1,
+    fontSize: 14,
+    textAlign: "right",
+  },
+  deleteCatBtn: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   addRow: {
     flexDirection: "row-reverse",
     gap: 10,
@@ -492,6 +719,31 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
   },
+  subCatGroup: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    gap: 10,
+  },
+  subCatGroupTitle: {
+    fontSize: 14,
+    textAlign: "right",
+  },
+  subTagsWrap: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  subTag: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  subTagText: { fontSize: 12 },
   entryBox: {
     borderWidth: 1,
     borderRadius: 10,
@@ -500,9 +752,25 @@ const styles = StyleSheet.create({
   },
   deleteBtn: {
     alignSelf: "flex-start",
-    padding: 4,
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
   entryFields: { gap: 10 },
+  iconRow: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   footer: {
     paddingHorizontal: 16,
     paddingTop: 12,

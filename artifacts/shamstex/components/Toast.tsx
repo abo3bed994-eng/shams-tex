@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -39,7 +39,7 @@ export default function Toast() {
       ]}
     >
       <View style={[styles.pill, { backgroundColor: bgColor }]}>
-        <Feather name={icon} size={16} color="#0A0A0A" />
+        <Icon name={icon} size={16} color="#0A0A0A" />
         <Text style={styles.text}>{toast.message}</Text>
       </View>
     </Animated.View>

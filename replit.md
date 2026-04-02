@@ -16,6 +16,12 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 - **Mobile**: Expo (React Native) — Shams Tex
+  - Icons: ALL icons use `lucide-react-native` via `components/Icon.tsx` — NO `@expo/vector-icons`
+  - AppSettings includes: stats (clients/products/years), subcategories (Record<string, string[]>), TikTok in social
+  - Product: has optional `subcategory?: string` field
+  - Weight ordering: per-color kilo weight with individual +/- controls
+  - products.tsx: "غير متوفر" special filter + subcategory chips
+  - admin/settings.tsx: category reordering (↑/↓), stats editing, subcategory management
 
 ## Structure
 

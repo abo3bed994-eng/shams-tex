@@ -16,6 +16,8 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import ProductCard from "@/components/ProductCard";
 
+const OUT_OF_STOCK_LABEL = "غير متوفر";
+
 export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -23,17 +25,35 @@ export default function ProductsScreen() {
   const CATEGORIES = settings.categories.length > 0 ? settings.categories : ["الكل"];
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("الكل");
+  const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
   const catScrollRef = useRef<ScrollViewType>(null);
+  const subCatScrollRef = useRef<ScrollViewType>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const subcategoriesForActive: string[] =
+    activeCategory !== "الكل" && activeCategory !== OUT_OF_STOCK_LABEL
+      ? (settings.subcategories ?? {})[activeCategory] ?? []
+      : [];
+
   const filtered = products.filter((p) => {
-    const matchCategory = activeCategory === "الكل" || p.category === activeCategory;
+    if (activeCategory === OUT_OF_STOCK_LABEL) {
+      if (p.inStock) return false;
+    } else {
+      const matchCategory = activeCategory === "الكل" || p.category === activeCategory;
+      if (!matchCategory) return false;
+      if (activeSubcategory && p.subcategory !== activeSubcategory) return false;
+    }
     const matchSearch =
       !search || p.name.includes(search) || p.category.includes(search);
-    return matchCategory && matchSearch;
+    return matchSearch;
   });
+
+  const handleCategoryPress = (cat: string) => {
+    setActiveCategory(cat);
+    setActiveSubcategory(null);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -102,16 +122,25 @@ export default function ProductsScreen() {
           contentContainerStyle={styles.catScroll}
           onLayout={() => catScrollRef.current?.scrollToEnd({ animated: false })}
         >
-          {[...CATEGORIES].reverse().map((cat) => (
+          {[...CATEGORIES, OUT_OF_STOCK_LABEL].reverse().map((cat) => (
             <Pressable
               key={cat}
-              onPress={() => setActiveCategory(cat)}
+              onPress={() => handleCategoryPress(cat)}
               style={({ pressed }) => [
                 styles.catChip,
                 {
                   backgroundColor:
-                    activeCategory === cat ? colors.gold : colors.surface,
-                  borderColor: activeCategory === cat ? colors.gold : colors.border,
+                    activeCategory === cat
+                      ? cat === OUT_OF_STOCK_LABEL
+                        ? "#E74C3C"
+                        : colors.gold
+                      : colors.surface,
+                  borderColor:
+                    activeCategory === cat
+                      ? cat === OUT_OF_STOCK_LABEL
+                        ? "#E74C3C"
+                        : colors.gold
+                      : colors.border,
                   opacity: pressed ? 0.8 : 1,
                 },
               ]}
@@ -132,6 +161,55 @@ export default function ProductsScreen() {
             </Pressable>
           ))}
         </ScrollView>
+
+        {subcategoriesForActive.length > 0 && (
+          <ScrollView
+            ref={subCatScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subCatScroll}
+          >
+            <Pressable
+              onPress={() => setActiveSubcategory(null)}
+              style={({ pressed }) => [
+                styles.subCatChip,
+                {
+                  backgroundColor: !activeSubcategory ? colors.gold + "33" : "transparent",
+                  borderColor: !activeSubcategory ? colors.gold : colors.border,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.subCatText, {
+                color: !activeSubcategory ? colors.gold : colors.mutedForeground,
+                fontFamily: !activeSubcategory ? "Inter_600SemiBold" : "Inter_400Regular",
+              }]}>
+                الكل
+              </Text>
+            </Pressable>
+            {subcategoriesForActive.map((sub) => (
+              <Pressable
+                key={sub}
+                onPress={() => setActiveSubcategory(sub)}
+                style={({ pressed }) => [
+                  styles.subCatChip,
+                  {
+                    backgroundColor: activeSubcategory === sub ? colors.gold + "33" : "transparent",
+                    borderColor: activeSubcategory === sub ? colors.gold : colors.border,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.subCatText, {
+                  color: activeSubcategory === sub ? colors.gold : colors.mutedForeground,
+                  fontFamily: activeSubcategory === sub ? "Inter_600SemiBold" : "Inter_400Regular",
+                }]}>
+                  {sub}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       <ScrollView
@@ -209,6 +287,19 @@ const styles = StyleSheet.create({
   },
   catText: {
     fontSize: 13,
+  },
+  subCatScroll: {
+    gap: 8,
+    flexDirection: "row",
+  },
+  subCatChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  subCatText: {
+    fontSize: 11,
   },
   list: {
     padding: 16,

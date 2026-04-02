@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -20,6 +19,8 @@ import { useApp, CartItem } from "@/context/AppContext";
 import GoldButton from "@/components/GoldButton";
 import GoldHeader from "@/components/GoldHeader";
 
+const KG_STEP = 0.5;
+
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
@@ -29,9 +30,12 @@ export default function ProductDetailScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const imgScrollRef = useRef<ScrollView>(null);
   const product = products.find((p) => p.id === id);
+
   const [selectedColors, setSelectedColors] = useState<Record<string, number>>({});
+  const [colorWeights, setColorWeights] = useState<Record<string, number>>({});
   const [orderType, setOrderType] = useState<"weight" | "pieces">("pieces");
   const [imgIdx, setImgIdx] = useState(0);
+  const [showColors, setShowColors] = useState(true);
   const imgWidth = windowWidth - 32;
 
   useEffect(() => {
@@ -46,10 +50,6 @@ export default function ProductDetailScreen() {
     }, 5000);
     return () => clearInterval(timer);
   }, [product?.images?.length, imgWidth]);
-
-  const [weight, setWeight] = useState(1);
-  const [weightInput, setWeightInput] = useState("1");
-  const [showColors, setShowColors] = useState(true);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
 
@@ -74,6 +74,9 @@ export default function ProductDetailScreen() {
   const totalPieces = Object.values(selectedColors).reduce((a, b) => a + b, 0);
   const selectedColorCount = Object.keys(selectedColors).length;
 
+  const totalWeight = Object.values(colorWeights).reduce((a, b) => a + b, 0);
+  const weightColorCount = Object.keys(colorWeights).filter((k) => colorWeights[k] > 0).length;
+
   const addColorPiece = (colorName: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedColors((prev) => ({ ...prev, [colorName]: (prev[colorName] ?? 0) + 1 }));
@@ -91,54 +94,77 @@ export default function ProductDetailScreen() {
     });
   };
 
-  const handleWeightInput = (text: string) => {
-    setWeightInput(text);
-    const num = parseFloat(text.replace(",", "."));
-    if (!isNaN(num) && num > 0) {
-      setWeight(num);
-    }
+  const addColorWeight = (colorName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setColorWeights((prev) => ({
+      ...prev,
+      [colorName]: parseFloat(((prev[colorName] ?? 0) + KG_STEP).toFixed(1)),
+    }));
   };
 
-  const handleWeightBlur = () => {
-    const num = parseFloat(weightInput.replace(",", "."));
-    if (isNaN(num) || num <= 0) {
-      setWeight(1);
-      setWeightInput("1");
-    } else {
-      setWeight(num);
-      setWeightInput(String(num));
-    }
+  const removeColorWeight = (colorName: string) => {
+    setColorWeights((prev) => {
+      const current = prev[colorName] ?? 0;
+      if (current <= KG_STEP) {
+        const next = { ...prev };
+        delete next[colorName];
+        return next;
+      }
+      return {
+        ...prev,
+        [colorName]: parseFloat((current - KG_STEP).toFixed(1)),
+      };
+    });
   };
 
   const handleAddToCart = () => {
-    if (selectedColorCount === 0) {
-      Alert.alert("تنبيه", "الرجاء اختيار لون واحد على الأقل");
-      return;
-    }
-    if (orderType === "pieces" && totalPieces === 0) {
-      Alert.alert("تنبيه", "الرجاء تحديد الكميات");
-      return;
+    if (orderType === "pieces") {
+      if (selectedColorCount === 0 || totalPieces === 0) {
+        Alert.alert("تنبيه", "الرجاء اختيار لون وتحديد الكمية");
+        return;
+      }
+      const items: CartItem[] = Object.entries(selectedColors).map(([colorName, qty]) => {
+        const colorInfo = product.colors.find((c) => c.name === colorName);
+        return {
+          productId: product.id,
+          productName: product.name,
+          colorName,
+          colorHex: colorInfo?.hex ?? "#CCCCCC",
+          quantity: qty,
+          unitPrice: displayPrice,
+          orderType: "pieces",
+        };
+      });
+      items.forEach(addToCart);
+    } else {
+      if (weightColorCount === 0 || totalWeight === 0) {
+        Alert.alert("تنبيه", "الرجاء تحديد الوزن لكل لون");
+        return;
+      }
+      const items: CartItem[] = Object.entries(colorWeights)
+        .filter(([_, w]) => w > 0)
+        .map(([colorName, w]) => {
+          const colorInfo = product.colors.find((c) => c.name === colorName);
+          return {
+            productId: product.id,
+            productName: product.name,
+            colorName,
+            colorHex: colorInfo?.hex ?? "#CCCCCC",
+            quantity: 1,
+            unitPrice: displayPrice,
+            orderType: "weight",
+            weight: w,
+          };
+        });
+      items.forEach(addToCart);
     }
 
-    const items: CartItem[] = Object.entries(selectedColors).map(([colorName, qty]) => {
-      const colorInfo = product.colors.find((c) => c.name === colorName);
-      return {
-        productId: product.id,
-        productName: product.name,
-        colorName,
-        colorHex: colorInfo?.hex ?? "#CCCCCC",
-        quantity: qty,
-        unitPrice: displayPrice,
-        orderType,
-        weight: orderType === "weight" ? weight : undefined,
-      };
-    });
-
-    items.forEach(addToCart);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
-    showToast(`تمت الإضافة إلى السلة ✓`);
+    showToast("تمت الإضافة إلى السلة ✓");
   };
+
+  const unitLabel = product.unit === "kilo" ? "كيلو" : "متر";
 
   const colorsSection = (
     <View style={styles.colorsSection}>
@@ -159,7 +185,11 @@ export default function ProductDetailScreen() {
           color={showColors ? colors.gold : colors.mutedForeground}
         />
         <Text style={[styles.dropdownText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
-          {selectedColorCount > 0
+          {orderType === "weight"
+            ? weightColorCount > 0
+              ? `${weightColorCount} لون — ${totalWeight} ${unitLabel}`
+              : "اختر الألوان والوزن"
+            : selectedColorCount > 0
             ? `${selectedColorCount} لون مختار`
             : "اختر الألوان"}
         </Text>
@@ -172,12 +202,76 @@ export default function ProductDetailScreen() {
             { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 },
           ]}
         >
-          {product.colors.map((color) => {
+          {product.colors.map((color, idx) => {
+            const isLast = idx === product.colors.length - 1;
+
+            if (orderType === "weight") {
+              const w = colorWeights[color.name] ?? 0;
+              return (
+                <View
+                  key={color.name}
+                  style={[
+                    styles.colorRow,
+                    { borderBottomColor: colors.border, borderBottomWidth: isLast ? 0 : 1 },
+                  ]}
+                >
+                  <View style={styles.colorRowLeft}>
+                    <Pressable
+                      onPress={() => removeColorWeight(color.name)}
+                      disabled={w === 0}
+                      style={[
+                        styles.qtyBtn,
+                        {
+                          backgroundColor: w > 0 ? colors.surface : colors.surface + "55",
+                          borderColor: colors.border,
+                          opacity: w > 0 ? 1 : 0.4,
+                        },
+                      ]}
+                    >
+                      <Icon name="minus" size={14} color={colors.gold} />
+                    </Pressable>
+                    <Text
+                      style={[styles.weightChip, {
+                        color: w > 0 ? colors.gold : colors.mutedForeground,
+                        fontFamily: "Inter_700Bold",
+                      }]}
+                    >
+                      {w > 0 ? `${w} ${unitLabel}` : "0"}
+                    </Text>
+                    <Pressable
+                      onPress={() => addColorWeight(color.name)}
+                      style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                    >
+                      <Icon name="plus" size={14} color={colors.background} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.colorRowRight}>
+                    <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                      {color.name}
+                    </Text>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        {
+                          backgroundColor: color.hex,
+                          borderColor: colors.border,
+                          borderWidth: color.hex === "#FFFFFF" || color.hex === "#FEFEFE" ? 1 : 0,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              );
+            }
+
             const qty = selectedColors[color.name] ?? 0;
             return (
               <View
                 key={color.name}
-                style={[styles.colorRow, { borderBottomColor: colors.border }]}
+                style={[
+                  styles.colorRow,
+                  { borderBottomColor: colors.border, borderBottomWidth: isLast ? 0 : 1 },
+                ]}
               >
                 <View style={styles.colorRowLeft}>
                   {qty > 0 ? (
@@ -188,9 +282,7 @@ export default function ProductDetailScreen() {
                       >
                         <Icon name="minus" size={14} color={colors.gold} />
                       </Pressable>
-                      <Text
-                        style={[styles.qtyText, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
-                      >
+                      <Text style={[styles.qtyText, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
                         {qty}
                       </Text>
                     </>
@@ -212,8 +304,7 @@ export default function ProductDetailScreen() {
                       {
                         backgroundColor: color.hex,
                         borderColor: colors.border,
-                        borderWidth:
-                          color.hex === "#FFFFFF" || color.hex === "#FEFEFE" ? 1 : 0,
+                        borderWidth: color.hex === "#FFFFFF" || color.hex === "#FEFEFE" ? 1 : 0,
                       },
                     ]}
                   />
@@ -223,14 +314,33 @@ export default function ProductDetailScreen() {
           })}
         </View>
       )}
+
+      {orderType === "weight" && totalWeight > 0 && (
+        <View
+          style={[
+            styles.weightTotalBox,
+            { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33", borderRadius: colors.radius - 4 },
+          ]}
+        >
+          <Text style={[styles.weightTotalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            إجمالي الوزن
+          </Text>
+          <Text style={[styles.weightTotalValue, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+            {totalWeight} {unitLabel}
+          </Text>
+          <Text style={[styles.weightTotalPrice, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
+            ≈ {(displayPrice * totalWeight).toFixed(0)} ج.م
+          </Text>
+        </View>
+      )}
     </View>
   );
 
   const addBtnLabel =
     orderType === "weight"
-      ? selectedColorCount > 0
-        ? `إضافة للسلة — ${(displayPrice * weight).toFixed(0)} ج.م`
-        : "اختر لوناً أولاً"
+      ? weightColorCount > 0 && totalWeight > 0
+        ? `إضافة للسلة — ${(displayPrice * totalWeight).toFixed(0)} ج.م`
+        : "حدد الوزن لكل لون"
       : totalPieces > 0
       ? `إضافة ${totalPieces} أثواب للسلة`
       : "اختر الألوان والكميات";
@@ -344,10 +454,8 @@ export default function ProductDetailScreen() {
                 style={[
                   styles.typeBtnText,
                   {
-                    color:
-                      orderType === "pieces" ? colors.background : colors.foreground,
-                    fontFamily:
-                      orderType === "pieces" ? "Inter_600SemiBold" : "Inter_400Regular",
+                    color: orderType === "pieces" ? colors.background : colors.foreground,
+                    fontFamily: orderType === "pieces" ? "Inter_600SemiBold" : "Inter_400Regular",
                   },
                 ]}
               >
@@ -371,10 +479,8 @@ export default function ProductDetailScreen() {
                 style={[
                   styles.typeBtnText,
                   {
-                    color:
-                      orderType === "weight" ? colors.background : colors.foreground,
-                    fontFamily:
-                      orderType === "weight" ? "Inter_600SemiBold" : "Inter_400Regular",
+                    color: orderType === "weight" ? colors.background : colors.foreground,
+                    fontFamily: orderType === "weight" ? "Inter_600SemiBold" : "Inter_400Regular",
                   },
                 ]}
               >
@@ -382,65 +488,6 @@ export default function ProductDetailScreen() {
               </Text>
             </Pressable>
           </View>
-
-          {orderType === "weight" && (
-            <View style={styles.weightSection}>
-              <Text
-                style={[styles.weightLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
-              >
-                {product.unit === "kilo" ? "الوزن بالكيلو" : "الكمية بالمتر"}
-              </Text>
-              <View style={styles.weightControls}>
-                <Pressable
-                  onPress={() => {
-                    const v = Math.max(0.5, weight - 1);
-                    setWeight(v);
-                    setWeightInput(String(v));
-                  }}
-                  style={[
-                    styles.counterBtn,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ]}
-                >
-                  <Icon name="minus" size={18} color={colors.gold} />
-                </Pressable>
-
-                <TextInput
-                  style={[
-                    styles.weightInput,
-                    {
-                      color: colors.foreground,
-                      backgroundColor: colors.input,
-                      borderColor: colors.gold + "66",
-                      fontFamily: "Inter_700Bold",
-                    },
-                  ]}
-                  value={weightInput}
-                  onChangeText={handleWeightInput}
-                  onBlur={handleWeightBlur}
-                  keyboardType="decimal-pad"
-                  textAlign="center"
-                  returnKeyType="done"
-                />
-
-                <Pressable
-                  onPress={() => {
-                    const v = weight + 1;
-                    setWeight(v);
-                    setWeightInput(String(v));
-                  }}
-                  style={[styles.counterBtn, { backgroundColor: colors.gold }]}
-                >
-                  <Icon name="plus" size={18} color={colors.background} />
-                </Pressable>
-              </View>
-              <Text
-                style={[styles.calcPrice, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}
-              >
-                الإجمالي: {(displayPrice * weight).toFixed(2)} ج.م
-              </Text>
-            </View>
-          )}
 
           {colorsSection}
 
@@ -534,31 +581,6 @@ const styles = StyleSheet.create({
   orderTypeRow: { flexDirection: "row-reverse", gap: 10 },
   typeBtn: { paddingVertical: 12, alignItems: "center", borderWidth: 1 },
   typeBtnText: { fontSize: 14 },
-  weightSection: { gap: 12 },
-  weightLabel: { fontSize: 13, textAlign: "right" },
-  weightControls: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-  },
-  counterBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  weightInput: {
-    width: 90,
-    height: 52,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    fontSize: 22,
-    textAlign: "center",
-  },
-  calcPrice: { fontSize: 18, textAlign: "center" },
   colorsSection: { gap: 10 },
   colorsDropdown: {
     flexDirection: "row-reverse",
@@ -576,7 +598,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   colorRowRight: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
   colorRowLeft: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
@@ -591,6 +612,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   qtyText: { fontSize: 16, minWidth: 24, textAlign: "center" },
+  weightChip: { fontSize: 14, minWidth: 52, textAlign: "center" },
+  weightTotalBox: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  weightTotalLabel: { fontSize: 12 },
+  weightTotalValue: { fontSize: 16, flex: 1, textAlign: "center" },
+  weightTotalPrice: { fontSize: 15 },
   piecesNote: {
     flexDirection: "row-reverse",
     alignItems: "center",

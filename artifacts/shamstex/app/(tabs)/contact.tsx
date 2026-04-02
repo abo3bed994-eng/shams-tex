@@ -143,21 +143,27 @@ export default function ContactScreen() {
           </Text>
           <View style={styles.aboutStats}>
             <View style={styles.stat}>
-              <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>+500</Text>
+              <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                {settings.stats?.clients ?? "+500"}
+              </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                 عميل
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.stat}>
-              <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>+50</Text>
+              <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                {settings.stats?.products ?? "+50"}
+              </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                 خامة
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.stat}>
-              <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>10+</Text>
+              <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                {settings.stats?.years ?? "15+"}
+              </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                 سنوات خبرة
               </Text>

@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useColors } from "@/hooks/useColors";
 import { Order, OrderStatus } from "@/context/AppContext";
 
@@ -43,7 +43,7 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
     >
       <View style={styles.header}>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "22" }]}>
-          <Feather name={statusInfo.icon as any} size={12} color={statusInfo.color} />
+          <Icon name={statusInfo.icon} size={12} color={statusInfo.color} />
           <Text style={[styles.statusText, { color: statusInfo.color, fontFamily: "Inter_600SemiBold" }]}>
             {statusInfo.label}
           </Text>
@@ -61,13 +61,13 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
 
       <View style={styles.details}>
         <View style={styles.detailItem}>
-          <Feather name="shopping-bag" size={14} color={colors.mutedForeground} />
+          <Icon name="shopping-bag" size={14} color={colors.mutedForeground} />
           <Text style={[styles.detailText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {totalItems} قطعة
           </Text>
         </View>
         <View style={styles.detailItem}>
-          <Feather name="calendar" size={14} color={colors.mutedForeground} />
+          <Icon name="calendar" size={14} color={colors.mutedForeground} />
           <Text style={[styles.detailText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {date}
           </Text>

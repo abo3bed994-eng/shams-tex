@@ -34,6 +34,7 @@ export interface Product {
   retailPrice: number;
   wholesalePrice: number;
   category: string;
+  subcategory?: string;
   colors: ColorOption[];
   description?: string;
   inStock: boolean;
@@ -105,10 +106,12 @@ export interface AppSettings {
   aboutTitle: string;
   aboutText: string;
   categories: string[];
+  subcategories: Record<string, string[]>;
   featuredProductIds: string[];
   bannerImageUri?: string;
   bannerVideoUris?: string[];
   globalColors: ColorOption[];
+  stats: { clients: string; products: string; years: string };
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -121,12 +124,19 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: "1", label: "واتساب", icon: "message-circle", url: "https://wa.me/201000000001" },
     { id: "2", label: "إنستغرام", icon: "instagram", url: "https://instagram.com/shamstex" },
     { id: "3", label: "فيسبوك", icon: "facebook", url: "https://facebook.com/shamstex" },
+    { id: "4", label: "تيكتوك", icon: "tiktok", url: "https://tiktok.com/@shamstex" },
   ],
   aboutTitle: "شمس تكس",
   aboutText:
     "شركة متخصصة في توريد أفخر أنواع الأقمشة، نخدم عملاءنا منذ أكثر من 15 عاماً بجودة لا مثيل لها وخدمة على أعلى مستوى.",
   categories: ["الكل", "حرير", "قطن", "ساتان", "كتان", "فيلفيت", "شيفون"],
+  subcategories: {
+    "حرير": ["حرير طبيعي", "حرير صناعي", "حرير شيني"],
+    "قطن": ["قطن مصري", "قطن تركي"],
+    "ساتان": ["ساتان فرنسي", "ساتان كوري"],
+  },
   featuredProductIds: ["1", "2", "3"],
+  stats: { clients: "+500", products: "+50", years: "15+" },
   globalColors: [
     { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
     { name: "أسود", hex: "#0A0A0A", quantity: 50 },

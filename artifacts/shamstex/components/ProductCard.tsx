@@ -1,6 +1,6 @@
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useColors } from "@/hooks/useColors";
 import { Product } from "@/context/AppContext";
 import { useApp } from "@/context/AppContext";
@@ -49,7 +49,14 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
           <Image source={{ uri: product.images[0] }} style={styles.image} resizeMode="cover" />
         ) : (
           <View style={styles.placeholderImage}>
-            <Feather name="layers" size={32} color={colors.goldDark} />
+            <Icon name="layers" size={32} color={colors.goldDark} />
+          </View>
+        )}
+        {!product.inStock && (
+          <View style={[styles.outOfStockBadge, { backgroundColor: "#0008" }]}>
+            <Text style={[styles.outOfStockText, { fontFamily: "Inter_600SemiBold" }]}>
+              غير متوفر
+            </Text>
           </View>
         )}
         <View style={[styles.categoryBadge, { backgroundColor: colors.gold + "22" }]}>
@@ -98,7 +105,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
             </Text>
           </View>
           <View style={[styles.arrowBtn, { backgroundColor: colors.gold + "22", borderRadius: colors.radius - 4 }]}>
-            <Feather name="arrow-left" size={16} color={colors.gold} />
+            <Icon name="arrow-left" size={16} color={colors.gold} />
           </View>
         </View>
       </View>
@@ -136,8 +143,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 20,
   },
-  categoryText: {
-    fontSize: 11,
+  outOfStockBadge: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 5,
+    alignItems: "center",
+  },
+  outOfStockText: {
+    color: "#fff",
+    fontSize: 12,
   },
   info: {
     padding: 14,
