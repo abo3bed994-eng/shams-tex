@@ -52,7 +52,7 @@ export default function ProductDetailScreen() {
     return () => clearInterval(timer);
   }, [product?.images?.length, imgWidth]);
 
-  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 16 : 16);
 
   if (!product) {
     return (
