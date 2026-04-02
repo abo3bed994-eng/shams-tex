@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Platform,
@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from "react-native";
-import type { ScrollView as ScrollViewType } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { router } from "expo-router";
 import Icon from "@/components/Icon";
@@ -21,8 +20,6 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, products, notifications, cart, settings } = useApp();
-  const [activeCategory, setActiveCategory] = useState("الكل");
-  const catScrollRef = useRef<ScrollViewType>(null);
 
   const videos = settings.bannerVideoUris ?? [];
   const [videoIdx, setVideoIdx] = useState(0);
@@ -64,20 +61,10 @@ export default function HomeScreen() {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const categories = settings.categories.length > 0 ? settings.categories : ["الكل"];
-
-  const filteredProducts =
-    activeCategory === "الكل"
-      ? products
-      : products.filter((p) => p.category === activeCategory);
-
   const featuredProducts =
     settings.featuredProductIds.length > 0
       ? products.filter((p) => settings.featuredProductIds.includes(p.id))
-      : products.slice(0, 3);
-
-  const displayProducts = activeCategory === "الكل" ? featuredProducts : filteredProducts;
-  const sectionTitle = activeCategory === "الكل" ? "المنتجات المميزة" : activeCategory;
+      : products.slice(0, 4);
 
   const hasVideo = videos.length > 0;
   const hasImage = !!settings.bannerImageUri;
@@ -204,42 +191,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <ScrollView
-          ref={catScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesScroll}
-          onLayout={() => catScrollRef.current?.scrollToEnd({ animated: false })}
-        >
-          {[...categories].reverse().map((cat) => (
-            <Pressable
-              key={cat}
-              onPress={() => setActiveCategory(cat)}
-              style={({ pressed }) => [
-                styles.categoryChip,
-                {
-                  backgroundColor: activeCategory === cat ? colors.gold : colors.surface,
-                  borderColor: activeCategory === cat ? colors.gold : colors.border,
-                  borderRadius: 20,
-                  opacity: pressed ? 0.8 : 1,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.categoryChipText,
-                  {
-                    color: activeCategory === cat ? colors.background : colors.foreground,
-                    fontFamily: activeCategory === cat ? "Inter_600SemiBold" : "Inter_400Regular",
-                  },
-                ]}
-              >
-                {cat}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Pressable onPress={() => router.push("/(tabs)/products")}>
@@ -248,16 +199,16 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              {sectionTitle}
+              المنتجات المميزة
             </Text>
           </View>
 
-          {displayProducts.length === 0 ? (
+          {featuredProducts.length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              لا توجد منتجات في هذه الفئة
+              لا توجد منتجات مميزة
             </Text>
           ) : (
-            displayProducts.map((product) => (
+            featuredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -381,9 +332,6 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  categoriesScroll: { gap: 10, paddingHorizontal: 16 },
-  categoryChip: { paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1 },
-  categoryChipText: { fontSize: 13 },
   section: { gap: 14, paddingHorizontal: 16 },
   sectionHeader: {
     flexDirection: "row-reverse",

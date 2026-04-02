@@ -273,7 +273,7 @@ export default function AdminProductsScreen() {
           onDragBegin={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)}
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: bottomPad + 40 },
+            { paddingBottom: bottomPad + 120 },
           ]}
           showsVerticalScrollIndicator={false}
         />

@@ -633,12 +633,12 @@ const styles = StyleSheet.create({
   },
   qtyText: { fontSize: 16, minWidth: 24, textAlign: "center" },
   weightInput: {
-    fontSize: 15,
-    minWidth: 64,
+    fontSize: 14,
+    width: 68,
     height: 34,
     borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     textAlign: "center",
   },
   weightTotalBox: {

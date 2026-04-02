@@ -70,7 +70,6 @@ export default function ProfileScreen() {
     { label: "إدارة الأسعار", icon: "dollar-sign", route: "/admin/prices" },
     { label: "إدارة المستخدمين", icon: "users", route: "/admin/users" },
     { label: "إرسال إشعار", icon: "bell", route: "/admin/notifications" },
-    { label: "إدارة التبويبات", icon: "layout", route: "/admin/tabs" },
     { label: "المنتجات المميزة", icon: "star", route: "/admin/featured" },
     { label: "لوحة الألوان", icon: "droplet", route: "/admin/colors" },
     { label: "إعدادات التطبيق", icon: "settings", route: "/admin/settings" },
