@@ -660,11 +660,12 @@ const styles = StyleSheet.create({
   weightInput: {
     fontSize: 14,
     width: 64,
-    height: 32,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: 6,
     textAlign: "center",
+    textAlignVertical: "center",
   },
   weightTotalBox: {
     flexDirection: "row-reverse",
