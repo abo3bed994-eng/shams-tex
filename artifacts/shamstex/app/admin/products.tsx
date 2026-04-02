@@ -89,10 +89,16 @@ export default function AdminProductsScreen() {
                   <Feather name="trash-2" size={16} color={colors.destructive} />
                 </Pressable>
                 <Pressable
+                  onPress={() => router.push(`/admin/edit-product/${product.id}` as any)}
+                  style={({ pressed }) => [styles.actionBtn, { backgroundColor: colors.gold + "22", borderRadius: 8, opacity: pressed ? 0.6 : 1 }]}
+                >
+                  <Feather name="edit-2" size={16} color={colors.gold} />
+                </Pressable>
+                <Pressable
                   onPress={() => router.push(`/product/${product.id}`)}
                   style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.6 : 1 }]}
                 >
-                  <Feather name="eye" size={16} color={colors.gold} />
+                  <Feather name="eye" size={16} color={colors.mutedForeground} />
                 </Pressable>
               </View>
 

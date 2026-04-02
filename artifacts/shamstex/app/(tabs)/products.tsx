@@ -15,12 +15,11 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import ProductCard from "@/components/ProductCard";
 
-const CATEGORIES = ["الكل", "حرير", "قطن", "ساتان", "كتان", "فيلفيت", "شيفون"];
-
 export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user } = useApp();
+  const { products, user, settings } = useApp();
+  const CATEGORIES = settings.categories.length > 0 ? settings.categories : ["الكل"];
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("الكل");
 

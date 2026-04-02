@@ -11,22 +11,14 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-
-const CONTACTS = [
-  { label: "الدعم الفني", number: "+20 100 000 0001", icon: "headphones" },
-  { label: "المبيعات", number: "+20 100 000 0002", icon: "shopping-bag" },
-  { label: "الجملة والتجار", number: "+20 100 000 0003", icon: "briefcase" },
-];
-
-const SOCIAL = [
-  { label: "واتساب", icon: "message-circle", url: "https://wa.me/201000000001" },
-  { label: "إنستغرام", icon: "instagram", url: "https://instagram.com/shamstex" },
-  { label: "فيسبوك", icon: "facebook", url: "https://facebook.com/shamstex" },
-];
+import { useApp } from "@/context/AppContext";
 
 export default function ContactScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { settings } = useApp();
+  const CONTACTS = settings.contacts;
+  const SOCIAL = settings.social;
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -72,7 +64,7 @@ export default function ContactScreen() {
           </Text>
           {CONTACTS.map((contact) => (
             <Pressable
-              key={contact.number}
+              key={contact.id}
               onPress={() => callNumber(contact.number)}
               style={({ pressed }) => [
                 styles.contactCard,
@@ -107,7 +99,7 @@ export default function ContactScreen() {
           <View style={styles.socialRow}>
             {SOCIAL.map((s) => (
               <Pressable
-                key={s.label}
+                key={s.id}
                 onPress={() => Linking.openURL(s.url)}
                 style={({ pressed }) => [
                   styles.socialBtn,
@@ -141,12 +133,10 @@ export default function ContactScreen() {
           ]}
         >
           <Text style={[styles.aboutTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-            من نحن
+            {settings.aboutTitle}
           </Text>
           <Text style={[styles.aboutText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            Shams Tex شركة رائدة في مجال تجارة الأقمشة الفاخرة، نقدم أجود أنواع الخامات
-            بأسعار تنافسية للأفراد والتجار على حد سواء. نحرص دائماً على توفير أرقى
-            الأقمشة من حرير وقطن وساتان وغيرها من المصادر العالمية الموثوقة.
+            {settings.aboutText}
           </Text>
           <View style={styles.aboutStats}>
             <View style={styles.stat}>

@@ -56,6 +56,10 @@ function RootLayoutNav() {
       <Stack.Screen name="admin/users" options={{ headerShown: false }} />
       <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
       <Stack.Screen name="admin/tabs" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/settings" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/colors" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/featured" options={{ headerShown: false }} />
+      <Stack.Screen name="admin/edit-product/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

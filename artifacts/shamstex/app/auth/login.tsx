@@ -107,7 +107,7 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <Image
             source={require("../../assets/images/icon.png")}
-            style={styles.logo}
+            style={[styles.logo, { backgroundColor: colors.background }]}
             resizeMode="contain"
           />
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 24, gap: 32 },
   header: { alignItems: "center", gap: 10 },
+  logoBg: { borderRadius: 14, overflow: "hidden", padding: 6 },
   logo: { width: 110, height: 110 },
   brand: { fontSize: 28, letterSpacing: 3 },
   subtitle: { fontSize: 14, letterSpacing: 1 },

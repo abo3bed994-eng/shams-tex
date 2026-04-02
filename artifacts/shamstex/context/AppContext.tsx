@@ -2,12 +2,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 export type UserRole = "customer" | "merchant" | "employee" | "admin";
+export type EmployeePermission =
+  | "view_orders"
+  | "edit_orders"
+  | "view_products"
+  | "edit_products"
+  | "view_users"
+  | "send_notifications";
 
 export interface User {
   id: string;
   phone: string;
   name: string;
   role: UserRole;
+  vip?: boolean;
+  permissions?: EmployeePermission[];
   upgradeStatus?: "pending" | "approved" | "rejected";
 }
 
@@ -92,6 +101,9 @@ export interface AppSettings {
   aboutTitle: string;
   aboutText: string;
   categories: string[];
+  featuredProductIds: string[];
+  bannerImageUri?: string;
+  globalColors: ColorOption[];
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -109,11 +121,26 @@ const DEFAULT_SETTINGS: AppSettings = {
   aboutText:
     "شركة متخصصة في توريد أفخر أنواع الأقمشة، نخدم عملاءنا منذ أكثر من 15 عاماً بجودة لا مثيل لها وخدمة على أعلى مستوى.",
   categories: ["الكل", "حرير", "قطن", "ساتان", "كتان", "فيلفيت", "شيفون"],
+  featuredProductIds: ["1", "2", "3"],
+  globalColors: [
+    { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
+    { name: "أسود", hex: "#0A0A0A", quantity: 50 },
+    { name: "ذهبي", hex: "#C9A84C", quantity: 30 },
+    { name: "أحمر", hex: "#C0392B", quantity: 25 },
+    { name: "أزرق", hex: "#2980B9", quantity: 30 },
+    { name: "أخضر", hex: "#27AE60", quantity: 25 },
+    { name: "بيج", hex: "#F5F0E0", quantity: 40 },
+    { name: "رمادي", hex: "#888880", quantity: 35 },
+    { name: "وردي", hex: "#FADBD8", quantity: 20 },
+    { name: "بنفسجي", hex: "#6C3483", quantity: 20 },
+    { name: "فضي", hex: "#C0C0C0", quantity: 30 },
+    { name: "بني", hex: "#7D6608", quantity: 20 },
+  ],
 };
 
 interface AppContextType {
   user: User | null;
-  setUser: (user: User | null) => void;
+  setUser: (user: User | null) => Promise<void>;
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
   cart: CartItem[];
@@ -125,6 +152,7 @@ interface AppContextType {
   setOrders: (orders: Order[]) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  deleteOrder: (orderId: string) => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
@@ -196,7 +224,6 @@ const SAMPLE_PRODUCTS: Product[] = [
     colors: [
       { name: "بيج طبيعي", hex: "#D5C5A1", quantity: 70 },
       { name: "أبيض", hex: "#FEFEFE", quantity: 65 },
-      { name: "رمادي فاتح", hex: "#D5D5D5", quantity: 50 },
     ],
     description: "كتان إيطالي عالي الجودة، مناسب للملابس الصيفية",
     inStock: true,
@@ -212,7 +239,6 @@ const SAMPLE_PRODUCTS: Product[] = [
       { name: "أرجواني ملكي", hex: "#6C3483", quantity: 20 },
       { name: "أسود", hex: "#0A0A0A", quantity: 30 },
       { name: "أحمر عميق", hex: "#922B21", quantity: 15 },
-      { name: "ذهبي عتيق", hex: "#B7950B", quantity: 12 },
     ],
     description: "فيلفيت فاخر بجودة ملكية، مناسب لأعلى المناسبات",
     inStock: true,
@@ -228,7 +254,6 @@ const SAMPLE_PRODUCTS: Product[] = [
       { name: "وردي فاتح", hex: "#FDEBD0", quantity: 45 },
       { name: "أبيض شفاف", hex: "#F8F9F9", quantity: 55 },
       { name: "أزرق سماوي", hex: "#AED6F1", quantity: 40 },
-      { name: "ليموني", hex: "#F9E79F", quantity: 35 },
     ],
     description: "شيفون خفيف وشفاف، مثالي للفساتين والأوشحة",
     inStock: true,
@@ -273,7 +298,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (ordersData) setOrdersState(JSON.parse(ordersData));
       if (tabsData) setTabsState(JSON.parse(tabsData));
       if (notificationsData) setNotifications(JSON.parse(notificationsData));
-      if (settingsData) setSettingsState(JSON.parse(settingsData));
+      if (settingsData) {
+        const parsed = JSON.parse(settingsData);
+        setSettingsState({ ...DEFAULT_SETTINGS, ...parsed });
+      }
     } catch (e) {
     } finally {
       setIsLoading(false);
@@ -282,11 +310,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setUser = useCallback(async (u: User | null) => {
     setUserState(u);
-    if (u) {
-      await AsyncStorage.setItem("user", JSON.stringify(u));
-    } else {
-      await AsyncStorage.removeItem("user");
-    }
+    if (u) await AsyncStorage.setItem("user", JSON.stringify(u));
+    else await AsyncStorage.removeItem("user");
   }, []);
 
   const setProducts = useCallback(async (prods: Product[]) => {
@@ -320,9 +345,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (productId: string, colorName: string, quantity: number) => {
       setCart((prev) =>
         quantity === 0
-          ? prev.filter(
-              (c) => !(c.productId === productId && c.colorName === colorName)
-            )
+          ? prev.filter((c) => !(c.productId === productId && c.colorName === colorName))
           : prev.map((c) =>
               c.productId === productId && c.colorName === colorName
                 ? { ...c, quantity }
@@ -333,9 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const clearCart = useCallback(() => {
-    setCart([]);
-  }, []);
+  const clearCart = useCallback(() => setCart([]), []);
 
   const setOrders = useCallback(async (ords: Order[]) => {
     setOrdersState(ords);
@@ -354,6 +375,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus) => {
       const updated = orders.map((o) => (o.id === orderId ? { ...o, status } : o));
+      setOrdersState(updated);
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+    },
+    [orders]
+  );
+
+  const deleteOrder = useCallback(
+    async (orderId: string) => {
+      const updated = orders.filter((o) => o.id !== orderId);
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
     },
@@ -404,6 +434,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setOrders,
         addOrder,
         updateOrderStatus,
+        deleteOrder,
         tabs,
         setTabs,
         notifications,

@@ -62,7 +62,7 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
       >
         <Image
           source={require("../assets/images/icon.png")}
-          style={styles.logo}
+          style={[styles.logo, { backgroundColor: colors.background }]}
           resizeMode="contain"
         />
       </Animated.View>
@@ -97,7 +97,8 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   logoContainer: { alignItems: "center" },
-  logo: { width: 180, height: 180 },
+  logoBg: { borderRadius: 16, overflow: "hidden", padding: 8 },
+  logo: { width: 170, height: 170 },
   textBlock: { alignItems: "center", gap: 10 },
   brandName: { fontSize: 34, letterSpacing: 4, textAlign: "center" },
   line: { height: 1.5, opacity: 0.7 },

@@ -15,12 +15,10 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import ProductCard from "@/components/ProductCard";
 
-const CATEGORIES = ["الكل", "حرير", "قطن", "ساتان", "كتان", "فيلفيت", "شيفون"];
-
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, products, notifications, cart } = useApp();
+  const { user, products, notifications, cart, settings } = useApp();
   const [activeCategory, setActiveCategory] = useState("الكل");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -29,20 +27,25 @@ export default function HomeScreen() {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  const categories = settings.categories.length > 0 ? settings.categories : ["الكل"];
+
   const filteredProducts =
     activeCategory === "الكل"
       ? products
       : products.filter((p) => p.category === activeCategory);
 
-  const featuredProducts = products.slice(0, 3);
+  const featuredProducts =
+    settings.featuredProductIds.length > 0
+      ? products.filter((p) => settings.featuredProductIds.includes(p.id))
+      : products.slice(0, 3);
+
+  const displayProducts = activeCategory === "الكل" ? featuredProducts : filteredProducts;
+  const sectionTitle = activeCategory === "الكل" ? "المنتجات المميزة" : activeCategory;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View
-        style={[
-          styles.header,
-          { paddingTop: topPad + 8, borderBottomColor: colors.border },
-        ]}
+        style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}
       >
         <View style={styles.headerLeft}>
           <Pressable
@@ -52,18 +55,12 @@ export default function HomeScreen() {
             <Feather name="bell" size={22} color={colors.foreground} />
             {unreadCount > 0 && (
               <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-                <Text
-                  style={[
-                    styles.badgeText,
-                    { color: colors.background, fontFamily: "Inter_700Bold" },
-                  ]}
-                >
+                <Text style={[styles.badgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
                   {unreadCount}
                 </Text>
               </View>
             )}
           </Pressable>
-
           <Pressable
             onPress={() => router.push("/cart")}
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
@@ -71,12 +68,7 @@ export default function HomeScreen() {
             <Feather name="shopping-cart" size={22} color={colors.foreground} />
             {cartCount > 0 && (
               <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-                <Text
-                  style={[
-                    styles.badgeText,
-                    { color: colors.background, fontFamily: "Inter_700Bold" },
-                  ]}
-                >
+                <Text style={[styles.badgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
                   {cartCount > 9 ? "9+" : cartCount}
                 </Text>
               </View>
@@ -87,7 +79,7 @@ export default function HomeScreen() {
         <View style={styles.headerCenter}>
           <Image
             source={require("../../assets/images/icon.png")}
-            style={styles.headerLogo}
+            style={[styles.headerLogo, { backgroundColor: colors.background }]}
             resizeMode="contain"
           />
         </View>
@@ -103,9 +95,7 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.avatarText, { color: colors.gold, fontFamily: "Inter_700Bold" }]}
-          >
+          <Text style={[styles.avatarText, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
             {user?.name?.charAt(0) ?? "؟"}
           </Text>
         </Pressable>
@@ -113,10 +103,7 @@ export default function HomeScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: bottomPad + 100 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 100 }]}
       >
         <View style={styles.welcomeBanner}>
           <View
@@ -126,46 +113,50 @@ export default function HomeScreen() {
             ]}
           >
             <View style={styles.bannerText}>
-              <Text
-                style={[
-                  styles.greeting,
-                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-                ]}
-              >
+              <Text style={[styles.greeting, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                 أهلاً بك
               </Text>
-              <Text
-                style={[
-                  styles.userName,
-                  { color: colors.foreground, fontFamily: "Inter_700Bold" },
-                ]}
-              >
+              <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
                 {user?.name ?? "زائر"}
               </Text>
+              {user?.vip && (
+                <View style={[styles.vipBadge, { backgroundColor: colors.gold + "33" }]}>
+                  <Feather name="star" size={11} color={colors.gold} />
+                  <Text style={[styles.vipText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
+                    عميل مميز
+                  </Text>
+                </View>
+              )}
+              {!user?.vip && user?.role === "customer" && (
+                <View style={[styles.vipBadge, { backgroundColor: colors.surface }]}>
+                  <Feather name="user" size={11} color={colors.mutedForeground} />
+                  <Text style={[styles.vipText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    عميل عادي
+                  </Text>
+                </View>
+              )}
               {user?.role === "merchant" && (
-                <View
-                  style={[
-                    styles.merchantBadge,
-                    { backgroundColor: colors.gold + "22" },
-                  ]}
-                >
-                  <Feather name="award" size={12} color={colors.gold} />
-                  <Text
-                    style={[
-                      styles.merchantText,
-                      { color: colors.gold, fontFamily: "Inter_600SemiBold" },
-                    ]}
-                  >
+                <View style={[styles.vipBadge, { backgroundColor: colors.gold + "22" }]}>
+                  <Feather name="award" size={11} color={colors.gold} />
+                  <Text style={[styles.vipText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
                     تاجر موثّق
                   </Text>
                 </View>
               )}
             </View>
-            <Image
-              source={require("../../assets/images/hero-fabrics.png")}
-              style={styles.bannerImage}
-              resizeMode="cover"
-            />
+            {settings.bannerImageUri ? (
+              <Image
+                source={{ uri: settings.bannerImageUri }}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={require("../../assets/images/hero-fabrics.png")}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+            )}
           </View>
         </View>
 
@@ -174,15 +165,14 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesScroll}
         >
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <Pressable
               key={cat}
               onPress={() => setActiveCategory(cat)}
               style={({ pressed }) => [
                 styles.categoryChip,
                 {
-                  backgroundColor:
-                    activeCategory === cat ? colors.gold : colors.surface,
+                  backgroundColor: activeCategory === cat ? colors.gold : colors.surface,
                   borderColor: activeCategory === cat ? colors.gold : colors.border,
                   borderRadius: 20,
                   opacity: pressed ? 0.8 : 1,
@@ -193,10 +183,8 @@ export default function HomeScreen() {
                 style={[
                   styles.categoryChipText,
                   {
-                    color:
-                      activeCategory === cat ? colors.background : colors.foreground,
-                    fontFamily:
-                      activeCategory === cat ? "Inter_600SemiBold" : "Inter_400Regular",
+                    color: activeCategory === cat ? colors.background : colors.foreground,
+                    fontFamily: activeCategory === cat ? "Inter_600SemiBold" : "Inter_400Regular",
                   },
                 ]}
               >
@@ -209,67 +197,29 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Pressable onPress={() => router.push("/(tabs)/products")}>
-              <Text
-                style={[
-                  styles.seeAll,
-                  { color: colors.gold, fontFamily: "Inter_500Medium" },
-                ]}
-              >
+              <Text style={[styles.seeAll, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
                 عرض الكل
               </Text>
             </Pressable>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: colors.foreground, fontFamily: "Inter_700Bold" },
-              ]}
-            >
-              المنتجات المميزة
+            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              {sectionTitle}
             </Text>
           </View>
 
-          {featuredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onPress={() => router.push(`/product/${product.id}`)}
-            />
-          ))}
-        </View>
-
-        {activeCategory !== "الكل" && (
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color: colors.foreground,
-                  fontFamily: "Inter_700Bold",
-                  textAlign: "right",
-                },
-              ]}
-            >
-              {activeCategory}
+          {displayProducts.length === 0 ? (
+            <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              لا توجد منتجات في هذه الفئة
             </Text>
-            {filteredProducts.map((product) => (
+          ) : (
+            displayProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 onPress={() => router.push(`/product/${product.id}`)}
               />
-            ))}
-            {filteredProducts.length === 0 && (
-              <Text
-                style={[
-                  styles.emptyText,
-                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-                ]}
-              >
-                لا توجد منتجات في هذه الفئة
-              </Text>
-            )}
-          </View>
-        )}
+            ))
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -285,6 +235,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerCenter: { flex: 1, alignItems: "center" },
+  logoBox: { borderRadius: 8, overflow: "hidden" },
   headerLogo: { width: 80, height: 44 },
   headerLeft: { flexDirection: "row-reverse", gap: 2 },
   iconBtn: {
@@ -315,11 +266,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { fontSize: 16 },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    gap: 20,
-  },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, gap: 20 },
   welcomeBanner: {},
   bannerCard: {
     borderRadius: 16,
@@ -328,15 +275,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     height: 130,
   },
-  bannerText: {
-    flex: 1,
-    padding: 16,
-    justifyContent: "center",
-    gap: 4,
-  },
+  bannerText: { flex: 1, padding: 16, justifyContent: "center", gap: 4 },
   greeting: { fontSize: 12 },
   userName: { fontSize: 18 },
-  merchantBadge: {
+  vipBadge: {
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 4,
@@ -346,18 +288,10 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: 4,
   },
-  merchantText: { fontSize: 11 },
+  vipText: { fontSize: 11 },
   bannerImage: { width: 130, height: 130 },
-  categoriesScroll: {
-    gap: 10,
-    paddingHorizontal: 4,
-    flexDirection: "row-reverse",
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: 1,
-  },
+  categoriesScroll: { gap: 10, paddingHorizontal: 4, flexDirection: "row-reverse" },
+  categoryChip: { paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1 },
   categoryChipText: { fontSize: 13 },
   section: { gap: 14 },
   sectionHeader: {

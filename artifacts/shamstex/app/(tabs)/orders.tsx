@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -19,7 +20,7 @@ type FilterType = "all" | "received" | "preparing" | "ready";
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, orders, updateOrderStatus } = useApp();
+  const { user, orders, updateOrderStatus, deleteOrder } = useApp();
   const [filter, setFilter] = useState<FilterType>("all");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -27,12 +28,8 @@ export default function OrdersScreen() {
 
   const isAdmin = user?.role === "admin" || user?.role === "employee";
 
-  const myOrders = isAdmin
-    ? orders
-    : orders.filter((o) => o.userId === user?.id);
-
-  const filtered =
-    filter === "all" ? myOrders : myOrders.filter((o) => o.status === filter);
+  const myOrders = isAdmin ? orders : orders.filter((o) => o.userId === user?.id);
+  const filtered = filter === "all" ? myOrders : myOrders.filter((o) => o.status === filter);
 
   const FILTERS: { key: FilterType; label: string }[] = [
     { key: "all", label: "الكل" },
@@ -41,14 +38,24 @@ export default function OrdersScreen() {
     { key: "ready", label: "جاهز" },
   ];
 
+  const handleDeleteOrder = (order: Order) => {
+    Alert.alert(
+      "حذف الطلب",
+      "هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف",
+          style: "destructive",
+          onPress: () => deleteOrder(order.id),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: topPad + 8, borderBottomColor: colors.border },
-        ]}
-      >
+      <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
           {isAdmin ? "إدارة الطلبات" : "طلباتي"}
         </Text>
@@ -62,22 +69,14 @@ export default function OrdersScreen() {
         )}
       </View>
 
-      <View
-        style={[
-          styles.filterRow,
-          { borderBottomColor: colors.border },
-        ]}
-      >
+      <View style={[styles.filterRow, { borderBottomColor: colors.border }]}>
         {FILTERS.map(({ key, label }) => (
           <Pressable
             key={key}
             onPress={() => setFilter(key)}
             style={[
               styles.filterBtn,
-              {
-                borderBottomWidth: filter === key ? 2 : 0,
-                borderBottomColor: colors.gold,
-              },
+              { borderBottomWidth: filter === key ? 2 : 0, borderBottomColor: colors.gold },
             ]}
           >
             <Text
@@ -110,11 +109,7 @@ export default function OrdersScreen() {
                 onPress={() => router.push("/(tabs)/products")}
                 style={({ pressed }) => [
                   styles.shopBtn,
-                  {
-                    backgroundColor: colors.gold,
-                    borderRadius: colors.radius,
-                    opacity: pressed ? 0.8 : 1,
-                  },
+                  { backgroundColor: colors.gold, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
                 ]}
               >
                 <Text style={[styles.shopBtnText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
@@ -125,17 +120,32 @@ export default function OrdersScreen() {
           </View>
         ) : (
           filtered.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              isAdmin={isAdmin}
-              onPress={() => router.push(`/order/${order.id}`)}
-              onStatusChange={
-                isAdmin
-                  ? (status: OrderStatus) => updateOrderStatus(order.id, status)
-                  : undefined
-              }
-            />
+            <View key={order.id}>
+              <OrderCard
+                order={order}
+                isAdmin={isAdmin}
+                onPress={() => router.push(`/order/${order.id}`)}
+                onStatusChange={
+                  isAdmin
+                    ? (status: OrderStatus) => updateOrderStatus(order.id, status)
+                    : undefined
+                }
+              />
+              {!isAdmin && order.status === "received" && (
+                <Pressable
+                  onPress={() => handleDeleteOrder(order)}
+                  style={[
+                    styles.deleteOrderBtn,
+                    { borderColor: colors.destructive + "44", backgroundColor: colors.destructive + "11" },
+                  ]}
+                >
+                  <Feather name="trash-2" size={14} color={colors.destructive} />
+                  <Text style={[{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }]}>
+                    إلغاء الطلب
+                  </Text>
+                </Pressable>
+              )}
+            </View>
           ))
         )}
       </ScrollView>
@@ -154,33 +164,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { fontSize: 22 },
-  cartBtn: {
-    width: 42,
-    height: 42,
+  cartBtn: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+  filterRow: { flexDirection: "row-reverse", borderBottomWidth: 1 },
+  filterBtn: { flex: 1, alignItems: "center", paddingVertical: 12 },
+  filterText: { fontSize: 13 },
+  list: { padding: 16, gap: 4 },
+  empty: { alignItems: "center", paddingTop: 80, gap: 16 },
+  emptyText: { fontSize: 16 },
+  shopBtn: { paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
+  shopBtnText: { fontSize: 15 },
+  deleteOrderBtn: {
+    flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    marginTop: -8,
+    marginBottom: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
   },
-  filterRow: {
-    flexDirection: "row-reverse",
-    borderBottomWidth: 1,
-  },
-  filterBtn: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  filterText: { fontSize: 13 },
-  list: { padding: 16 },
-  empty: {
-    alignItems: "center",
-    paddingTop: 80,
-    gap: 16,
-  },
-  emptyText: { fontSize: 16 },
-  shopBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  shopBtnText: { fontSize: 15 },
 });
