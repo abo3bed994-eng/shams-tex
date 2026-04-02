@@ -14,9 +14,12 @@
       "backgroundColor": "#0A0A0A"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.shamstex.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.shamstex.app"
+    },
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
