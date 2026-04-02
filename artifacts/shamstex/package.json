@@ -58,6 +58,7 @@
   "dependencies": {
     "expo-file-system": "~19.0.21",
     "expo-video": "^3.0.16",
+    "firebase": "^12.11.0",
     "lucide-react-native": "^1.7.0",
     "react-native-draggable-flatlist": "^4.0.3"
   }

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { FS } from "@/lib/firebase";
 
 export type UserRole = "customer" | "merchant" | "employee" | "admin";
 export type ProductUnit = "meter" | "kilo";
@@ -346,6 +347,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+
+    // Sync from Firestore in the background (overrides local cache)
+    try {
+      const [fsCustomers, fsProducts, fsOrders, fsSettings] = await Promise.all([
+        FS.getAllCustomers(),
+        FS.getAllProducts(),
+        FS.getAllOrders(),
+        FS.getSettings(),
+      ]);
+
+      if (fsCustomers.length > 0) {
+        setRegisteredCustomersState(fsCustomers);
+        await AsyncStorage.setItem("registered_customers", JSON.stringify(fsCustomers));
+      }
+      if (fsProducts.length > 0) {
+        setProductsState(fsProducts);
+        await AsyncStorage.setItem("products", JSON.stringify(fsProducts));
+      }
+      if (fsOrders.length > 0) {
+        setOrdersState(fsOrders);
+        await AsyncStorage.setItem("orders", JSON.stringify(fsOrders));
+      }
+      if (fsSettings) {
+        setSettingsState({ ...DEFAULT_SETTINGS, ...fsSettings });
+        await AsyncStorage.setItem("settings", JSON.stringify(fsSettings));
+      }
+    } catch (_e) {
+      // Firestore unavailable — continue with local data
+    }
   };
 
   const setUser = useCallback(async (u: User | null) => {
@@ -363,17 +393,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updated = [...registeredCustomers.filter((c) => c.phone !== newUser.phone), newUser];
     setRegisteredCustomersState(updated);
     await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
+    FS.saveCustomer(newUser).catch(() => {});
   }, [registeredCustomers]);
 
   const updateRegisteredCustomer = useCallback(async (updatedUser: User) => {
     const updated = registeredCustomers.map((c) => c.phone === updatedUser.phone ? updatedUser : c);
     setRegisteredCustomersState(updated);
     await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
+    FS.saveCustomer(updatedUser).catch(() => {});
   }, [registeredCustomers]);
 
   const setProducts = useCallback(async (prods: Product[]) => {
     setProductsState(prods);
     await AsyncStorage.setItem("products", JSON.stringify(prods));
+    prods.forEach((p) => FS.saveProduct(p).catch(() => {}));
   }, []);
 
   const addToCart = useCallback((item: CartItem) => {
@@ -425,6 +458,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updated = [...orders, order];
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      FS.saveOrder(order).catch(() => {});
     },
     [orders]
   );
@@ -434,6 +468,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updated = orders.map((o) => (o.id === orderId ? { ...o, status } : o));
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      if (updatedOrder) FS.saveOrder(updatedOrder).catch(() => {});
     },
     [orders]
   );
@@ -443,6 +479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updated = orders.filter((o) => o.id !== orderId);
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      FS.deleteOrder(orderId).catch(() => {});
     },
     [orders]
   );
@@ -473,6 +510,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setSettings = useCallback(async (s: AppSettings) => {
     setSettingsState(s);
     await AsyncStorage.setItem("settings", JSON.stringify(s));
+    FS.saveSettings(s).catch(() => {});
   }, []);
 
   const setTheme = useCallback(async (t: AppTheme) => {
