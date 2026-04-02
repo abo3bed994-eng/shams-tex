@@ -77,11 +77,13 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.headerCenter}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            style={[styles.headerLogo, { backgroundColor: colors.background }]}
-            resizeMode="contain"
-          />
+          <View style={styles.headerLogoBadge}>
+            <Image
+              source={require("../../assets/images/logo.png")}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+          </View>
         </View>
 
         <Pressable
@@ -235,8 +237,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerCenter: { flex: 1, alignItems: "center" },
-  logoBox: { borderRadius: 8, overflow: "hidden" },
-  headerLogo: { width: 80, height: 44 },
+  headerLogoBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  headerLogo: { width: 52, height: 52 },
   headerLeft: { flexDirection: "row-reverse", gap: 2 },
   iconBtn: {
     width: 42,

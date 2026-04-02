@@ -13,7 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp } from "@/context/AppContext";
+import { useApp, AppTheme } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
@@ -27,7 +27,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, setUser, orders, addNotification } = useApp();
+  const { user, setUser, orders, addNotification, theme, setTheme } = useApp();
   const [requestSent, setRequestSent] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -192,6 +192,49 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          <View style={styles.themeHeader}>
+            <Feather name={theme === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
+            <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              مظهر التطبيق
+            </Text>
+          </View>
+          <View style={styles.themeButtons}>
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme("dark"); }}
+              style={[
+                styles.themeBtn,
+                {
+                  backgroundColor: theme === "dark" ? colors.gold : colors.surface,
+                  borderColor: theme === "dark" ? colors.gold : colors.border,
+                  borderRadius: colors.radius - 4,
+                },
+              ]}
+            >
+              <Feather name="moon" size={16} color={theme === "dark" ? colors.background : colors.mutedForeground} />
+              <Text style={[styles.themeBtnText, { color: theme === "dark" ? colors.background : colors.mutedForeground, fontFamily: theme === "dark" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                داكن
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme("light"); }}
+              style={[
+                styles.themeBtn,
+                {
+                  backgroundColor: theme === "light" ? colors.gold : colors.surface,
+                  borderColor: theme === "light" ? colors.gold : colors.border,
+                  borderRadius: colors.radius - 4,
+                },
+              ]}
+            >
+              <Feather name="sun" size={16} color={theme === "light" ? colors.background : colors.mutedForeground} />
+              <Text style={[styles.themeBtnText, { color: theme === "light" ? colors.background : colors.mutedForeground, fontFamily: theme === "light" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                فاتح
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
         <GoldButton
           label="تسجيل الخروج"
           onPress={handleLogout}
@@ -229,4 +272,10 @@ const styles = StyleSheet.create({
   adminItem: { flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12, borderBottomWidth: 1 },
   adminItemText: { flex: 1, fontSize: 14 },
   adminItemIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  themeCard: { padding: 16, borderWidth: 1, gap: 12 },
+  themeHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
+  themeTitle: { fontSize: 15 },
+  themeButtons: { flexDirection: "row-reverse", gap: 10 },
+  themeBtn: { flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderWidth: 1 },
+  themeBtnText: { fontSize: 14 },
 });

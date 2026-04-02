@@ -14,6 +14,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { persistImageUris } from "@/utils/persistImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption } from "@/context/AppContext";
@@ -39,7 +40,7 @@ export default function EditProductScreen() {
   const [selectedColors, setSelectedColors] = useState<ColorOption[]>(product?.colors ?? []);
   const [saving, setSaving] = useState(false);
 
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
   if (!product) {
     return (
@@ -62,7 +63,7 @@ export default function EditProductScreen() {
       selectionLimit: 5,
     });
     if (!result.canceled) {
-      const uris = result.assets.map((a) => a.uri);
+      const uris = await persistImageUris(result.assets.map((a) => a.uri));
       setImages((prev) => [...prev, ...uris].slice(0, 5));
     }
   };

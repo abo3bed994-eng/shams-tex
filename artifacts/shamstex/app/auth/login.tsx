@@ -105,11 +105,13 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            style={[styles.logo, { backgroundColor: colors.background }]}
-            resizeMode="contain"
-          />
+          <View style={styles.logoBadge}>
+            <Image
+              source={require("../../assets/images/logo.png")}
+              style={styles.logoImg}
+              resizeMode="contain"
+            />
+          </View>
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
             Shams Tex
           </Text>
@@ -325,8 +327,16 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 24, gap: 32 },
   header: { alignItems: "center", gap: 10 },
-  logoBg: { borderRadius: 14, overflow: "hidden", padding: 6 },
-  logo: { width: 110, height: 110 },
+  logoBadge: {
+    width: 120,
+    height: 120,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  logoImg: { width: 110, height: 110 },
   brand: { fontSize: 28, letterSpacing: 3 },
   subtitle: { fontSize: 14, letterSpacing: 1 },
   card: { padding: 24, borderWidth: 1, gap: 16 },

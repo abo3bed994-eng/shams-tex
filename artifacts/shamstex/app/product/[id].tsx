@@ -31,7 +31,7 @@ export default function ProductDetailScreen() {
   const [weightInput, setWeightInput] = useState("1");
   const [showColors, setShowColors] = useState(true);
 
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
   if (!product) {
     return (

@@ -1,5 +1,5 @@
 const colors = {
-  light: {
+  dark: {
     text: "#f5f0e8",
     tint: "#C9A84C",
 
@@ -32,6 +32,41 @@ const colors = {
     goldDark: "#9A7A30",
     surface: "#111111",
     surfaceElevated: "#181818",
+  },
+
+  light: {
+    text: "#1A1410",
+    tint: "#C9A84C",
+
+    background: "#FAF8F3",
+    foreground: "#1A1410",
+
+    card: "#FFFFFF",
+    cardForeground: "#1A1410",
+
+    primary: "#C9A84C",
+    primaryForeground: "#FFFFFF",
+
+    secondary: "#F0EBE0",
+    secondaryForeground: "#1A1410",
+
+    muted: "#F0EBE0",
+    mutedForeground: "#7A7060",
+
+    accent: "#C9A84C",
+    accentForeground: "#FFFFFF",
+
+    destructive: "#C0392B",
+    destructiveForeground: "#ffffff",
+
+    border: "#E5DDD0",
+    input: "#F5F0E6",
+
+    gold: "#B8923A",
+    goldLight: "#D4AA55",
+    goldDark: "#8A6B20",
+    surface: "#F5F0E6",
+    surfaceElevated: "#FFFFFF",
   },
 
   radius: 12,

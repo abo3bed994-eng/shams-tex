@@ -95,6 +95,8 @@ export interface SocialEntry {
   url: string;
 }
 
+export type AppTheme = "dark" | "light";
+
 export interface AppSettings {
   contacts: ContactEntry[];
   social: SocialEntry[];
@@ -160,6 +162,8 @@ interface AppContextType {
   markNotificationRead: (id: string) => Promise<void>;
   settings: AppSettings;
   setSettings: (settings: AppSettings) => Promise<void>;
+  theme: AppTheme;
+  setTheme: (theme: AppTheme) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -275,6 +279,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [tabs, setTabsState] = useState<Tab[]>(DEFAULT_TABS);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [theme, setThemeState] = useState<AppTheme>("dark");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -283,7 +288,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPersistedData = async () => {
     try {
-      const [userData, productsData, ordersData, tabsData, notificationsData, settingsData] =
+      const [userData, productsData, ordersData, tabsData, notificationsData, settingsData, themeData] =
         await Promise.all([
           AsyncStorage.getItem("user"),
           AsyncStorage.getItem("products"),
@@ -291,6 +296,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem("tabs"),
           AsyncStorage.getItem("notifications"),
           AsyncStorage.getItem("settings"),
+          AsyncStorage.getItem("theme"),
         ]);
 
       if (userData) setUserState(JSON.parse(userData));
@@ -302,6 +308,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(settingsData);
         setSettingsState({ ...DEFAULT_SETTINGS, ...parsed });
       }
+      if (themeData) setThemeState(themeData as AppTheme);
     } catch (e) {
     } finally {
       setIsLoading(false);
@@ -418,6 +425,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem("settings", JSON.stringify(s));
   }, []);
 
+  const setTheme = useCallback(async (t: AppTheme) => {
+    setThemeState(t);
+    await AsyncStorage.setItem("theme", t);
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -442,6 +454,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markNotificationRead,
         settings,
         setSettings,
+        theme,
+        setTheme,
         isLoading,
       }}
     >

@@ -14,6 +14,7 @@ import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { persistImageUris } from "@/utils/persistImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption } from "@/context/AppContext";
@@ -51,7 +52,7 @@ export default function AddProductScreen() {
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -66,7 +67,7 @@ export default function AddProductScreen() {
       selectionLimit: 5,
     });
     if (!result.canceled && result.assets.length > 0) {
-      const uris = result.assets.map((a) => a.uri);
+      const uris = await persistImageUris(result.assets.map((a) => a.uri));
       setImages((prev) => [...prev, ...uris].slice(0, 5));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -82,7 +83,8 @@ export default function AddProductScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets.length > 0) {
-      setImages((prev) => [...prev, result.assets[0].uri].slice(0, 5));
+      const [uri] = await persistImageUris([result.assets[0].uri]);
+      setImages((prev) => [...prev, uri].slice(0, 5));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
