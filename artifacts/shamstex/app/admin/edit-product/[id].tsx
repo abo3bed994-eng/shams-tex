@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { persistImageUris } from "@/utils/persistImage";
@@ -135,7 +135,7 @@ export default function EditProductScreen() {
               }
               style={[styles.addImageBtn, { borderColor: colors.gold + "66", backgroundColor: colors.surface }]}
             >
-              <Feather name="camera" size={22} color={colors.gold} />
+              <Icon name="camera" size={22} color={colors.gold} />
               <Text style={[{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 10, textAlign: "center" }]}>
                 إضافة صورة
               </Text>
@@ -144,7 +144,7 @@ export default function EditProductScreen() {
               <View key={index} style={styles.imageThumb}>
                 <Image source={{ uri }} style={styles.thumbImage} resizeMode="cover" />
                 <Pressable onPress={() => removeImage(index)} style={[styles.removeImageBtn, { backgroundColor: colors.destructive }]}>
-                  <Feather name="x" size={12} color="#FFF" />
+                  <Icon name="x" size={12} color="#FFF" />
                 </Pressable>
               </View>
             ))}
@@ -221,7 +221,7 @@ export default function EditProductScreen() {
                   borderColor: unit === opt.value ? colors.gold : colors.border,
                 }]}
               >
-                <Feather name={opt.icon as any} size={16} color={unit === opt.value ? colors.background : colors.foreground} />
+                <Icon name={opt.icon as any} size={16} color={unit === opt.value ? colors.background : colors.foreground} />
                 <Text style={{ color: unit === opt.value ? colors.background : colors.foreground, fontFamily: unit === opt.value ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 14 }}>
                   {opt.label}
                 </Text>
@@ -272,7 +272,7 @@ export default function EditProductScreen() {
                   <Text style={[{ color: colors.foreground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
                     {color.name}
                   </Text>
-                  {selected && <Feather name="check" size={12} color={colors.gold} />}
+                  {selected && <Icon name="check" size={12} color={colors.gold} />}
                 </Pressable>
               );
             })}

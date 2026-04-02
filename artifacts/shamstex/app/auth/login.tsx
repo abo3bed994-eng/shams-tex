@@ -16,7 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import GoldButton from "@/components/GoldButton";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 
 type Step = "phone" | "otp" | "name";
 
@@ -159,7 +159,7 @@ export default function LoginScreen() {
                   },
                 ]}
               >
-                <Feather name="phone" size={18} color={colors.mutedForeground} />
+                <Icon name="phone" size={18} color={colors.mutedForeground} />
                 <TextInput
                   style={[
                     styles.input,
@@ -199,7 +199,7 @@ export default function LoginScreen() {
             <>
               <View style={styles.backRow}>
                 <Pressable onPress={() => setStep("phone")}>
-                  <Feather name="arrow-right" size={20} color={colors.foreground} />
+                  <Icon name="arrow-right" size={20} color={colors.foreground} />
                 </Pressable>
               </View>
               <Text
@@ -226,7 +226,7 @@ export default function LoginScreen() {
                   },
                 ]}
               >
-                <Feather name="lock" size={18} color={colors.mutedForeground} />
+                <Icon name="lock" size={18} color={colors.mutedForeground} />
                 <TextInput
                   style={[
                     styles.input,
@@ -262,7 +262,7 @@ export default function LoginScreen() {
             <>
               <View style={styles.backRow}>
                 <Pressable onPress={() => setStep("otp")}>
-                  <Feather name="arrow-right" size={20} color={colors.foreground} />
+                  <Icon name="arrow-right" size={20} color={colors.foreground} />
                 </Pressable>
               </View>
               <Text
@@ -289,7 +289,7 @@ export default function LoginScreen() {
                   },
                 ]}
               >
-                <Feather name="user" size={18} color={colors.mutedForeground} />
+                <Icon name="user" size={18} color={colors.mutedForeground} />
                 <TextInput
                   style={[
                     styles.input,

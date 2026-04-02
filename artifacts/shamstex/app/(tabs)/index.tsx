@@ -11,7 +11,7 @@ import {
 import type { ScrollView as ScrollViewType } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -101,7 +101,7 @@ export default function HomeScreen() {
             onPress={() => router.push("/notifications")}
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Feather name="bell" size={22} color={colors.foreground} />
+            <Icon name="bell" size={22} color={colors.foreground} />
             {unreadCount > 0 && (
               <View style={[styles.badge, { backgroundColor: colors.gold }]}>
                 <Text style={[styles.badgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
@@ -114,7 +114,7 @@ export default function HomeScreen() {
             onPress={() => router.push("/cart")}
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Feather name="shopping-cart" size={22} color={colors.foreground} />
+            <Icon name="shopping-cart" size={22} color={colors.foreground} />
             {cartCount > 0 && (
               <View style={[styles.badge, { backgroundColor: colors.gold }]}>
                 <Text style={[styles.badgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
@@ -182,7 +182,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={[styles.bannerRolePill, { backgroundColor: roleLabel.gold ? colors.gold : colors.surface + "CC" }]}>
-              <Feather name={roleLabel.icon} size={11} color={roleLabel.gold ? "#0A0A0A" : colors.mutedForeground} />
+              <Icon name={roleLabel.icon} size={11} color={roleLabel.gold ? "#0A0A0A" : colors.mutedForeground} />
               <Text style={[styles.bannerRoleText, { color: roleLabel.gold ? "#0A0A0A" : colors.mutedForeground }]}>
                 {roleLabel.text}
               </Text>

@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -153,7 +153,7 @@ export default function ProductDetailScreen() {
           },
         ]}
       >
-        <Feather
+        <Icon
           name={showColors ? "chevron-up" : "chevron-down"}
           size={18}
           color={showColors ? colors.gold : colors.mutedForeground}
@@ -186,7 +186,7 @@ export default function ProductDetailScreen() {
                         onPress={() => removeColorPiece(color.name)}
                         style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                       >
-                        <Feather name="minus" size={14} color={colors.gold} />
+                        <Icon name="minus" size={14} color={colors.gold} />
                       </Pressable>
                       <Text
                         style={[styles.qtyText, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
@@ -199,7 +199,7 @@ export default function ProductDetailScreen() {
                     onPress={() => addColorPiece(color.name)}
                     style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
                   >
-                    <Feather name="plus" size={14} color={colors.background} />
+                    <Icon name="plus" size={14} color={colors.background} />
                   </Pressable>
                 </View>
                 <View style={styles.colorRowRight}>
@@ -288,7 +288,7 @@ export default function ProductDetailScreen() {
           </View>
         ) : (
           <View style={[styles.imagePlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Feather name="layers" size={60} color={colors.goldDark} />
+            <Icon name="layers" size={60} color={colors.goldDark} />
             <Text style={[styles.category, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
               {product.category}
             </Text>
@@ -402,7 +402,7 @@ export default function ProductDetailScreen() {
                     { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}
                 >
-                  <Feather name="minus" size={18} color={colors.gold} />
+                  <Icon name="minus" size={18} color={colors.gold} />
                 </Pressable>
 
                 <TextInput
@@ -431,7 +431,7 @@ export default function ProductDetailScreen() {
                   }}
                   style={[styles.counterBtn, { backgroundColor: colors.gold }]}
                 >
-                  <Feather name="plus" size={18} color={colors.background} />
+                  <Icon name="plus" size={18} color={colors.background} />
                 </Pressable>
               </View>
               <Text
@@ -455,7 +455,7 @@ export default function ProductDetailScreen() {
                 },
               ]}
             >
-              <Feather name="info" size={14} color={colors.gold} />
+              <Icon name="info" size={14} color={colors.gold} />
               <Text
                 style={[styles.piecesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
               >

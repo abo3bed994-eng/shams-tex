@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -103,7 +103,7 @@ export default function ProfileScreen() {
           </View>
           {user.vip && (
             <View style={[styles.vipBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "44" }]}>
-              <Feather name="star" size={13} color={colors.gold} />
+              <Icon name="star" size={13} color={colors.gold} />
               <Text style={[{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 12 }]}>
                 عميل مميز
               </Text>
@@ -111,7 +111,7 @@ export default function ProfileScreen() {
           )}
           {!user.vip && user.role === "customer" && (
             <View style={[styles.vipBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Feather name="user" size={13} color={colors.mutedForeground} />
+              <Icon name="user" size={13} color={colors.mutedForeground} />
               <Text style={[{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
                 عميل عادي
               </Text>
@@ -129,7 +129,7 @@ export default function ProfileScreen() {
             </Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <Feather name={user.vip ? "star" : "user"} size={24} color={user.vip ? colors.gold : colors.mutedForeground} />
+            <Icon name={user.vip ? "star" : "user"} size={24} color={user.vip ? colors.gold : colors.mutedForeground} />
             <Text style={[styles.statLabel, { color: user.vip ? colors.gold : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
               {user.vip ? "عميل مميز" : "عميل عادي"}
             </Text>
@@ -139,7 +139,7 @@ export default function ProfileScreen() {
         {user.role === "customer" && !user.vip && (
           <View style={[styles.upgradeCard, { backgroundColor: colors.card, borderColor: colors.gold + "44", borderRadius: colors.radius }]}>
             <View style={styles.upgradeHeader}>
-              <Feather name="award" size={22} color={colors.gold} />
+              <Icon name="award" size={22} color={colors.gold} />
               <Text style={[styles.upgradeTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                 انضم كتاجر
               </Text>
@@ -149,7 +149,7 @@ export default function ProfileScreen() {
             </Text>
             {requestSent || user.upgradeStatus === "pending" ? (
               <View style={[styles.pendingBadge, { backgroundColor: colors.gold + "22" }]}>
-                <Feather name="clock" size={14} color={colors.gold} />
+                <Icon name="clock" size={14} color={colors.gold} />
                 <Text style={[styles.pendingText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
                   طلبك قيد المراجعة
                 </Text>
@@ -180,12 +180,12 @@ export default function ProfileScreen() {
                   { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                 ]}
               >
-                <Feather name="chevron-left" size={16} color={colors.mutedForeground} />
+                <Icon name="chevron-left" size={16} color={colors.mutedForeground} />
                 <Text style={[styles.adminItemText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
                   {item.label}
                 </Text>
                 <View style={[styles.adminItemIcon, { backgroundColor: colors.gold + "22" }]}>
-                  <Feather name={item.icon as any} size={16} color={colors.gold} />
+                  <Icon name={item.icon as any} size={16} color={colors.gold} />
                 </View>
               </Pressable>
             ))}
@@ -194,7 +194,7 @@ export default function ProfileScreen() {
 
         <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <View style={styles.themeHeader}>
-            <Feather name={theme === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
+            <Icon name={theme === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
             <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               مظهر التطبيق
             </Text>
@@ -211,7 +211,7 @@ export default function ProfileScreen() {
                 },
               ]}
             >
-              <Feather name="moon" size={16} color={theme === "dark" ? colors.background : colors.mutedForeground} />
+              <Icon name="moon" size={16} color={theme === "dark" ? colors.background : colors.mutedForeground} />
               <Text style={[styles.themeBtnText, { color: theme === "dark" ? colors.background : colors.mutedForeground, fontFamily: theme === "dark" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
                 داكن
               </Text>
@@ -227,7 +227,7 @@ export default function ProfileScreen() {
                 },
               ]}
             >
-              <Feather name="sun" size={16} color={theme === "light" ? colors.background : colors.mutedForeground} />
+              <Icon name="sun" size={16} color={theme === "light" ? colors.background : colors.mutedForeground} />
               <Text style={[styles.themeBtnText, { color: theme === "light" ? colors.background : colors.mutedForeground, fontFamily: theme === "light" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
                 فاتح
               </Text>

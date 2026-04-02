@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -71,7 +71,7 @@ export default function CartScreen() {
 
       {cart.length === 0 ? (
         <View style={styles.empty}>
-          <Feather name="shopping-cart" size={56} color={colors.mutedForeground} />
+          <Icon name="shopping-cart" size={56} color={colors.mutedForeground} />
           <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
             السلة فارغة
           </Text>
@@ -110,7 +110,7 @@ export default function CartScreen() {
                       { opacity: pressed ? 0.6 : 1 },
                     ]}
                   >
-                    <Feather name="trash-2" size={16} color={colors.destructive} />
+                    <Icon name="trash-2" size={16} color={colors.destructive} />
                   </Pressable>
                   <View style={styles.itemInfo}>
                     <Text style={[styles.itemName, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
@@ -151,7 +151,7 @@ export default function CartScreen() {
                         onPress={() => updateCartItem(item.productId, item.colorName, item.quantity - 1)}
                         style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                       >
-                        <Feather name="minus" size={14} color={colors.gold} />
+                        <Icon name="minus" size={14} color={colors.gold} />
                       </Pressable>
                       <Text style={[styles.qty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
                         {item.quantity}
@@ -160,7 +160,7 @@ export default function CartScreen() {
                         onPress={() => updateCartItem(item.productId, item.colorName, item.quantity + 1)}
                         style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
                       >
-                        <Feather name="plus" size={14} color={colors.background} />
+                        <Icon name="plus" size={14} color={colors.background} />
                       </Pressable>
                     </View>
                   )}
@@ -196,7 +196,7 @@ export default function CartScreen() {
 
             {hasPiecesOrder && (
               <View style={[styles.salesNote, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33", borderRadius: colors.radius }]}>
-                <Feather name="info" size={16} color={colors.gold} />
+                <Icon name="info" size={16} color={colors.gold} />
                 <Text style={[styles.salesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                   الطلبات بالثوب يتم تسعيرها من قبل مسؤول المبيعات بعد تأكيد الطلب
                 </Text>

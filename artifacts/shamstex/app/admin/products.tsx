@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -80,7 +80,7 @@ export default function AdminProductsScreen() {
               { backgroundColor: colors.gold, borderRadius: 8, opacity: pressed ? 0.8 : 1 },
             ]}
           >
-            <Feather name="plus" size={18} color={colors.background} />
+            <Icon name="plus" size={18} color={colors.background} />
           </Pressable>
         }
       />
@@ -107,19 +107,19 @@ export default function AdminProductsScreen() {
                   onPress={() => deleteProduct(product.id, product.name)}
                   style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.6 : 1 }]}
                 >
-                  <Feather name="trash-2" size={16} color={colors.destructive} />
+                  <Icon name="trash-2" size={16} color={colors.destructive} />
                 </Pressable>
                 <Pressable
                   onPress={() => router.push(`/admin/edit-product/${product.id}` as any)}
                   style={({ pressed }) => [styles.actionBtn, { backgroundColor: colors.gold + "22", borderRadius: 8, opacity: pressed ? 0.6 : 1 }]}
                 >
-                  <Feather name="edit-2" size={16} color={colors.gold} />
+                  <Icon name="edit-2" size={16} color={colors.gold} />
                 </Pressable>
                 <Pressable
                   onPress={() => router.push(`/product/${product.id}`)}
                   style={({ pressed }) => [styles.actionBtn, { opacity: pressed ? 0.6 : 1 }]}
                 >
-                  <Feather name="eye" size={16} color={colors.mutedForeground} />
+                  <Icon name="eye" size={16} color={colors.mutedForeground} />
                 </Pressable>
               </View>
 
@@ -149,20 +149,20 @@ export default function AdminProductsScreen() {
 
               <View style={styles.rightSide}>
                 <View style={[styles.productIconBox, { backgroundColor: colors.surface }]}>
-                  <Feather name="layers" size={22} color={colors.goldDark} />
+                  <Icon name="layers" size={22} color={colors.goldDark} />
                 </View>
                 <View style={styles.reorderBtns}>
                   <Pressable
                     onPress={() => moveUp(index)}
                     style={({ pressed }) => [styles.reorderBtn, { opacity: index === 0 ? 0.25 : pressed ? 0.6 : 1 }]}
                   >
-                    <Feather name="chevron-up" size={16} color={colors.foreground} />
+                    <Icon name="chevron-up" size={16} color={colors.foreground} />
                   </Pressable>
                   <Pressable
                     onPress={() => moveDown(index)}
                     style={({ pressed }) => [styles.reorderBtn, { opacity: index === products.length - 1 ? 0.25 : pressed ? 0.6 : 1 }]}
                   >
-                    <Feather name="chevron-down" size={16} color={colors.foreground} />
+                    <Icon name="chevron-down" size={16} color={colors.foreground} />
                   </Pressable>
                 </View>
               </View>
@@ -208,7 +208,7 @@ export default function AdminProductsScreen() {
                 },
               ]}
             >
-              <Feather
+              <Icon
                 name={product.inStock ? "check-circle" : "x-circle"}
                 size={14}
                 color={product.inStock ? "#27AE60" : "#C0392B"}
@@ -230,7 +230,7 @@ export default function AdminProductsScreen() {
 
         {products.length === 0 && (
           <View style={styles.empty}>
-            <Feather name="layers" size={48} color={colors.mutedForeground} />
+            <Icon name="layers" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
               لا توجد منتجات
             </Text>

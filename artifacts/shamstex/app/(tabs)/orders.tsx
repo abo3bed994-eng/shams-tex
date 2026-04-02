@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, Order, OrderStatus } from "@/context/AppContext";
@@ -64,7 +64,7 @@ export default function OrdersScreen() {
             onPress={() => router.push("/cart")}
             style={({ pressed }) => [styles.cartBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Feather name="shopping-cart" size={22} color={colors.foreground} />
+            <Icon name="shopping-cart" size={22} color={colors.foreground} />
           </Pressable>
         )}
       </View>
@@ -100,7 +100,7 @@ export default function OrdersScreen() {
       >
         {filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Feather name="package" size={48} color={colors.mutedForeground} />
+            <Icon name="package" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
               {isAdmin ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
             </Text>
@@ -139,7 +139,7 @@ export default function OrdersScreen() {
                     { borderColor: colors.destructive + "44", backgroundColor: colors.destructive + "11" },
                   ]}
                 >
-                  <Feather name="trash-2" size={14} color={colors.destructive} />
+                  <Icon name="trash-2" size={14} color={colors.destructive} />
                   <Text style={[{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }]}>
                     إلغاء الطلب
                   </Text>

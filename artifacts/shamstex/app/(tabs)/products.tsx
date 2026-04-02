@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import type { ScrollView as ScrollViewType } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -60,7 +60,7 @@ export default function ProductsScreen() {
               },
             ]}
           >
-            <Feather name="plus" size={18} color={colors.background} />
+            <Icon name="plus" size={18} color={colors.background} />
           </Pressable>
         )}
       </View>
@@ -84,7 +84,7 @@ export default function ProductsScreen() {
             },
           ]}
         >
-          <Feather name="search" size={18} color={colors.mutedForeground} />
+          <Icon name="search" size={18} color={colors.mutedForeground} />
           <TextInput
             style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
             placeholder="ابحث عن خامة..."
@@ -140,7 +140,7 @@ export default function ProductsScreen() {
       >
         {filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Feather name="layers" size={48} color={colors.mutedForeground} />
+            <Icon name="layers" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
               لا توجد منتجات
             </Text>

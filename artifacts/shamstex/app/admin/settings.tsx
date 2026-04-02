@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -233,7 +233,7 @@ export default function AdminSettingsScreen() {
             <View style={[styles.bannerPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Image source={{ uri: draft.bannerImageUri }} style={styles.bannerPreviewImg} resizeMode="cover" />
               <Pressable onPress={clearBanner} style={[styles.clearBannerBtn, { backgroundColor: colors.destructive }]}>
-                <Feather name="x" size={14} color="#FFF" />
+                <Icon name="x" size={14} color="#FFF" />
               </Pressable>
             </View>
           )}
@@ -245,13 +245,13 @@ export default function AdminSettingsScreen() {
                   style={[styles.videoBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}
                 >
                   <View style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
-                    <Feather name="film" size={20} color={colors.gold} />
+                    <Icon name="film" size={20} color={colors.gold} />
                     <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }} numberOfLines={1}>
                       فيديو {idx + 1}
                     </Text>
                   </View>
                   <Pressable onPress={() => removeVideo(idx)} style={[styles.clearBannerBtn, { backgroundColor: colors.destructive, position: "relative", top: 0, right: 0 }]}>
-                    <Feather name="x" size={14} color="#FFF" />
+                    <Icon name="x" size={14} color="#FFF" />
                   </Pressable>
                 </View>
               ))}
@@ -266,7 +266,7 @@ export default function AdminSettingsScreen() {
                 { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44", opacity: (pressed || mediaLoading || (draft.bannerVideoUris ?? []).length >= 3) ? 0.5 : 1 },
               ]}
             >
-              <Feather name="film" size={18} color={colors.gold} />
+              <Icon name="film" size={18} color={colors.gold} />
               <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
                 {(draft.bannerVideoUris ?? []).length >= 3 ? "اكتملت الفيديوهات" : `رفع فيديو (${(draft.bannerVideoUris ?? []).length}/3)`}
               </Text>
@@ -279,7 +279,7 @@ export default function AdminSettingsScreen() {
                 { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed || mediaLoading ? 0.7 : 1 },
               ]}
             >
-              <Feather name="image" size={18} color={colors.foreground} />
+              <Icon name="image" size={18} color={colors.foreground} />
               <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
                 رفع صورة
               </Text>
@@ -308,7 +308,7 @@ export default function AdminSettingsScreen() {
                 </Text>
                 {cat !== "الكل" && (
                   <Pressable onPress={() => deleteCategory(cat)}>
-                    <Feather name="x" size={14} color={colors.mutedForeground} />
+                    <Icon name="x" size={14} color={colors.mutedForeground} />
                   </Pressable>
                 )}
               </View>
@@ -357,7 +357,7 @@ export default function AdminSettingsScreen() {
                 onPress={() => deleteContact(contact.id)}
                 style={styles.deleteBtn}
               >
-                <Feather name="trash-2" size={16} color={colors.destructive} />
+                <Icon name="trash-2" size={16} color={colors.destructive} />
               </Pressable>
               <View style={styles.entryFields}>
                 <Field
@@ -398,7 +398,7 @@ export default function AdminSettingsScreen() {
                 onPress={() => deleteSocial(item.id)}
                 style={styles.deleteBtn}
               >
-                <Feather name="trash-2" size={16} color={colors.destructive} />
+                <Icon name="trash-2" size={16} color={colors.destructive} />
               </Pressable>
               <View style={styles.entryFields}>
                 <Field

@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -103,7 +103,7 @@ export default function AdminPricesScreen() {
                       {product.name}
                     </Text>
                   </View>
-                  <Feather name="edit-2" size={14} color={colors.mutedForeground} />
+                  <Icon name="edit-2" size={14} color={colors.mutedForeground} />
                 </>
               ) : (
                 <View style={{ flex: 1, gap: 10 }}>

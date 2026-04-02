@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -240,7 +240,7 @@ export default function AdminUsersScreen() {
                   style={styles.userRow}
                 >
                   <View style={styles.userExpandIcon}>
-                    <Feather
+                    <Icon
                       name={isExpanded ? "chevron-up" : "chevron-down"}
                       size={16}
                       color={colors.mutedForeground}
@@ -253,7 +253,7 @@ export default function AdminUsersScreen() {
                       </Text>
                       {u.vip && (
                         <View style={[styles.vipBadge, { backgroundColor: colors.gold + "33" }]}>
-                          <Feather name="star" size={10} color={colors.gold} />
+                          <Icon name="star" size={10} color={colors.gold} />
                           <Text style={[{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10 }]}>
                             مميز
                           </Text>
@@ -296,13 +296,13 @@ export default function AdminUsersScreen() {
                             onPress={() => handleSaveName(u.id)}
                             style={[styles.nameActionBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}
                           >
-                            <Feather name="check" size={14} color={colors.background} />
+                            <Icon name="check" size={14} color={colors.background} />
                           </Pressable>
                           <Pressable
                             onPress={() => { setEditingNameId(null); setEditingNameValue(""); }}
                             style={[styles.nameActionBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 8 }]}
                           >
-                            <Feather name="x" size={14} color={colors.foreground} />
+                            <Icon name="x" size={14} color={colors.foreground} />
                           </Pressable>
                           <TextInput
                             style={[styles.nameInput, { color: colors.foreground, backgroundColor: colors.input, borderColor: colors.gold, fontFamily: "Inter_500Medium" }]}
@@ -319,7 +319,7 @@ export default function AdminUsersScreen() {
                           onPress={() => { setEditingNameId(u.id); setEditingNameValue(u.name); }}
                           style={[styles.editNameBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                         >
-                          <Feather name="edit-3" size={13} color={colors.gold} />
+                          <Icon name="edit-3" size={13} color={colors.gold} />
                           <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12 }}>
                             تعديل الاسم
                           </Text>
@@ -367,7 +367,7 @@ export default function AdminUsersScreen() {
                             },
                           ]}
                         >
-                          <Feather name={u.vip ? "star" : "star"} size={14} color={u.vip ? colors.gold : colors.mutedForeground} />
+                          <Icon name={u.vip ? "star" : "star"} size={14} color={u.vip ? colors.gold : colors.mutedForeground} />
                           <Text
                             style={{
                               color: u.vip ? colors.gold : colors.mutedForeground,
@@ -401,7 +401,7 @@ export default function AdminUsersScreen() {
                                   },
                                 ]}
                               >
-                                <Feather
+                                <Icon
                                   name={active ? "check-square" : "square"}
                                   size={13}
                                   color={active ? colors.gold : colors.mutedForeground}

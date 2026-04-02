@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -82,12 +82,12 @@ export default function AdminFeaturedScreen() {
                 onPress={removeBanner}
                 style={[styles.removeBanner, { backgroundColor: colors.destructive }]}
               >
-                <Feather name="x" size={14} color="#FFF" />
+                <Icon name="x" size={14} color="#FFF" />
               </Pressable>
             </View>
           ) : (
             <View style={[styles.bannerPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Feather name="image" size={32} color={colors.mutedForeground} />
+              <Icon name="image" size={32} color={colors.mutedForeground} />
               <Text style={[{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }]}>
                 لا توجد صورة إعلان مخصصة
               </Text>
@@ -128,7 +128,7 @@ export default function AdminFeaturedScreen() {
                 ]}
               >
                 <View style={[styles.checkbox, { borderColor: selected ? colors.gold : colors.border, backgroundColor: selected ? colors.gold : "transparent" }]}>
-                  {selected && <Feather name="check" size={12} color={colors.background} />}
+                  {selected && <Icon name="check" size={12} color={colors.background} />}
                 </View>
                 <View style={styles.productInfo}>
                   <Text style={[{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }]}>
@@ -142,7 +142,7 @@ export default function AdminFeaturedScreen() {
                   <Image source={{ uri: product.images[0] }} style={styles.productThumb} resizeMode="cover" />
                 ) : (
                   <View style={[styles.productThumb, { backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }]}>
-                    <Feather name="layers" size={18} color={colors.goldDark} />
+                    <Icon name="layers" size={18} color={colors.goldDark} />
                   </View>
                 )}
               </Pressable>

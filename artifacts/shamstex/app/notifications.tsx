@@ -1,7 +1,7 @@
 import React from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -24,7 +24,7 @@ export default function NotificationsScreen() {
       >
         {notifications.length === 0 ? (
           <View style={styles.empty}>
-            <Feather name="bell-off" size={48} color={colors.mutedForeground} />
+            <Icon name="bell-off" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
               لا توجد إشعارات
             </Text>
@@ -50,7 +50,7 @@ export default function NotificationsScreen() {
                   { backgroundColor: (notif.read ? colors.mutedForeground : colors.gold) + "22" },
                 ]}
               >
-                <Feather
+                <Icon
                   name="bell"
                   size={18}
                   color={notif.read ? colors.mutedForeground : colors.gold}

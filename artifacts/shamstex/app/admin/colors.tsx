@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -116,7 +116,7 @@ export default function AdminColorsScreen() {
           {colorList.map((color) => (
             <View key={color.name} style={[styles.colorRow, { borderBottomColor: colors.border }]}>
               <Pressable onPress={() => handleDelete(color.name)} style={styles.deleteBtn}>
-                <Feather name="trash-2" size={15} color={colors.destructive} />
+                <Icon name="trash-2" size={15} color={colors.destructive} />
               </Pressable>
               <View style={styles.colorFields}>
                 <TextInput

@@ -15,7 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 
 export default function AdminNotificationsScreen() {
   const colors = useColors();
@@ -136,7 +136,7 @@ export default function AdminNotificationsScreen() {
                 ]}
               >
                 <View style={[styles.notifIcon, { backgroundColor: colors.gold + "22" }]}>
-                  <Feather name="bell" size={16} color={colors.gold} />
+                  <Icon name="bell" size={16} color={colors.gold} />
                 </View>
                 <View style={styles.notifContent}>
                   <Text style={[styles.notifTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>

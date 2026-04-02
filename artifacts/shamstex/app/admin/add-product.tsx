@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { persistImageUris } from "@/utils/persistImage";
@@ -166,7 +166,7 @@ export default function AddProductScreen() {
                 { borderColor: colors.gold + "66", backgroundColor: colors.surface },
               ]}
             >
-              <Feather name="camera" size={24} color={colors.gold} />
+              <Icon name="camera" size={24} color={colors.gold} />
               <Text style={[styles.addImageText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
                 إضافة صورة
               </Text>
@@ -183,7 +183,7 @@ export default function AddProductScreen() {
                   onPress={() => removeImage(index)}
                   style={[styles.removeImageBtn, { backgroundColor: colors.destructive }]}
                 >
-                  <Feather name="x" size={12} color="#FFFFFF" />
+                  <Icon name="x" size={12} color="#FFFFFF" />
                 </Pressable>
               </View>
             ))}
@@ -289,7 +289,7 @@ export default function AddProductScreen() {
                     },
                   ]}
                 >
-                  <Feather name={opt.icon} size={16} color={unit === opt.value ? colors.background : colors.foreground} />
+                  <Icon name={opt.icon} size={16} color={unit === opt.value ? colors.background : colors.foreground} />
                   <Text style={[styles.unitBtnText, { color: unit === opt.value ? colors.background : colors.foreground, fontFamily: unit === opt.value ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
                     {opt.label}
                   </Text>
@@ -380,7 +380,7 @@ export default function AddProductScreen() {
                   >
                     {color.name}
                   </Text>
-                  {selected && <Feather name="check" size={12} color={colors.gold} />}
+                  {selected && <Icon name="check" size={12} color={colors.gold} />}
                 </Pressable>
               );
             })}

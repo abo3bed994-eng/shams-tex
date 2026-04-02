@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -166,16 +166,16 @@ export default function AdminTabsScreen() {
               <View style={styles.tabRow}>
                 <View style={styles.tabActions}>
                   <Pressable onPress={() => moveUp(tab.id)} style={({ pressed }) => [styles.arrowBtn, { opacity: pressed ? 0.5 : index === 0 ? 0.2 : 1 }]}>
-                    <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                    <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
                   </Pressable>
                   <Pressable onPress={() => moveDown(tab.id)} style={({ pressed }) => [styles.arrowBtn, { opacity: pressed ? 0.5 : index === sorted.length - 1 ? 0.2 : 1 }]}>
-                    <Feather name="chevron-left" size={16} color={colors.mutedForeground} />
+                    <Icon name="chevron-left" size={16} color={colors.mutedForeground} />
                   </Pressable>
                   <Pressable onPress={() => startEdit(tab)} style={({ pressed }) => [styles.arrowBtn, { opacity: pressed ? 0.5 : 1 }]}>
-                    <Feather name="edit-2" size={14} color={colors.gold} />
+                    <Icon name="edit-2" size={14} color={colors.gold} />
                   </Pressable>
                   <Pressable onPress={() => deleteTab(tab.id)} style={({ pressed }) => [styles.arrowBtn, { opacity: pressed ? 0.5 : 1 }]}>
-                    <Feather name="trash-2" size={14} color={colors.destructive} />
+                    <Icon name="trash-2" size={14} color={colors.destructive} />
                   </Pressable>
                 </View>
 
@@ -196,7 +196,7 @@ export default function AdminTabsScreen() {
                     thumbColor={tab.visible ? colors.gold : colors.mutedForeground}
                   />
                   <View style={[styles.tabIconBadge, { backgroundColor: colors.gold + "22" }]}>
-                    <Feather name={tab.icon as any} size={16} color={colors.gold} />
+                    <Icon name={tab.icon as any} size={16} color={colors.gold} />
                   </View>
                 </View>
               </View>

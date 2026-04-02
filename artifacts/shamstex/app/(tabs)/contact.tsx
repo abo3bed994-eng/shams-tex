@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -79,7 +79,7 @@ export default function ContactScreen() {
                 },
               ]}
             >
-              <Feather name="phone-call" size={18} color={colors.gold} />
+              <Icon name="phone-call" size={18} color={colors.gold} />
               <View style={styles.contactInfo}>
                 <Text style={[styles.contactLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                   {contact.label}
@@ -89,7 +89,7 @@ export default function ContactScreen() {
                 </Text>
               </View>
               <View style={[styles.contactIcon, { backgroundColor: colors.gold + "22" }]}>
-                <Feather name={contact.icon as any} size={20} color={colors.gold} />
+                <Icon name={contact.icon as any} size={20} color={colors.gold} />
               </View>
             </Pressable>
           ))}
@@ -114,7 +114,7 @@ export default function ContactScreen() {
                   },
                 ]}
               >
-                <Feather name={s.icon as any} size={22} color={colors.gold} />
+                <Icon name={s.icon as any} size={22} color={colors.gold} />
                 <Text
                   style={[styles.socialLabel, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}
                 >

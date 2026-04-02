@@ -1,7 +1,7 @@
 import React from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, OrderStatus } from "@/context/AppContext";
@@ -66,7 +66,7 @@ export default function OrderDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
         <View style={[styles.statusCard, { backgroundColor: activeColor + "11", borderColor: activeColor + "44", borderRadius: colors.radius }]}>
-          <Feather name={STATUS_STEPS[currentStep].icon as any} size={28} color={activeColor} />
+          <Icon name={STATUS_STEPS[currentStep].icon as any} size={28} color={activeColor} />
           <Text style={[styles.statusLabel, { color: activeColor, fontFamily: "Inter_700Bold" }]}>
             {STATUS_STEPS[currentStep].label}
           </Text>
@@ -91,7 +91,7 @@ export default function OrderDetailScreen() {
                       },
                     ]}
                   >
-                    {isCompleted && <Feather name="check" size={10} color="#fff" />}
+                    {isCompleted && <Icon name="check" size={10} color="#fff" />}
                   </View>
                   <Text
                     style={[
@@ -125,13 +125,13 @@ export default function OrderDetailScreen() {
               معلومات العميل
             </Text>
             <View style={styles.infoRow}>
-              <Feather name="user" size={15} color={colors.mutedForeground} />
+              <Icon name="user" size={15} color={colors.mutedForeground} />
               <Text style={[styles.infoText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
                 {order.userName}
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <Feather name="phone" size={15} color={colors.mutedForeground} />
+              <Icon name="phone" size={15} color={colors.mutedForeground} />
               <Text style={[styles.infoText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
                 {order.userPhone}
               </Text>
