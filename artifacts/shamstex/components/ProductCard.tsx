@@ -22,6 +22,8 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
   const priceLabel =
     user?.role === "merchant" || user?.role === "admin" ? "سعر الجملة" : "السعر";
 
+  const isOutOfStock = !product.inStock;
+
   return (
     <Pressable
       onPress={onPress}
@@ -29,7 +31,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
         styles.card,
         {
           backgroundColor: colors.card,
-          borderColor: colors.border,
+          borderColor: isOutOfStock ? "#C0392B88" : colors.border,
           borderRadius: colors.radius,
           opacity: pressed ? 0.85 : 1,
         },
@@ -49,13 +51,14 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
           <Image source={{ uri: product.images[0] }} style={styles.image} resizeMode="cover" />
         ) : (
           <View style={styles.placeholderImage}>
-            <Icon name="layers" size={32} color={colors.goldDark} />
+            <Icon name="layers" size={32} color={isOutOfStock ? "#C0392B88" : colors.goldDark} />
           </View>
         )}
-        {!product.inStock && (
-          <View style={[styles.outOfStockBadge, { backgroundColor: "#0008" }]}>
-            <Text style={[styles.outOfStockText, { fontFamily: "Inter_600SemiBold" }]}>
-              غير متوفر
+        {isOutOfStock && (
+          <View style={styles.outOfStockBadge}>
+            <Icon name="x-circle" size={13} color="#fff" />
+            <Text style={[styles.outOfStockText, { fontFamily: "Inter_700Bold" }]}>
+              نفذ المخزون
             </Text>
           </View>
         )}
@@ -68,7 +71,10 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
 
       <View style={styles.info}>
         <Text
-          style={[styles.name, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}
+          style={[
+            styles.name,
+            { color: isOutOfStock ? "#C0392B" : colors.foreground, fontFamily: "Inter_600SemiBold" },
+          ]}
           numberOfLines={2}
         >
           {product.name}
@@ -148,8 +154,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingVertical: 5,
+    paddingVertical: 7,
+    backgroundColor: "#C0392B",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
   },
   outOfStockText: {
     color: "#fff",
