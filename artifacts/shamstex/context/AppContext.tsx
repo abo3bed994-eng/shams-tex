@@ -107,7 +107,7 @@ export interface AppSettings {
   categories: string[];
   featuredProductIds: string[];
   bannerImageUri?: string;
-  bannerVideoUri?: string;
+  bannerVideoUris?: string[];
   globalColors: ColorOption[];
 }
 

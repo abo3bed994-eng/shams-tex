@@ -94,27 +94,36 @@ export default function AdminSettingsScreen() {
     if (!result.canceled && result.assets[0]) {
       setMediaLoading(true);
       const uri = await persistImageUri(result.assets[0].uri);
-      setDraft((d) => ({ ...d, bannerImageUri: uri, bannerVideoUri: undefined }));
+      setDraft((d) => ({ ...d, bannerImageUri: uri }));
       setMediaLoading(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
   const pickBannerVideo = async () => {
+    const current = draft.bannerVideoUris ?? [];
+    if (current.length >= 3) {
+      Alert.alert("الحد الأقصى", "يمكن إضافة 3 فيديوهات كحد أقصى");
+      return;
+    }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 1 });
     if (!result.canceled && result.assets[0]) {
       setMediaLoading(true);
       const uri = await persistImageUri(result.assets[0].uri);
-      setDraft((d) => ({ ...d, bannerVideoUri: uri, bannerImageUri: undefined }));
+      setDraft((d) => ({ ...d, bannerVideoUris: [...(d.bannerVideoUris ?? []), uri] }));
       setMediaLoading(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
+  const removeVideo = (idx: number) => {
+    setDraft((d) => ({ ...d, bannerVideoUris: (d.bannerVideoUris ?? []).filter((_, i) => i !== idx) }));
+  };
+
   const clearBanner = () => {
-    setDraft((d) => ({ ...d, bannerImageUri: undefined, bannerVideoUri: undefined }));
+    setDraft((d) => ({ ...d, bannerImageUri: undefined, bannerVideoUris: [] }));
   };
 
   const save = async () => {
@@ -220,39 +229,46 @@ export default function AdminSettingsScreen() {
         </Card>
 
         <Card title="المحتوى الإعلاني">
-          {(draft.bannerImageUri || draft.bannerVideoUri) && (
+          {draft.bannerImageUri && (
             <View style={[styles.bannerPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              {draft.bannerImageUri && (
-                <Image source={{ uri: draft.bannerImageUri }} style={styles.bannerPreviewImg} resizeMode="cover" />
-              )}
-              {draft.bannerVideoUri && (
-                <View style={[styles.videoBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}>
-                  <Feather name="film" size={28} color={colors.gold} />
-                  <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "center" }}>
-                    فيديو إعلاني محدد
-                  </Text>
-                </View>
-              )}
-              <Pressable
-                onPress={clearBanner}
-                style={[styles.clearBannerBtn, { backgroundColor: colors.destructive }]}
-              >
+              <Image source={{ uri: draft.bannerImageUri }} style={styles.bannerPreviewImg} resizeMode="cover" />
+              <Pressable onPress={clearBanner} style={[styles.clearBannerBtn, { backgroundColor: colors.destructive }]}>
                 <Feather name="x" size={14} color="#FFF" />
               </Pressable>
+            </View>
+          )}
+          {(draft.bannerVideoUris ?? []).length > 0 && (
+            <View style={{ gap: 8 }}>
+              {(draft.bannerVideoUris ?? []).map((uri, idx) => (
+                <View
+                  key={uri}
+                  style={[styles.videoBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}
+                >
+                  <View style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                    <Feather name="film" size={20} color={colors.gold} />
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }} numberOfLines={1}>
+                      فيديو {idx + 1}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => removeVideo(idx)} style={[styles.clearBannerBtn, { backgroundColor: colors.destructive, position: "relative", top: 0, right: 0 }]}>
+                    <Feather name="x" size={14} color="#FFF" />
+                  </Pressable>
+                </View>
+              ))}
             </View>
           )}
           <View style={styles.bannerBtns}>
             <Pressable
               onPress={pickBannerVideo}
-              disabled={mediaLoading}
+              disabled={mediaLoading || (draft.bannerVideoUris ?? []).length >= 3}
               style={({ pressed }) => [
                 styles.bannerBtn,
-                { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44", opacity: pressed || mediaLoading ? 0.7 : 1 },
+                { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44", opacity: (pressed || mediaLoading || (draft.bannerVideoUris ?? []).length >= 3) ? 0.5 : 1 },
               ]}
             >
               <Feather name="film" size={18} color={colors.gold} />
               <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                رفع فيديو
+                {(draft.bannerVideoUris ?? []).length >= 3 ? "اكتملت الفيديوهات" : `رفع فيديو (${(draft.bannerVideoUris ?? []).length}/3)`}
               </Text>
             </Pressable>
             <Pressable
@@ -270,7 +286,7 @@ export default function AdminSettingsScreen() {
             </Pressable>
           </View>
           <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
-            يظهر الفيديو أو الصورة في البانر الرئيسي على الشاشة الرئيسية
+            يمكن رفع حتى 3 فيديوهات متتابعة أو صورة في البانر الرئيسي
           </Text>
         </Card>
 
@@ -503,10 +519,11 @@ const styles = StyleSheet.create({
   },
   bannerPreviewImg: { width: "100%", height: 110 },
   videoBadge: {
+    flexDirection: "row-reverse",
     alignItems: "center",
-    justifyContent: "center",
     gap: 8,
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
   },

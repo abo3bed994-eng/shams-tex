@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { ScrollView as ScrollViewType } from "react-native";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +23,7 @@ export default function ProductsScreen() {
   const CATEGORIES = settings.categories.length > 0 ? settings.categories : ["الكل"];
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("الكل");
+  const catScrollRef = useRef<ScrollViewType>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -94,11 +96,13 @@ export default function ProductsScreen() {
         </View>
 
         <ScrollView
+          ref={catScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.catScroll}
+          onLayout={() => catScrollRef.current?.scrollToEnd({ animated: false })}
         >
-          {CATEGORIES.map((cat) => (
+          {[...CATEGORIES].reverse().map((cat) => (
             <Pressable
               key={cat}
               onPress={() => setActiveCategory(cat)}
@@ -195,7 +199,7 @@ const styles = StyleSheet.create({
   },
   catScroll: {
     gap: 8,
-    flexDirection: "row-reverse",
+    flexDirection: "row",
   },
   catChip: {
     paddingHorizontal: 14,

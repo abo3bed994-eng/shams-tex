@@ -61,11 +61,11 @@ export default function EditProductScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: 5,
+      selectionLimit: 3,
     });
     if (!result.canceled) {
       const uris = await persistImageUris(result.assets.map((a) => a.uri));
-      setImages((prev) => [...prev, ...uris].slice(0, 5));
+      setImages((prev) => [...prev, ...uris].slice(0, 3));
     }
   };
 

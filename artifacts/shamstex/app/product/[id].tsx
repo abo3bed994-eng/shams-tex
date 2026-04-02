@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  Alert,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -26,6 +28,17 @@ export default function ProductDetailScreen() {
   const product = products.find((p) => p.id === id);
   const [selectedColors, setSelectedColors] = useState<Record<string, number>>({});
   const [orderType, setOrderType] = useState<"weight" | "pieces">("pieces");
+  const [imgIdx, setImgIdx] = useState(0);
+
+  useEffect(() => {
+    const imgs = product?.images ?? [];
+    if (imgs.length < 2) return;
+    const timer = setInterval(() => {
+      setImgIdx((prev) => (prev + 1) % imgs.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [product?.images?.length]);
+
   const [weight, setWeight] = useState(1);
   const [weightInput, setWeightInput] = useState("1");
   const [showColors, setShowColors] = useState(true);
@@ -227,17 +240,31 @@ export default function ProductDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <View
-          style={[
-            styles.imagePlaceholder,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <Feather name="layers" size={60} color={colors.goldDark} />
-          <Text style={[styles.category, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-            {product.category}
-          </Text>
-        </View>
+        {product.images && product.images.length > 0 ? (
+          <View style={[styles.imageCarousel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Image source={{ uri: product.images[imgIdx] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            {product.images.length > 1 && (
+              <View style={styles.imageDots}>
+                {product.images.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.imageDot,
+                      { backgroundColor: i === imgIdx ? colors.gold : "rgba(255,255,255,0.5)" },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={[styles.imagePlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Feather name="layers" size={60} color={colors.goldDark} />
+            <Text style={[styles.category, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+              {product.category}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.priceSection}>
           <View>
@@ -247,7 +274,7 @@ export default function ProductDetailScreen() {
               {user?.role === "merchant" ? "سعر الجملة" : "السعر"}
             </Text>
             <Text style={[styles.price, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-              {displayPrice} ج.م / متر
+              {displayPrice} ج.م / {product.unit === "kilo" ? "كغ" : "متر"}
             </Text>
           </View>
           {product.description && (
@@ -439,6 +466,27 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { gap: 16, padding: 16 },
   notFound: { flex: 1, alignItems: "center", justifyContent: "center" },
+  imageCarousel: {
+    height: 220,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+    position: "relative",
+  },
+  imageDots: {
+    position: "absolute",
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  imageDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
   imagePlaceholder: {
     height: 220,
     borderRadius: 16,

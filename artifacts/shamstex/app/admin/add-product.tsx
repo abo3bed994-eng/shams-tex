@@ -51,11 +51,11 @@ export default function AddProductScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: 5,
+      selectionLimit: 3,
     });
     if (!result.canceled && result.assets.length > 0) {
       const uris = await persistImageUris(result.assets.map((a) => a.uri));
-      setImages((prev) => [...prev, ...uris].slice(0, 5));
+      setImages((prev) => [...prev, ...uris].slice(0, 3));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
@@ -190,7 +190,7 @@ export default function AddProductScreen() {
           </ScrollView>
           {images.length > 0 && (
             <Text style={[styles.imageCount, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {images.length} / 5 صور
+              {images.length} / 3 صور
             </Text>
           )}
         </View>
