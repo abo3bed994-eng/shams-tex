@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +21,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user, products, notifications, cart, settings } = useApp();
   const [activeCategory, setActiveCategory] = useState("الكل");
+
+  const videoPlayer = useVideoPlayer(settings.bannerVideoUri ?? null, (p) => {
+    p.loop = true;
+    if (settings.bannerVideoUri) p.play();
+  });
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -77,13 +83,11 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.headerCenter}>
-          <View style={styles.headerLogoBadge}>
-            <Image
-              source={require("../../assets/images/logo.png")}
-              style={styles.headerLogo}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require("../../assets/images/logo.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
 
         <Pressable
@@ -146,7 +150,14 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
-            {settings.bannerImageUri ? (
+            {settings.bannerVideoUri ? (
+              <VideoView
+                player={videoPlayer}
+                style={styles.bannerImage}
+                contentFit="cover"
+                nativeControls={false}
+              />
+            ) : settings.bannerImageUri ? (
               <Image
                 source={{ uri: settings.bannerImageUri }}
                 style={styles.bannerImage}
@@ -237,16 +248,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerCenter: { flex: 1, alignItems: "center" },
-  headerLogoBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  headerLogo: { width: 52, height: 52 },
+  headerLogo: { width: 60, height: 60 },
   headerLeft: { flexDirection: "row-reverse", gap: 2 },
   iconBtn: {
     width: 42,

@@ -17,7 +17,7 @@ import * as ImagePicker from "expo-image-picker";
 import { persistImageUris } from "@/utils/persistImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, ColorOption } from "@/context/AppContext";
+import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
@@ -50,6 +50,7 @@ export default function AddProductScreen() {
   const [description, setDescription] = useState("");
   const [selectedColors, setSelectedColors] = useState<ColorOption[]>([]);
   const [images, setImages] = useState<string[]>([]);
+  const [unit, setUnit] = useState<"meter" | "kilo">("meter");
   const [loading, setLoading] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
@@ -120,6 +121,7 @@ export default function AddProductScreen() {
       colors: selectedColors,
       description,
       inStock: true,
+      unit,
     };
 
     await setProducts([newProduct, ...products]);
@@ -280,6 +282,34 @@ export default function AddProductScreen() {
                 </Pressable>
               ))}
             </ScrollView>
+          </View>
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+              وحدة البيع
+            </Text>
+            <View style={styles.unitRow}>
+              {([
+                { value: "meter", label: "بالمتر", icon: "maximize-2" },
+                { value: "kilo", label: "بالكيلو", icon: "package" },
+              ] as const).map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => { setUnit(opt.value); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                  style={[
+                    styles.unitBtn,
+                    {
+                      backgroundColor: unit === opt.value ? colors.gold : colors.surface,
+                      borderColor: unit === opt.value ? colors.gold : colors.border,
+                    },
+                  ]}
+                >
+                  <Feather name={opt.icon} size={16} color={unit === opt.value ? colors.background : colors.foreground} />
+                  <Text style={[styles.unitBtnText, { color: unit === opt.value ? colors.background : colors.foreground, fontFamily: unit === opt.value ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         </View>
 
@@ -454,4 +484,7 @@ const styles = StyleSheet.create({
   colorSwatchSmall: { width: 20, height: 20, borderRadius: 10, borderWidth: 1 },
   colorOptionText: { fontSize: 12 },
   footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
+  unitRow: { flexDirection: "row-reverse", gap: 12 },
+  unitBtn: { flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, borderWidth: 1.5 },
+  unitBtnText: { fontSize: 14 },
 });

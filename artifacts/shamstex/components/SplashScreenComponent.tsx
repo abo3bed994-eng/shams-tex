@@ -60,13 +60,11 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
           },
         ]}
       >
-        <View style={styles.logoBadge}>
-          <Image
-            source={require("../assets/images/logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={require("../assets/images/logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </Animated.View>
 
       <Animated.View style={[styles.textBlock, { opacity: textFade }]}>
@@ -99,16 +97,7 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   logoContainer: { alignItems: "center" },
-  logoBadge: {
-    width: 170,
-    height: 170,
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  logo: { width: 160, height: 160 },
+  logo: { width: 180, height: 180 },
   textBlock: { alignItems: "center", gap: 10 },
   brandName: { fontSize: 34, letterSpacing: 4, textAlign: "center" },
   line: { height: 1.5, opacity: 0.7 },

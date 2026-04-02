@@ -17,7 +17,7 @@ import * as ImagePicker from "expo-image-picker";
 import { persistImageUris } from "@/utils/persistImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, ColorOption } from "@/context/AppContext";
+import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
@@ -38,6 +38,7 @@ export default function EditProductScreen() {
   const [description, setDescription] = useState(product?.description ?? "");
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [selectedColors, setSelectedColors] = useState<ColorOption[]>(product?.colors ?? []);
+  const [unit, setUnit] = useState<ProductUnit>(product?.unit ?? "meter");
   const [saving, setSaving] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
@@ -97,6 +98,7 @@ export default function EditProductScreen() {
             description,
             images,
             colors: selectedColors.length > 0 ? selectedColors : p.colors,
+            unit,
           }
         : p
     );
@@ -191,6 +193,40 @@ export default function EditProductScreen() {
                 </Pressable>
               ))}
             </ScrollView>
+          </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+            وحدة البيع
+          </Text>
+          <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+            {([
+              { value: "meter" as ProductUnit, label: "بالمتر", icon: "maximize-2" },
+              { value: "kilo" as ProductUnit, label: "بالكيلو", icon: "package" },
+            ]).map((opt) => (
+              <Pressable
+                key={opt.value}
+                onPress={() => { setUnit(opt.value); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                style={[{
+                  flex: 1,
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  borderWidth: 1.5,
+                  backgroundColor: unit === opt.value ? colors.gold : colors.surface,
+                  borderColor: unit === opt.value ? colors.gold : colors.border,
+                }]}
+              >
+                <Feather name={opt.icon as any} size={16} color={unit === opt.value ? colors.background : colors.foreground} />
+                <Text style={{ color: unit === opt.value ? colors.background : colors.foreground, fontFamily: unit === opt.value ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 14 }}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         </View>
 

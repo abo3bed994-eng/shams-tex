@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 export type UserRole = "customer" | "merchant" | "employee" | "admin";
+export type ProductUnit = "meter" | "kilo";
 export type EmployeePermission =
   | "view_orders"
   | "edit_orders"
@@ -36,6 +37,7 @@ export interface Product {
   colors: ColorOption[];
   description?: string;
   inStock: boolean;
+  unit?: ProductUnit;
 }
 
 export interface CartItem {
@@ -105,6 +107,7 @@ export interface AppSettings {
   categories: string[];
   featuredProductIds: string[];
   bannerImageUri?: string;
+  bannerVideoUri?: string;
   globalColors: ColorOption[];
 }
 

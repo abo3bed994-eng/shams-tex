@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Image,
   Linking,
   Platform,
   Pressable,
@@ -47,9 +48,11 @@ export default function ContactScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
       >
         <View style={styles.logoSection}>
-          <View style={[styles.logoCircle, { borderColor: colors.gold + "44" }]}>
-            <Feather name="sun" size={36} color={colors.gold} />
-          </View>
+          <Image
+            source={require("../../assets/images/logo.png")}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
           <Text style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
             Shams Tex
           </Text>
@@ -183,13 +186,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
+  logoImg: {
+    width: 110,
+    height: 110,
   },
   brandName: {
     fontSize: 24,

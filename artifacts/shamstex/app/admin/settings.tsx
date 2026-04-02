@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -12,9 +13,11 @@ import {
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, AppSettings, ContactEntry, SocialEntry } from "@/context/AppContext";
+import { persistImageUri } from "@/utils/persistImage";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
@@ -82,6 +85,37 @@ export default function AdminSettingsScreen() {
   const [draft, setDraft] = useState<AppSettings>({ ...settings });
   const [saving, setSaving] = useState(false);
   const [newCategory, setNewCategory] = useState("");
+  const [mediaLoading, setMediaLoading] = useState(false);
+
+  const pickBannerImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85 });
+    if (!result.canceled && result.assets[0]) {
+      setMediaLoading(true);
+      const uri = await persistImageUri(result.assets[0].uri);
+      setDraft((d) => ({ ...d, bannerImageUri: uri, bannerVideoUri: undefined }));
+      setMediaLoading(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const pickBannerVideo = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 1 });
+    if (!result.canceled && result.assets[0]) {
+      setMediaLoading(true);
+      const uri = await persistImageUri(result.assets[0].uri);
+      setDraft((d) => ({ ...d, bannerVideoUri: uri, bannerImageUri: undefined }));
+      setMediaLoading(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const clearBanner = () => {
+    setDraft((d) => ({ ...d, bannerImageUri: undefined, bannerVideoUri: undefined }));
+  };
 
   const save = async () => {
     setSaving(true);
@@ -183,6 +217,61 @@ export default function AdminSettingsScreen() {
               placeholderTextColor={colors.mutedForeground}
             />
           </View>
+        </Card>
+
+        <Card title="المحتوى الإعلاني">
+          {(draft.bannerImageUri || draft.bannerVideoUri) && (
+            <View style={[styles.bannerPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {draft.bannerImageUri && (
+                <Image source={{ uri: draft.bannerImageUri }} style={styles.bannerPreviewImg} resizeMode="cover" />
+              )}
+              {draft.bannerVideoUri && (
+                <View style={[styles.videoBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}>
+                  <Feather name="film" size={28} color={colors.gold} />
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "center" }}>
+                    فيديو إعلاني محدد
+                  </Text>
+                </View>
+              )}
+              <Pressable
+                onPress={clearBanner}
+                style={[styles.clearBannerBtn, { backgroundColor: colors.destructive }]}
+              >
+                <Feather name="x" size={14} color="#FFF" />
+              </Pressable>
+            </View>
+          )}
+          <View style={styles.bannerBtns}>
+            <Pressable
+              onPress={pickBannerVideo}
+              disabled={mediaLoading}
+              style={({ pressed }) => [
+                styles.bannerBtn,
+                { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44", opacity: pressed || mediaLoading ? 0.7 : 1 },
+              ]}
+            >
+              <Feather name="film" size={18} color={colors.gold} />
+              <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                رفع فيديو
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={pickBannerImage}
+              disabled={mediaLoading}
+              style={({ pressed }) => [
+                styles.bannerBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed || mediaLoading ? 0.7 : 1 },
+              ]}
+            >
+              <Feather name="image" size={18} color={colors.foreground} />
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                رفع صورة
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
+            يظهر الفيديو أو الصورة في البانر الرئيسي على الشاشة الرئيسية
+          </Text>
         </Card>
 
         <Card title="فئات المنتجات">
@@ -398,5 +487,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
+  },
+  bannerPreview: {
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    height: 110,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  bannerPreviewImg: { width: "100%", height: 110 },
+  videoBadge: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  clearBannerBtn: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bannerBtns: { flexDirection: "row-reverse", gap: 10 },
+  bannerBtn: {
+    flex: 1,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
   },
 });

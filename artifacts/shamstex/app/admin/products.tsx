@@ -13,9 +13,14 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp } from "@/context/AppContext";
+import { useApp, Product } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+
+const UNIT_LABELS: Record<string, string> = {
+  meter: "م",
+  kilo: "كغ",
+};
 
 export default function AdminProductsScreen() {
   const colors = useColors();
@@ -45,6 +50,22 @@ export default function AdminProductsScreen() {
     );
   };
 
+  const moveUp = async (index: number) => {
+    if (index === 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newList = [...products];
+    [newList[index - 1], newList[index]] = [newList[index], newList[index - 1]];
+    await setProducts(newList);
+  };
+
+  const moveDown = async (index: number) => {
+    if (index === products.length - 1) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newList = [...products];
+    [newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
+    await setProducts(newList);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader
@@ -68,7 +89,7 @@ export default function AdminProductsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
-        {products.map((product) => (
+        {products.map((product, index) => (
           <View
             key={product.id}
             style={[
@@ -106,19 +127,48 @@ export default function AdminProductsScreen() {
                 <Text style={[styles.productName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
                   {product.name}
                 </Text>
-                <View style={[styles.categoryBadge, { backgroundColor: colors.gold + "22" }]}>
-                  <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-                    {product.category}
-                  </Text>
+                <View style={styles.productBadges}>
+                  <View style={[styles.categoryBadge, { backgroundColor: colors.gold + "22" }]}>
+                    <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+                      {product.category}
+                    </Text>
+                  </View>
+                  <View style={[styles.unitBadge, {
+                    backgroundColor: product.unit === "kilo" ? "#2980B922" : "#27AE6022",
+                    borderColor: product.unit === "kilo" ? "#2980B944" : "#27AE6044",
+                  }]}>
+                    <Text style={[styles.unitText, {
+                      color: product.unit === "kilo" ? "#2980B9" : "#27AE60",
+                      fontFamily: "Inter_600SemiBold",
+                    }]}>
+                      {UNIT_LABELS[product.unit ?? "meter"]}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
-              <View style={[styles.productIconBox, { backgroundColor: colors.surface }]}>
-                <Feather name="layers" size={24} color={colors.goldDark} />
+              <View style={styles.rightSide}>
+                <View style={[styles.productIconBox, { backgroundColor: colors.surface }]}>
+                  <Feather name="layers" size={22} color={colors.goldDark} />
+                </View>
+                <View style={styles.reorderBtns}>
+                  <Pressable
+                    onPress={() => moveUp(index)}
+                    style={({ pressed }) => [styles.reorderBtn, { opacity: index === 0 ? 0.25 : pressed ? 0.6 : 1 }]}
+                  >
+                    <Feather name="chevron-up" size={16} color={colors.foreground} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => moveDown(index)}
+                    style={({ pressed }) => [styles.reorderBtn, { opacity: index === products.length - 1 ? 0.25 : pressed ? 0.6 : 1 }]}
+                  >
+                    <Feather name="chevron-down" size={16} color={colors.foreground} />
+                  </Pressable>
+                </View>
               </View>
             </View>
 
-            <View style={styles.productDetails}>
+            <View style={[styles.productDetails, { borderTopColor: colors.border }]}>
               <View style={styles.priceItem}>
                 <Text style={[styles.priceValue, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                   {product.wholesalePrice} ج.م
@@ -207,21 +257,37 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 10,
   },
+  rightSide: { gap: 6, alignItems: "center" },
   productIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  productInfo: { flex: 1, gap: 5, alignItems: "flex-end" },
+  reorderBtns: { gap: 2 },
+  reorderBtn: {
+    width: 28,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  productInfo: { flex: 1, gap: 6, alignItems: "flex-end" },
   productName: { fontSize: 14 },
+  productBadges: { flexDirection: "row-reverse", gap: 6, flexWrap: "wrap" },
   categoryBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
   },
   categoryText: { fontSize: 11 },
+  unitBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  unitText: { fontSize: 11 },
   productActions: {
     flexDirection: "row-reverse",
     gap: 4,
@@ -235,10 +301,8 @@ const styles = StyleSheet.create({
   productDetails: {
     flexDirection: "row-reverse",
     borderTopWidth: 1,
-    borderTopColor: "transparent",
     paddingVertical: 12,
     paddingHorizontal: 12,
-    gap: 0,
   },
   priceItem: { flex: 1, alignItems: "center", gap: 3 },
   priceValue: { fontSize: 15 },

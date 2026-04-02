@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { router } from "expo-router";
@@ -66,6 +67,8 @@ export default function AdminUsersScreen() {
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState("");
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -95,6 +98,15 @@ export default function AdminUsersScreen() {
         return { ...u, permissions: updated };
       })
     );
+  };
+
+  const handleSaveName = (userId: string) => {
+    const trimmed = editingNameValue.trim();
+    if (trimmed.length < 2) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, name: trimmed } : u)));
+    setEditingNameId(null);
+    setEditingNameValue("");
   };
 
   const handleApproveUpgrade = (userId: string) => {
@@ -277,6 +289,43 @@ export default function AdminUsersScreen() {
 
                 {isExpanded && user?.role === "admin" && u.id !== user.id && (
                   <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
+                    <View style={styles.nameEditRow}>
+                      {editingNameId === u.id ? (
+                        <>
+                          <Pressable
+                            onPress={() => handleSaveName(u.id)}
+                            style={[styles.nameActionBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}
+                          >
+                            <Feather name="check" size={14} color={colors.background} />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => { setEditingNameId(null); setEditingNameValue(""); }}
+                            style={[styles.nameActionBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 8 }]}
+                          >
+                            <Feather name="x" size={14} color={colors.foreground} />
+                          </Pressable>
+                          <TextInput
+                            style={[styles.nameInput, { color: colors.foreground, backgroundColor: colors.input, borderColor: colors.gold, fontFamily: "Inter_500Medium" }]}
+                            value={editingNameValue}
+                            onChangeText={setEditingNameValue}
+                            textAlign="right"
+                            autoFocus
+                            returnKeyType="done"
+                            onSubmitEditing={() => handleSaveName(u.id)}
+                          />
+                        </>
+                      ) : (
+                        <Pressable
+                          onPress={() => { setEditingNameId(u.id); setEditingNameValue(u.name); }}
+                          style={[styles.editNameBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        >
+                          <Feather name="edit-3" size={13} color={colors.gold} />
+                          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                            تعديل الاسم
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
                     <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
                       تغيير الدور
                     </Text>
@@ -463,6 +512,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 8,
+    borderWidth: 1,
+  },
+  nameEditRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  nameInput: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  nameActionBtn: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editNameBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
   },
 });
