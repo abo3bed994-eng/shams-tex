@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -230,14 +231,33 @@ export default function ProductDetailScreen() {
                     >
                       <Icon name="minus" size={14} color={colors.gold} />
                     </Pressable>
-                    <Text
-                      style={[styles.weightChip, {
+                    <TextInput
+                      style={[styles.weightInput, {
                         color: w > 0 ? colors.gold : colors.mutedForeground,
+                        backgroundColor: colors.input,
+                        borderColor: w > 0 ? colors.gold + "55" : colors.border,
                         fontFamily: "Inter_700Bold",
                       }]}
-                    >
-                      {w > 0 ? `${w} ${unitLabel}` : "0"}
-                    </Text>
+                      value={w > 0 ? String(w) : ""}
+                      placeholder="0"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="decimal-pad"
+                      textAlign="center"
+                      onChangeText={(text) => {
+                        if (text === "" || text === "0") {
+                          setColorWeights((prev) => {
+                            const next = { ...prev };
+                            delete next[color.name];
+                            return next;
+                          });
+                          return;
+                        }
+                        const val = parseFloat(text);
+                        if (!isNaN(val) && val > 0) {
+                          setColorWeights((prev) => ({ ...prev, [color.name]: val }));
+                        }
+                      }}
+                    />
                     <Pressable
                       onPress={() => addColorWeight(color.name)}
                       style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
@@ -612,7 +632,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   qtyText: { fontSize: 16, minWidth: 24, textAlign: "center" },
-  weightChip: { fontSize: 14, minWidth: 52, textAlign: "center" },
+  weightInput: {
+    fontSize: 15,
+    minWidth: 64,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    textAlign: "center",
+  },
   weightTotalBox: {
     flexDirection: "row-reverse",
     alignItems: "center",

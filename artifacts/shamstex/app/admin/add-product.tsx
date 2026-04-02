@@ -31,6 +31,7 @@ export default function AddProductScreen() {
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0] ?? "حرير");
+  const [subcategory, setSubcategory] = useState("");
   const [retailPrice, setRetailPrice] = useState("");
   const [wholesalePrice, setWholesalePrice] = useState("");
   const [description, setDescription] = useState("");
@@ -104,6 +105,7 @@ export default function AddProductScreen() {
       retailPrice: Number(retailPrice),
       wholesalePrice: Number(wholesalePrice),
       category,
+      subcategory: subcategory || undefined,
       colors: selectedColors,
       description,
       inStock: true,
@@ -245,7 +247,7 @@ export default function AddProductScreen() {
               {CATEGORIES.map((cat) => (
                 <Pressable
                   key={cat}
-                  onPress={() => setCategory(cat)}
+                  onPress={() => { setCategory(cat); setSubcategory(""); }}
                   style={[
                     styles.catChip,
                     {
@@ -269,6 +271,60 @@ export default function AddProductScreen() {
               ))}
             </ScrollView>
           </View>
+          {(settings.subcategories?.[category] ?? []).length > 0 && (
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                الفئة الفرعية
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.catsRow}
+              >
+                <Pressable
+                  onPress={() => setSubcategory("")}
+                  style={[
+                    styles.catChip,
+                    {
+                      backgroundColor: subcategory === "" ? colors.surface : colors.surface,
+                      borderColor: subcategory === "" ? colors.mutedForeground : colors.border,
+                      borderStyle: "dashed",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.catText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    بدون فئة فرعية
+                  </Text>
+                </Pressable>
+                {(settings.subcategories[category] ?? []).map((sub) => (
+                  <Pressable
+                    key={sub}
+                    onPress={() => setSubcategory(sub)}
+                    style={[
+                      styles.catChip,
+                      {
+                        backgroundColor: subcategory === sub ? colors.gold + "22" : colors.surface,
+                        borderColor: subcategory === sub ? colors.gold : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.catText,
+                        {
+                          color: subcategory === sub ? colors.gold : colors.foreground,
+                          fontFamily: subcategory === sub ? "Inter_600SemiBold" : "Inter_400Regular",
+                        },
+                      ]}
+                    >
+                      {sub}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           <View style={styles.fieldGroup}>
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
               وحدة البيع

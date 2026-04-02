@@ -33,6 +33,7 @@ export default function EditProductScreen() {
 
   const [name, setName] = useState(product?.name ?? "");
   const [category, setCategory] = useState(product?.category ?? CATEGORIES[0] ?? "");
+  const [subcategory, setSubcategory] = useState(product?.subcategory ?? "");
   const [retailPrice, setRetailPrice] = useState(String(product?.retailPrice ?? ""));
   const [wholesalePrice, setWholesalePrice] = useState(String(product?.wholesalePrice ?? ""));
   const [description, setDescription] = useState(product?.description ?? "");
@@ -93,6 +94,7 @@ export default function EditProductScreen() {
             ...p,
             name,
             category,
+            subcategory: subcategory || undefined,
             retailPrice: Number(retailPrice),
             wholesalePrice: Number(wholesalePrice),
             description,
@@ -184,7 +186,7 @@ export default function EditProductScreen() {
               {CATEGORIES.map((cat) => (
                 <Pressable
                   key={cat}
-                  onPress={() => setCategory(cat)}
+                  onPress={() => { setCategory(cat); setSubcategory(""); }}
                   style={[styles.catChip, { backgroundColor: category === cat ? colors.gold : colors.surface, borderColor: category === cat ? colors.gold : colors.border }]}
                 >
                   <Text style={[{ color: category === cat ? colors.background : colors.foreground, fontFamily: category === cat ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 13 }]}>
@@ -194,6 +196,42 @@ export default function EditProductScreen() {
               ))}
             </ScrollView>
           </View>
+
+          {(settings.subcategories?.[category] ?? []).length > 0 && (
+            <View style={styles.fieldGroup}>
+              <Text style={[{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }]}>
+                الفئة الفرعية
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: "row-reverse" }}>
+                <Pressable
+                  onPress={() => setSubcategory("")}
+                  style={[styles.catChip, {
+                    backgroundColor: colors.surface,
+                    borderColor: subcategory === "" ? colors.mutedForeground : colors.border,
+                    borderStyle: "dashed",
+                  }]}
+                >
+                  <Text style={[{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }]}>
+                    بدون فئة فرعية
+                  </Text>
+                </Pressable>
+                {(settings.subcategories[category] ?? []).map((sub) => (
+                  <Pressable
+                    key={sub}
+                    onPress={() => setSubcategory(sub)}
+                    style={[styles.catChip, {
+                      backgroundColor: subcategory === sub ? colors.gold + "22" : colors.surface,
+                      borderColor: subcategory === sub ? colors.gold : colors.border,
+                    }]}
+                  >
+                    <Text style={[{ color: subcategory === sub ? colors.gold : colors.foreground, fontFamily: subcategory === sub ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 13 }]}>
+                      {sub}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>

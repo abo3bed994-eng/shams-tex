@@ -1,14 +1,17 @@
-import React, { useState } from "react";
+import React, { useCallback } from "react";
 import {
   Alert,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { router } from "expo-router";
+import DraggableFlatList, {
+  RenderItemParams,
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -50,54 +53,31 @@ export default function AdminProductsScreen() {
     );
   };
 
-  const moveUp = async (index: number) => {
-    if (index === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newList = [...products];
-    [newList[index - 1], newList[index]] = [newList[index], newList[index - 1]];
-    await setProducts(newList);
-  };
-
-  const moveDown = async (index: number) => {
-    if (index === products.length - 1) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newList = [...products];
-    [newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
-    await setProducts(newList);
-  };
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <GoldHeader
-        title="إدارة المنتجات"
-        subtitle={`${products.length} منتج`}
-        onBack={() => router.back()}
-        rightElement={
-          <Pressable
-            onPress={() => router.push("/admin/add-product")}
-            style={({ pressed }) => [
-              styles.addBtn,
-              { backgroundColor: colors.gold, borderRadius: 8, opacity: pressed ? 0.8 : 1 },
-            ]}
-          >
-            <Icon name="plus" size={18} color={colors.background} />
-          </Pressable>
-        }
-      />
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
-      >
-        {products.map((product, index) => (
+  const renderItem = useCallback(
+    ({ item: product, drag, isActive }: RenderItemParams<Product>) => {
+      const isOutOfStock = !product.inStock;
+      return (
+        <ScaleDecorator>
           <View
-            key={product.id}
             style={[
               styles.productCard,
               {
-                backgroundColor: colors.card,
-                borderColor: product.inStock ? colors.border : colors.destructive + "44",
+                backgroundColor: isActive
+                  ? colors.surface
+                  : isOutOfStock
+                  ? "#C0392B0A"
+                  : colors.card,
+                borderColor: isOutOfStock
+                  ? "#C0392B66"
+                  : isActive
+                  ? colors.gold + "66"
+                  : colors.border,
                 borderRadius: colors.radius,
+                marginBottom: 12,
+                shadowColor: isActive ? colors.gold : "transparent",
+                shadowOpacity: isActive ? 0.3 : 0,
+                shadowRadius: isActive ? 10 : 0,
+                elevation: isActive ? 8 : 0,
               },
             ]}
           >
@@ -124,13 +104,31 @@ export default function AdminProductsScreen() {
               </View>
 
               <View style={styles.productInfo}>
-                <Text style={[styles.productName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                  {product.name}
-                </Text>
+                <View style={styles.nameRow}>
+                  {isOutOfStock && (
+                    <View style={styles.outOfStockBadge}>
+                      <Text style={[styles.outOfStockBadgeText, { fontFamily: "Inter_700Bold" }]}>
+                        غير متوفر
+                      </Text>
+                    </View>
+                  )}
+                  <Text
+                    style={[
+                      styles.productName,
+                      {
+                        color: isOutOfStock ? "#C0392B" : colors.foreground,
+                        fontFamily: "Inter_700Bold",
+                      },
+                    ]}
+                  >
+                    {product.name}
+                  </Text>
+                </View>
                 <View style={styles.productBadges}>
                   <View style={[styles.categoryBadge, { backgroundColor: colors.gold + "22" }]}>
                     <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
                       {product.category}
+                      {product.subcategory ? ` / ${product.subcategory}` : ""}
                     </Text>
                   </View>
                   <View style={[styles.unitBadge, {
@@ -148,23 +146,23 @@ export default function AdminProductsScreen() {
               </View>
 
               <View style={styles.rightSide}>
-                <View style={[styles.productIconBox, { backgroundColor: colors.surface }]}>
-                  <Icon name="layers" size={22} color={colors.goldDark} />
-                </View>
-                <View style={styles.reorderBtns}>
-                  <Pressable
-                    onPress={() => moveUp(index)}
-                    style={({ pressed }) => [styles.reorderBtn, { opacity: index === 0 ? 0.25 : pressed ? 0.6 : 1 }]}
-                  >
-                    <Icon name="chevron-up" size={16} color={colors.foreground} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => moveDown(index)}
-                    style={({ pressed }) => [styles.reorderBtn, { opacity: index === products.length - 1 ? 0.25 : pressed ? 0.6 : 1 }]}
-                  >
-                    <Icon name="chevron-down" size={16} color={colors.foreground} />
-                  </Pressable>
-                </View>
+                <Pressable
+                  onLongPress={drag}
+                  delayLongPress={150}
+                  style={[
+                    styles.dragHandle,
+                    {
+                      backgroundColor: isActive ? colors.gold + "22" : colors.surface,
+                      borderColor: isActive ? colors.gold + "55" : colors.border,
+                    },
+                  ]}
+                >
+                  <Icon
+                    name="grip-vertical"
+                    size={20}
+                    color={isActive ? colors.gold : colors.mutedForeground}
+                  />
+                </Pressable>
               </View>
             </View>
 
@@ -202,7 +200,7 @@ export default function AdminProductsScreen() {
               style={({ pressed }) => [
                 styles.stockBtn,
                 {
-                  backgroundColor: product.inStock ? "#27AE6022" : "#C0392B22",
+                  backgroundColor: product.inStock ? "#27AE6015" : "#C0392B22",
                   borderTopColor: colors.border,
                   opacity: pressed ? 0.8 : 1,
                 },
@@ -218,37 +216,75 @@ export default function AdminProductsScreen() {
                   styles.stockText,
                   {
                     color: product.inStock ? "#27AE60" : "#C0392B",
-                    fontFamily: "Inter_600SemiBold",
+                    fontFamily: "Inter_700Bold",
                   },
                 ]}
               >
-                {product.inStock ? "متوفر" : "نفذ المخزون"}
+                {product.inStock ? "متوفر — اضغط للتغيير" : "غير متوفر — اضغط للتغيير"}
               </Text>
             </Pressable>
           </View>
-        ))}
+        </ScaleDecorator>
+      );
+    },
+    [colors, products]
+  );
 
-        {products.length === 0 && (
-          <View style={styles.empty}>
-            <Icon name="layers" size={48} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              لا توجد منتجات
-            </Text>
-            <GoldButton
-              label="إضافة منتج"
-              onPress={() => router.push("/admin/add-product")}
-              variant="outline"
-            />
-          </View>
-        )}
-      </ScrollView>
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <GoldHeader
+        title="إدارة المنتجات"
+        subtitle={`${products.length} منتج — اسحب لإعادة الترتيب`}
+        onBack={() => router.back()}
+        rightElement={
+          <Pressable
+            onPress={() => router.push("/admin/add-product")}
+            style={({ pressed }) => [
+              styles.addBtn,
+              { backgroundColor: colors.gold, borderRadius: 8, opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <Icon name="plus" size={18} color={colors.background} />
+          </Pressable>
+        }
+      />
+
+      {products.length === 0 ? (
+        <View style={styles.empty}>
+          <Icon name="layers" size={48} color={colors.mutedForeground} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+            لا توجد منتجات
+          </Text>
+          <GoldButton
+            label="إضافة منتج"
+            onPress={() => router.push("/admin/add-product")}
+            variant="outline"
+          />
+        </View>
+      ) : (
+        <DraggableFlatList
+          data={products}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          onDragEnd={({ data }) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setProducts(data);
+          }}
+          onDragBegin={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: bottomPad + 40 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16 },
   addBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   productCard: { borderWidth: 1, overflow: "hidden" },
   productHeader: {
@@ -257,23 +293,25 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 10,
   },
-  rightSide: { gap: 6, alignItems: "center" },
-  productIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reorderBtns: { gap: 2 },
-  reorderBtn: {
-    width: 28,
-    height: 24,
+  rightSide: { alignItems: "center" },
+  dragHandle: {
+    width: 36,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   productInfo: { flex: 1, gap: 6, alignItems: "flex-end" },
-  productName: { fontSize: 14 },
+  nameRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  productName: { fontSize: 14, textAlign: "right" },
+  outOfStockBadge: {
+    backgroundColor: "#C0392B",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  outOfStockBadgeText: { color: "#FFFFFF", fontSize: 10 },
   productBadges: { flexDirection: "row-reverse", gap: 6, flexWrap: "wrap" },
   categoryBadge: {
     paddingHorizontal: 10,
@@ -317,6 +355,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   stockText: { fontSize: 12 },
-  empty: { alignItems: "center", paddingTop: 80, gap: 16 },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16 },
   emptyText: { fontSize: 16 },
 });

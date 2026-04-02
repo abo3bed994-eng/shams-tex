@@ -22,6 +22,7 @@ import {
   Eye,
   Film,
   Globe,
+  GripVertical,
   Headphones,
   House,
   Image,
@@ -30,6 +31,7 @@ import {
   LayoutGrid,
   LayoutTemplate,
   Lock,
+  Maximize2,
   MessageCircle,
   Minus,
   Moon,
@@ -50,6 +52,7 @@ import {
   User,
   Users,
   X,
+  XCircle,
 } from "lucide-react-native";
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -77,6 +80,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   eye: Eye,
   facebook: Globe,
   film: Film,
+  "grip-vertical": GripVertical,
   grid: LayoutGrid,
   headphones: Headphones,
   home: House,
@@ -86,6 +90,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   layers: Layers,
   layout: LayoutTemplate,
   lock: Lock,
+  "maximize-2": Maximize2,
   "message-circle": MessageCircle,
   minus: Minus,
   moon: Moon,
@@ -104,6 +109,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   user: User,
   users: Users,
   x: X,
+  "x-circle": XCircle,
 };
 
 interface IconProps {
