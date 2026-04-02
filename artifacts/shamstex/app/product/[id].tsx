@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -25,19 +26,26 @@ export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const { products, user, addToCart, showToast } = useApp();
 
+  const { width: windowWidth } = useWindowDimensions();
+  const imgScrollRef = useRef<ScrollView>(null);
   const product = products.find((p) => p.id === id);
   const [selectedColors, setSelectedColors] = useState<Record<string, number>>({});
   const [orderType, setOrderType] = useState<"weight" | "pieces">("pieces");
   const [imgIdx, setImgIdx] = useState(0);
+  const imgWidth = windowWidth - 32;
 
   useEffect(() => {
     const imgs = product?.images ?? [];
     if (imgs.length < 2) return;
     const timer = setInterval(() => {
-      setImgIdx((prev) => (prev + 1) % imgs.length);
+      setImgIdx((prev) => {
+        const next = (prev + 1) % imgs.length;
+        imgScrollRef.current?.scrollTo({ x: next * imgWidth, animated: true });
+        return next;
+      });
     }, 5000);
     return () => clearInterval(timer);
-  }, [product?.images?.length]);
+  }, [product?.images?.length, imgWidth]);
 
   const [weight, setWeight] = useState(1);
   const [weightInput, setWeightInput] = useState("1");
@@ -242,9 +250,30 @@ export default function ProductDetailScreen() {
       >
         {product.images && product.images.length > 0 ? (
           <View style={[styles.imageCarousel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Image source={{ uri: product.images[imgIdx] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <ScrollView
+              ref={imgScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onMomentumScrollEnd={(e) => {
+                const offset = e.nativeEvent.contentOffset.x;
+                const idx = Math.round(offset / imgWidth);
+                setImgIdx(idx);
+              }}
+              style={{ flex: 1, height: 220 }}
+            >
+              {product.images.map((uri, i) => (
+                <Image
+                  key={i}
+                  source={{ uri }}
+                  style={{ width: imgWidth, height: 220 }}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
             {product.images.length > 1 && (
-              <View style={styles.imageDots}>
+              <View style={styles.imageDots} pointerEvents="none">
                 {product.images.map((_, i) => (
                   <View
                     key={i}
@@ -274,7 +303,7 @@ export default function ProductDetailScreen() {
               {user?.role === "merchant" ? "سعر الجملة" : "السعر"}
             </Text>
             <Text style={[styles.price, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-              {displayPrice} ج.م / {product.unit === "kilo" ? "كغ" : "متر"}
+              {displayPrice} ج.م / {product.unit === "kilo" ? "كيلو" : "متر"}
             </Text>
           </View>
           {product.description && (
@@ -349,7 +378,7 @@ export default function ProductDetailScreen() {
                   },
                 ]}
               >
-                بالكيلو
+                {product.unit === "kilo" ? "بالكيلو" : "بالمتر"}
               </Text>
             </Pressable>
           </View>
@@ -359,7 +388,7 @@ export default function ProductDetailScreen() {
               <Text
                 style={[styles.weightLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
               >
-                الوزن بالكيلو
+                {product.unit === "kilo" ? "الوزن بالكيلو" : "الكمية بالمتر"}
               </Text>
               <View style={styles.weightControls}>
                 <Pressable
@@ -570,5 +599,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   piecesNoteText: { fontSize: 12, flex: 1, textAlign: "right" },
-  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
+  footer: { paddingHorizontal: 16, paddingTop: 6, borderTopWidth: 1 },
 });

@@ -172,7 +172,7 @@ export default function HomeScreen() {
             />
           )}
 
-          <View style={[styles.bannerOverlay, { backgroundColor: "rgba(0,0,0,0.45)" }]} pointerEvents="none" />
+          <View style={[styles.bannerOverlay, { backgroundColor: "rgba(0,0,0,0.35)" }]} pointerEvents="none" />
 
           <View style={styles.bannerNameRow} pointerEvents="none">
             <View style={styles.bannerNamePill}>
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 90,
+    height: 52,
   },
   bannerNameRow: {
     position: "absolute",
