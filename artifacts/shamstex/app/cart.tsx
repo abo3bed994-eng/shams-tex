@@ -25,7 +25,7 @@ export default function CartScreen() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
   const totalPieces = cart.reduce((a, b) => a + b.quantity, 0);
   const totalPrice = cart
@@ -210,7 +210,11 @@ export default function CartScreen() {
               {
                 backgroundColor: colors.background,
                 borderTopColor: colors.border,
-                paddingBottom: bottomPad + 16,
+                paddingBottom: bottomPad,
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
               },
             ]}
           >

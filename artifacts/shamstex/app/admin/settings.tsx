@@ -80,7 +80,7 @@ export default function AdminSettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings, setSettings } = useApp();
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
   const [draft, setDraft] = useState<AppSettings>({ ...settings });
   const [saving, setSaving] = useState(false);
@@ -410,7 +410,11 @@ export default function AdminSettingsScreen() {
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: bottomPad + 16,
+            paddingBottom: bottomPad,
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
           },
         ]}
       >

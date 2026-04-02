@@ -143,7 +143,7 @@ export default function AdminColorsScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: bottomPad + 16 }]}>
+      <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: bottomPad, position: "absolute", bottom: 0, left: 0, right: 0 }]}>
         <GoldButton label="حفظ الألوان" onPress={handleSave} loading={saving} style={{ flex: 1 }} size="lg" />
       </View>
     </View>

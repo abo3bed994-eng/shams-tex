@@ -394,7 +394,11 @@ export default function AddProductScreen() {
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: bottomPad + 16,
+            paddingBottom: bottomPad,
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
           },
         ]}
       >

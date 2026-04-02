@@ -224,7 +224,7 @@ export default function ProductDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 120 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
       >
         <View
@@ -416,7 +416,11 @@ export default function ProductDetailScreen() {
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: bottomPad + 16,
+            paddingBottom: bottomPad,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            position: "absolute",
           },
         ]}
       >
