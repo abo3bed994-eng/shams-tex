@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import SplashScreenComponent from "@/components/SplashScreenComponent";
+import Toast from "@/components/Toast";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,25 +43,28 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-      <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="cart" options={{ headerShown: false }} />
-      <Stack.Screen name="profile" options={{ headerShown: false }} />
-      <Stack.Screen name="notifications" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/products" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/add-product" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/prices" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/users" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/tabs" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/settings" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/colors" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/featured" options={{ headerShown: false }} />
-      <Stack.Screen name="admin/edit-product/[id]" options={{ headerShown: false }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+        <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="cart" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/products" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/add-product" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/prices" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/users" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/tabs" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/colors" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/featured" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/edit-product/[id]" options={{ headerShown: false }} />
+      </Stack>
+      <Toast />
+    </>
   );
 }
 

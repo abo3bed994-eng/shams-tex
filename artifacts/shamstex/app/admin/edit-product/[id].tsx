@@ -41,7 +41,7 @@ export default function EditProductScreen() {
   const [unit, setUnit] = useState<ProductUnit>(product?.unit ?? "meter");
   const [saving, setSaving] = useState(false);
 
-  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
 
   if (!product) {
     return (

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -22,7 +21,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, addToCart } = useApp();
+  const { products, user, addToCart, showToast } = useApp();
 
   const product = products.find((p) => p.id === id);
   const [selectedColors, setSelectedColors] = useState<Record<string, number>>({});
@@ -31,7 +30,7 @@ export default function ProductDetailScreen() {
   const [weightInput, setWeightInput] = useState("1");
   const [showColors, setShowColors] = useState(true);
 
-  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
 
   if (!product) {
     return (
@@ -116,22 +115,8 @@ export default function ProductDetailScreen() {
 
     items.forEach(addToCart);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    Alert.alert(
-      "✓ تمت الإضافة",
-      `تم إضافة ${product.name} إلى سلة التسوق`,
-      [
-        {
-          text: "عرض السلة",
-          onPress: () => router.push("/cart"),
-        },
-        {
-          text: "متابعة التسوق",
-          style: "cancel",
-          onPress: () => router.back(),
-        },
-      ]
-    );
+    router.back();
+    showToast(`تمت الإضافة إلى السلة ✓`);
   };
 
   const colorsSection = (

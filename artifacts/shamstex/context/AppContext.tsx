@@ -168,6 +168,8 @@ interface AppContextType {
   theme: AppTheme;
   setTheme: (theme: AppTheme) => Promise<void>;
   isLoading: boolean;
+  showToast: (message: string, type?: "success" | "error") => void;
+  toast: { message: string; type: "success" | "error"; visible: boolean };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -284,6 +286,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [theme, setThemeState] = useState<AppTheme>("dark");
   const [isLoading, setIsLoading] = useState(true);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
+  const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, type, visible: true });
+    toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, visible: false })), 2500);
+  }, []);
 
   useEffect(() => {
     loadPersistedData();
@@ -460,6 +470,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         theme,
         setTheme,
         isLoading,
+        showToast,
+        toast,
       }}
     >
       {children}

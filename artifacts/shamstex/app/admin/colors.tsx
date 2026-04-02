@@ -28,7 +28,7 @@ export default function AdminColorsScreen() {
   const [newHex, setNewHex] = useState("#");
   const [saving, setSaving] = useState(false);
 
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
 
   const handleAdd = () => {
     const trimmedName = newName.trim();

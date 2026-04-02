@@ -21,20 +21,6 @@ import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
-const PRESET_COLORS: ColorOption[] = [
-  { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
-  { name: "أسود", hex: "#0A0A0A", quantity: 50 },
-  { name: "ذهبي", hex: "#C9A84C", quantity: 30 },
-  { name: "أحمر", hex: "#C0392B", quantity: 25 },
-  { name: "أزرق", hex: "#2980B9", quantity: 30 },
-  { name: "أخضر", hex: "#27AE60", quantity: 25 },
-  { name: "بيج", hex: "#F5F0E0", quantity: 40 },
-  { name: "رمادي", hex: "#888880", quantity: 35 },
-  { name: "وردي", hex: "#FADBD8", quantity: 20 },
-  { name: "بنفسجي", hex: "#6C3483", quantity: 20 },
-  { name: "فضي", hex: "#C0C0C0", quantity: 30 },
-  { name: "بني", hex: "#7D6608", quantity: 20 },
-];
 
 export default function AddProductScreen() {
   const colors = useColors();
@@ -53,7 +39,7 @@ export default function AddProductScreen() {
   const [unit, setUnit] = useState<"meter" | "kilo">("meter");
   const [loading, setLoading] = useState(false);
 
-  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
+  const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -364,7 +350,7 @@ export default function AddProductScreen() {
             الألوان المتاحة ({selectedColors.length} مختار)
           </Text>
           <View style={styles.colorGrid}>
-            {PRESET_COLORS.map((color) => {
+            {settings.globalColors.map((color) => {
               const selected = selectedColors.some((c) => c.name === color.name);
               return (
                 <Pressable
