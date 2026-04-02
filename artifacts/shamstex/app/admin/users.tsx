@@ -180,6 +180,23 @@ export default function AdminUsersScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
+        <View style={[styles.statsRow, { borderColor: colors.border }]}>
+          {[
+            { label: "إجمالي العملاء", value: registeredCustomers.length, color: colors.foreground },
+            { label: "عملاء مميزون", value: registeredCustomers.filter(c => c.vip).length, color: colors.gold },
+            { label: "طلبات ترقية", value: pendingUpgrades.length, color: "#C0392B" },
+          ].map((stat) => (
+            <View key={stat.label} style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.statNum, { color: stat.color, fontFamily: "Inter_700Bold" }]}>
+                {stat.value}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                {stat.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+
         {pendingUpgrades.length > 0 && (filterRole === "all" || filterRole === "merchant") && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
@@ -267,6 +284,11 @@ export default function AdminUsersScreen() {
                     <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                       {u.phone}
                     </Text>
+                    {u.registeredAt && (
+                      <Text style={[styles.userPhone, { color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }]}>
+                        تسجيل: {new Date(u.registeredAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+                      </Text>
+                    )}
                   </View>
                   <View style={{ alignItems: "flex-end", gap: 4 }}>
                     <View
@@ -546,4 +568,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
+  statsRow: {
+    flexDirection: "row-reverse",
+    gap: 10,
+    marginBottom: 4,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  statNum: { fontSize: 22 },
+  statLabel: { fontSize: 10, textAlign: "center" },
 });

@@ -19,6 +19,9 @@ export interface User {
   vip?: boolean;
   permissions?: EmployeePermission[];
   upgradeStatus?: "pending" | "approved" | "rejected";
+  registeredAt?: string;
+  city?: string;
+  notes?: string;
 }
 
 export interface ColorOption {
