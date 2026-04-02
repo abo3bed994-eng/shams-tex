@@ -445,6 +445,21 @@ export default function ProductDetailScreen() {
           )}
         </View>
 
+        {!product.inStock && (
+          <View
+            style={[
+              styles.outOfStockBanner,
+              { backgroundColor: "#C0392B22", borderColor: "#C0392B66" },
+            ]}
+          >
+            <Icon name="x-circle" size={20} color="#C0392B" />
+            <Text style={[styles.outOfStockBannerText, { fontFamily: "Inter_700Bold" }]}>
+              هذا المنتج نفذ من المخزون
+            </Text>
+          </View>
+        )}
+
+        {product.inStock && (
         <View
           style={[
             styles.section,
@@ -531,6 +546,7 @@ export default function ProductDetailScreen() {
             </View>
           )}
         </View>
+        )}
       </ScrollView>
 
       <View
@@ -547,12 +563,21 @@ export default function ProductDetailScreen() {
           },
         ]}
       >
-        <GoldButton
-          label={addBtnLabel}
-          onPress={handleAddToCart}
-          style={{ flex: 1 }}
-          size="lg"
-        />
+        {product.inStock ? (
+          <GoldButton
+            label={addBtnLabel}
+            onPress={handleAddToCart}
+            style={{ flex: 1 }}
+            size="lg"
+          />
+        ) : (
+          <View style={[styles.outOfStockFooterBtn, { backgroundColor: "#C0392B22", borderColor: "#C0392B66" }]}>
+            <Icon name="x-circle" size={18} color="#C0392B" />
+            <Text style={[styles.outOfStockFooterText, { fontFamily: "Inter_700Bold" }]}>
+              غير متوفر — نفذ المخزون
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -615,14 +640,14 @@ const styles = StyleSheet.create({
   colorRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
   },
-  colorRowRight: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
-  colorRowLeft: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
-  colorSwatch: { width: 26, height: 26, borderRadius: 13 },
-  colorName: { fontSize: 14 },
+  colorRowRight: { flexDirection: "row-reverse", alignItems: "center", gap: 8, flex: 1 },
+  colorRowLeft: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
+  colorSwatch: { width: 24, height: 24, borderRadius: 12 },
+  colorName: { fontSize: 13, flex: 1, textAlign: "right" },
   qtyBtn: {
     width: 28,
     height: 28,
@@ -631,14 +656,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  qtyText: { fontSize: 16, minWidth: 24, textAlign: "center" },
+  qtyText: { fontSize: 15, minWidth: 22, textAlign: "center" },
   weightInput: {
-    fontSize: 13,
-    width: 52,
-    height: 30,
-    borderRadius: 6,
+    fontSize: 14,
+    width: 64,
+    height: 32,
+    borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: 2,
+    paddingHorizontal: 6,
     textAlign: "center",
   },
   weightTotalBox: {
@@ -661,4 +686,32 @@ const styles = StyleSheet.create({
   },
   piecesNoteText: { fontSize: 12, flex: 1, textAlign: "right" },
   footer: { paddingHorizontal: 16, paddingTop: 6, borderTopWidth: 1 },
+  outOfStockBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  outOfStockBannerText: {
+    color: "#C0392B",
+    fontSize: 15,
+    flex: 1,
+    textAlign: "right",
+  },
+  outOfStockFooterBtn: {
+    flex: 1,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  outOfStockFooterText: {
+    color: "#C0392B",
+    fontSize: 15,
+  },
 });
