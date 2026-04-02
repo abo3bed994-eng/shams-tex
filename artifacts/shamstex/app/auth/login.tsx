@@ -20,32 +20,28 @@ import Icon from "@/components/Icon";
 
 type Step = "phone" | "otp" | "name";
 
+const DEMO_ACCOUNTS: Record<string, { name: string; role: "admin" | "merchant" | "employee" }> = {
+  "0000000001": { name: "مدير النظام", role: "admin" },
+  "0000000002": { name: "تاجر", role: "merchant" },
+  "0000000003": { name: "موظف", role: "employee" },
+};
+
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUser } = useApp();
+  const { setUser, findCustomerByPhone, registerCustomer } = useApp();
+
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
   const [step, setStep] = useState<Step>("phone");
   const [loading, setLoading] = useState(false);
+  const [returningUser, setReturningUser] = useState<ReturnType<typeof findCustomerByPhone>>(undefined);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const demoRole =
-    phone === "0000000001"
-      ? "admin"
-      : phone === "0000000002"
-      ? "merchant"
-      : phone === "0000000003"
-      ? "employee"
-      : "customer";
-
-  const isKnownDemo =
-    phone === "0000000001" ||
-    phone === "0000000002" ||
-    phone === "0000000003";
+  const isDemo = !!DEMO_ACCOUNTS[phone];
 
   const handleSendOtp = async () => {
     if (phone.length < 10) return;
@@ -59,15 +55,21 @@ export default function LoginScreen() {
   const handleVerifyOtp = async () => {
     if (otp.length < 4) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (isKnownDemo) {
-      const autoNames: Record<string, string> = {
-        "0000000001": "مدير النظام",
-        "0000000002": "تاجر",
-        "0000000003": "موظف",
-      };
-      await finishLogin(autoNames[phone]);
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 800));
+    setLoading(false);
+
+    if (isDemo) {
+      const demo = DEMO_ACCOUNTS[phone];
+      await finishLogin(demo.name, demo.role, null);
+      return;
+    }
+
+    const existing = findCustomerByPhone(phone);
+    if (existing) {
+      setReturningUser(existing);
+      await finishLogin(existing.name, "customer", existing);
     } else {
-      setLoading(false);
       setStep("name");
     }
   };
@@ -75,18 +77,30 @@ export default function LoginScreen() {
   const handleNameSubmit = async () => {
     const trimmed = name.trim();
     if (trimmed.length < 2) return;
-    await finishLogin(trimmed);
+    const newUser = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      phone,
+      name: trimmed,
+      role: "customer" as const,
+      registeredAt: new Date().toISOString(),
+    };
+    await registerCustomer(newUser);
+    await finishLogin(trimmed, "customer", newUser);
   };
 
-  const finishLogin = async (displayName: string) => {
+  const finishLogin = async (
+    displayName: string,
+    role: "admin" | "merchant" | "employee" | "customer",
+    existingUser: any
+  ) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    await setUser({
+    const userToSet = existingUser ?? {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       phone,
       name: displayName,
-      role: demoRole,
-    });
+      role,
+    };
+    await setUser(userToSet);
     setLoading(false);
     router.replace("/(tabs)");
   };
@@ -113,12 +127,7 @@ export default function LoginScreen() {
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
             Shams Tex
           </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-            ]}
-          >
+          <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             أقمشة فاخرة لكل مناسبة
           </Text>
         </View>
@@ -126,45 +135,30 @@ export default function LoginScreen() {
         <View
           style={[
             styles.card,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderRadius: colors.radius,
-            },
+            { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
           ]}
         >
           {step === "phone" && (
             <>
-              <Text
-                style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
-              >
+              <View style={styles.stepIcon}>
+                <Icon name="smartphone" size={28} color={colors.gold} />
+              </View>
+              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
                 تسجيل الدخول
               </Text>
-              <Text
-                style={[
-                  styles.cardSubtitle,
-                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-                ]}
-              >
-                أدخل رقم هاتفك لاستلام رمز التحقق
+              <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                أدخل رقم هاتفك — سيصلك رمز التحقق
               </Text>
 
               <View
                 style={[
                   styles.inputWrapper,
-                  {
-                    backgroundColor: colors.input,
-                    borderColor: colors.border,
-                    borderRadius: colors.radius - 4,
-                  },
+                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
                 ]}
               >
                 <Icon name="phone" size={18} color={colors.mutedForeground} />
                 <TextInput
-                  style={[
-                    styles.input,
-                    { color: colors.foreground, fontFamily: "Inter_400Regular" },
-                  ]}
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
                   placeholder="رقم الهاتف"
                   placeholderTextColor={colors.mutedForeground}
                   value={phone}
@@ -184,13 +178,9 @@ export default function LoginScreen() {
                 style={{ width: "100%" }}
               />
 
-              <Text
-                style={[
-                  styles.demo,
-                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-                ]}
-              >
-                للتجربة: 0000000001 (مدير) | 0000000002 (تاجر)
+              <View style={[styles.divider, { borderColor: colors.border }]} />
+              <Text style={[styles.newCustomerNote, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                إذا كنت عميلاً جديداً سيتم إنشاء حسابك تلقائياً
               </Text>
             </>
           )}
@@ -198,44 +188,29 @@ export default function LoginScreen() {
           {step === "otp" && (
             <>
               <View style={styles.backRow}>
-                <Pressable onPress={() => setStep("phone")}>
+                <Pressable onPress={() => { setStep("phone"); setOtp(""); }}>
                   <Icon name="arrow-right" size={20} color={colors.foreground} />
                 </Pressable>
               </View>
-              <Text
-                style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
-              >
+              <View style={styles.stepIcon}>
+                <Icon name="lock" size={28} color={colors.gold} />
+              </View>
+              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
                 رمز التحقق
               </Text>
-              <Text
-                style={[
-                  styles.cardSubtitle,
-                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-                ]}
-              >
+              <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                 تم إرسال الرمز إلى {phone}
               </Text>
 
               <View
                 style={[
                   styles.inputWrapper,
-                  {
-                    backgroundColor: colors.input,
-                    borderColor: colors.border,
-                    borderRadius: colors.radius - 4,
-                  },
+                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
                 ]}
               >
                 <Icon name="lock" size={18} color={colors.mutedForeground} />
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.foreground,
-                      fontFamily: "Inter_700Bold",
-                      letterSpacing: 8,
-                    },
-                  ]}
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 8 }]}
                   placeholder="_ _ _ _"
                   placeholderTextColor={colors.mutedForeground}
                   value={otp}
@@ -244,6 +219,7 @@ export default function LoginScreen() {
                   textAlign="center"
                   maxLength={6}
                   returnKeyType="done"
+                  autoFocus
                   onSubmitEditing={handleVerifyOtp}
                 />
               </View>
@@ -261,40 +237,29 @@ export default function LoginScreen() {
           {step === "name" && (
             <>
               <View style={styles.backRow}>
-                <Pressable onPress={() => setStep("otp")}>
+                <Pressable onPress={() => { setStep("otp"); setName(""); }}>
                   <Icon name="arrow-right" size={20} color={colors.foreground} />
                 </Pressable>
               </View>
-              <Text
-                style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
-              >
-                ما اسمك؟
+              <View style={styles.stepIcon}>
+                <Icon name="user-plus" size={28} color={colors.gold} />
+              </View>
+              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                إنشاء حساب جديد
               </Text>
-              <Text
-                style={[
-                  styles.cardSubtitle,
-                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-                ]}
-              >
-                أدخل اسمك لإكمال التسجيل
+              <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                أدخل اسمك لإتمام التسجيل — سيُحفظ حسابك للمرات القادمة
               </Text>
 
               <View
                 style={[
                   styles.inputWrapper,
-                  {
-                    backgroundColor: colors.input,
-                    borderColor: colors.border,
-                    borderRadius: colors.radius - 4,
-                  },
+                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
                 ]}
               >
                 <Icon name="user" size={18} color={colors.mutedForeground} />
                 <TextInput
-                  style={[
-                    styles.input,
-                    { color: colors.foreground, fontFamily: "Inter_400Regular" },
-                  ]}
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
                   placeholder="الاسم الكامل"
                   placeholderTextColor={colors.mutedForeground}
                   value={name}
@@ -307,12 +272,19 @@ export default function LoginScreen() {
               </View>
 
               <GoldButton
-                label="إكمال التسجيل"
+                label="إنشاء الحساب"
                 onPress={handleNameSubmit}
                 loading={loading}
                 disabled={name.trim().length < 2}
                 style={{ width: "100%" }}
               />
+
+              <View style={[styles.privacyBox, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33" }]}>
+                <Icon name="shield-check" size={14} color={colors.gold} />
+                <Text style={[styles.privacyText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                  بياناتك محفوظة وآمنة ولن تُشارك مع أي طرف
+                </Text>
+              </View>
             </>
           )}
         </View>
@@ -323,14 +295,15 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 24, gap: 32 },
+  content: { paddingHorizontal: 24, gap: 28 },
   header: { alignItems: "center", gap: 10 },
-  logoImg: { width: 130, height: 130 },
+  logoImg: { width: 120, height: 120 },
   brand: { fontSize: 28, letterSpacing: 3 },
   subtitle: { fontSize: 14, letterSpacing: 1 },
   card: { padding: 24, borderWidth: 1, gap: 16 },
-  cardTitle: { fontSize: 20, textAlign: "right" },
-  cardSubtitle: { fontSize: 13, textAlign: "right" },
+  stepIcon: { alignItems: "center", marginBottom: 4 },
+  cardTitle: { fontSize: 20, textAlign: "center" },
+  cardSubtitle: { fontSize: 13, textAlign: "center", lineHeight: 20 },
   inputWrapper: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -340,6 +313,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   input: { flex: 1, fontSize: 16, height: "100%" },
-  backRow: { flexDirection: "row-reverse", marginBottom: -8 },
-  demo: { fontSize: 11, textAlign: "center", marginTop: 4, lineHeight: 18 },
+  backRow: { flexDirection: "row-reverse", marginBottom: -4 },
+  divider: { borderTopWidth: 1, marginVertical: 4 },
+  newCustomerNote: { fontSize: 12, textAlign: "center", lineHeight: 18 },
+  privacyBox: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  privacyText: { fontSize: 11, flex: 1, textAlign: "right", lineHeight: 17 },
 });

@@ -49,13 +49,10 @@ const ALL_PERMISSIONS: EmployeePermission[] = [
   "send_notifications",
 ];
 
-const MOCK_USERS: User[] = [
-  { id: "u1", phone: "0100 000 0001", name: "مدير النظام", role: "admin" },
-  { id: "u2", phone: "0100 000 0002", name: "أحمد محمد", role: "merchant" },
-  { id: "u3", phone: "0100 000 0003", name: "محمد علي", role: "employee", permissions: ["view_orders", "view_products"] },
-  { id: "u4", phone: "0100 000 0004", name: "سارة أحمد", role: "customer" },
-  { id: "u5", phone: "0100 000 0005", name: "خالد عبدالله", role: "customer", upgradeStatus: "pending" },
-  { id: "u6", phone: "0100 000 0006", name: "فاطمة حسن", role: "customer", vip: true },
+const STAFF_USERS: User[] = [
+  { id: "u1", phone: "0000000001", name: "مدير النظام", role: "admin" },
+  { id: "u2", phone: "0000000002", name: "تاجر", role: "merchant" },
+  { id: "u3", phone: "0000000003", name: "موظف", role: "employee", permissions: ["view_orders", "view_products"] },
 ];
 
 type FilterRole = "all" | UserRole;
@@ -63,12 +60,19 @@ type FilterRole = "all" | UserRole;
 export default function AdminUsersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useApp();
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const { user, registeredCustomers, updateRegisteredCustomer } = useApp();
+  const [users, setUsers] = useState<User[]>(() => [
+    ...STAFF_USERS,
+    ...registeredCustomers,
+  ]);
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
+
+  React.useEffect(() => {
+    setUsers([...STAFF_USERS, ...registeredCustomers]);
+  }, [registeredCustomers]);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 

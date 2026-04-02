@@ -156,6 +156,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 interface AppContextType {
   user: User | null;
   setUser: (user: User | null) => Promise<void>;
+  registeredCustomers: User[];
+  findCustomerByPhone: (phone: string) => User | undefined;
+  registerCustomer: (user: User) => Promise<void>;
+  updateRegisteredCustomer: (user: User) => Promise<void>;
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
   cart: CartItem[];
@@ -288,6 +292,7 @@ const DEFAULT_TABS: Tab[] = [
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
+  const [registeredCustomers, setRegisteredCustomersState] = useState<User[]>([]);
   const [products, setProductsState] = useState<Product[]>(SAMPLE_PRODUCTS);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrdersState] = useState<Order[]>([]);
@@ -311,9 +316,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPersistedData = async () => {
     try {
-      const [userData, productsData, ordersData, tabsData, notificationsData, settingsData, themeData] =
+      const [userData, customersData, productsData, ordersData, tabsData, notificationsData, settingsData, themeData] =
         await Promise.all([
           AsyncStorage.getItem("user"),
+          AsyncStorage.getItem("registered_customers"),
           AsyncStorage.getItem("products"),
           AsyncStorage.getItem("orders"),
           AsyncStorage.getItem("tabs"),
@@ -323,6 +329,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
 
       if (userData) setUserState(JSON.parse(userData));
+      if (customersData) setRegisteredCustomersState(JSON.parse(customersData));
       if (productsData) setProductsState(JSON.parse(productsData));
       if (ordersData) setOrdersState(JSON.parse(ordersData));
       if (tabsData) setTabsState(JSON.parse(tabsData));
@@ -343,6 +350,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (u) await AsyncStorage.setItem("user", JSON.stringify(u));
     else await AsyncStorage.removeItem("user");
   }, []);
+
+  const findCustomerByPhone = useCallback(
+    (phone: string): User | undefined => registeredCustomers.find((c) => c.phone === phone),
+    [registeredCustomers]
+  );
+
+  const registerCustomer = useCallback(async (newUser: User) => {
+    const updated = [...registeredCustomers.filter((c) => c.phone !== newUser.phone), newUser];
+    setRegisteredCustomersState(updated);
+    await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
+  }, [registeredCustomers]);
+
+  const updateRegisteredCustomer = useCallback(async (updatedUser: User) => {
+    const updated = registeredCustomers.map((c) => c.phone === updatedUser.phone ? updatedUser : c);
+    setRegisteredCustomersState(updated);
+    await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
+  }, [registeredCustomers]);
 
   const setProducts = useCallback(async (prods: Product[]) => {
     setProductsState(prods);
@@ -458,6 +482,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         setUser,
+        registeredCustomers,
+        findCustomerByPhone,
+        registerCustomer,
+        updateRegisteredCustomer,
         products,
         setProducts,
         cart,
