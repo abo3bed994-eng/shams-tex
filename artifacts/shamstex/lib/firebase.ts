@@ -76,4 +76,13 @@ export const FS = {
       callback(snap.docs.map((d) => d.data()));
     });
   },
+
+  async saveSession(phone: string, token: string) {
+    await setDoc(doc(db, "sessions", phone), { token, updatedAt: new Date().toISOString() });
+  },
+
+  async getSession(phone: string): Promise<string | null> {
+    const snap = await getDoc(doc(db, "sessions", phone));
+    return snap.exists() ? snap.data().token : null;
+  },
 };

@@ -20,10 +20,11 @@ import Icon from "@/components/Icon";
 
 type Step = "phone" | "otp" | "name";
 
-const DEMO_ACCOUNTS: Record<string, { name: string; role: "admin" | "merchant" | "employee" }> = {
+const DEMO_ACCOUNTS: Record<string, { name: string; role: "admin" | "supervisor" | "merchant" | "employee" }> = {
   "0000000001": { name: "مدير النظام", role: "admin" },
   "0000000002": { name: "تاجر", role: "merchant" },
   "0000000003": { name: "موظف", role: "employee" },
+  "0000000004": { name: "مشرف", role: "supervisor" },
 };
 
 export default function LoginScreen() {
@@ -90,16 +91,26 @@ export default function LoginScreen() {
 
   const finishLogin = async (
     displayName: string,
-    role: "admin" | "merchant" | "employee" | "customer",
+    role: "admin" | "supervisor" | "merchant" | "employee" | "customer",
     existingUser: any
   ) => {
     setLoading(true);
-    const userToSet = existingUser ?? {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      phone,
-      name: displayName,
-      role,
+    // Generate unique session token — invalidates any other device's session
+    const sessionToken = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const userToSet = {
+      ...(existingUser ?? {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        phone,
+        name: displayName,
+        role,
+      }),
+      sessionToken,
     };
+    // Save session token to Firebase so other devices are kicked out
+    try {
+      const { FS } = await import("@/lib/firebase");
+      await FS.saveSession(userToSet.phone, sessionToken);
+    } catch {}
     await setUser(userToSet);
     setLoading(false);
     router.replace("/(tabs)");

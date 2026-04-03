@@ -76,6 +76,8 @@ export default function HomeScreen() {
       ? { icon: "award" as const, text: "تاجر موثّق", gold: true }
       : user?.role === "admin"
       ? { icon: "shield" as const, text: "مدير", gold: true }
+      : user?.role === "supervisor"
+      ? { icon: "shield-check" as const, text: "مشرف", gold: true }
       : user?.role === "employee"
       ? { icon: "briefcase" as const, text: "موظف", gold: false }
       : { icon: "user" as const, text: "عميل", gold: false };

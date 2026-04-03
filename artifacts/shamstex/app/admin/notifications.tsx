@@ -18,12 +18,14 @@ import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
 
-type NotifType = "all" | "customers" | "private";
+type NotifType = "all" | "customers" | "employees" | "supervisors" | "private";
 
 const TYPE_OPTIONS: { key: NotifType; label: string; icon: string; desc: string }[] = [
   { key: "all", label: "للجميع", icon: "globe", desc: "يصل لجميع المستخدمين" },
-  { key: "customers", label: "للعملاء", icon: "users", desc: "للعملاء فقط (إعلانات وعروض)" },
-  { key: "private", label: "خاص", icon: "user", desc: "رسالة لشخص محدد فقط" },
+  { key: "customers", label: "للعملاء", icon: "users", desc: "للعملاء والتجار فقط" },
+  { key: "employees", label: "للموظفين", icon: "briefcase", desc: "للموظفين فقط" },
+  { key: "supervisors", label: "للمشرفين", icon: "shield", desc: "للمشرفين فقط" },
+  { key: "private", label: "خاص", icon: "user", desc: "رسالة لشخص محدد" },
 ];
 
 export default function AdminNotificationsScreen() {
@@ -64,6 +66,8 @@ export default function AdminNotificationsScreen() {
     };
 
     if (notifType === "customers") notif.targetRole = "customer";
+    if (notifType === "employees") notif.targetRole = "employee";
+    if (notifType === "supervisors") notif.targetRole = "supervisor";
     if (notifType === "private") notif.targetUserId = selectedUserId;
 
     await addNotification(notif);
@@ -75,11 +79,11 @@ export default function AdminNotificationsScreen() {
     setSelectedUserId(null);
 
     const successMsg =
-      notifType === "all"
-        ? "تم إرسال الإشعار لجميع المستخدمين"
-        : notifType === "customers"
-        ? "تم إرسال الإشعار لجميع العملاء"
-        : `تم إرسال الإشعار لـ ${selectedUser?.name}`;
+      notifType === "all" ? "تم إرسال الإشعار لجميع المستخدمين" :
+      notifType === "customers" ? "تم إرسال الإشعار لجميع العملاء والتجار" :
+      notifType === "employees" ? "تم إرسال الإشعار لجميع الموظفين" :
+      notifType === "supervisors" ? "تم إرسال الإشعار لجميع المشرفين" :
+      `تم إرسال الإشعار لـ ${selectedUser?.name}`;
 
     Alert.alert("تم الإرسال", successMsg);
   };

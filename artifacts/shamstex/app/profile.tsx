@@ -21,6 +21,7 @@ const ROLE_LABELS: Record<string, string> = {
   customer: "زبون",
   merchant: "تاجر",
   employee: "موظف",
+  supervisor: "مشرف",
   admin: "مدير",
 };
 
@@ -68,15 +69,22 @@ export default function ProfileScreen() {
     return null;
   }
 
-  const adminLinks = [
-    { label: "إدارة المنتجات", icon: "layers", route: "/admin/products" },
-    { label: "إدارة الأسعار", icon: "dollar-sign", route: "/admin/prices" },
-    { label: "إدارة المستخدمين", icon: "users", route: "/admin/users" },
-    { label: "إرسال إشعار", icon: "bell", route: "/admin/notifications" },
-    { label: "المنتجات المميزة", icon: "star", route: "/admin/featured" },
-    { label: "لوحة الألوان", icon: "droplet", route: "/admin/colors" },
-    { label: "إعدادات التطبيق", icon: "settings", route: "/admin/settings" },
+  const allAdminLinks = [
+    { label: "إدارة المنتجات", icon: "layers", route: "/admin/products", permission: "view_products" },
+    { label: "إدارة الأسعار", icon: "dollar-sign", route: "/admin/prices", permission: "edit_products" },
+    { label: "إدارة المستخدمين", icon: "users", route: "/admin/users", permission: "view_users" },
+    { label: "إرسال إشعار", icon: "bell", route: "/admin/notifications", permission: "send_notifications" },
+    { label: "المنتجات المميزة", icon: "star", route: "/admin/featured", permission: "edit_products" },
+    { label: "لوحة الألوان", icon: "droplet", route: "/admin/colors", permission: null },
+    { label: "إعدادات التطبيق", icon: "settings", route: "/admin/settings", permission: null },
   ];
+
+  const adminLinks = user.role === "admin"
+    ? allAdminLinks
+    : allAdminLinks.filter((link) => {
+        if (!link.permission) return user.role === "supervisor"; // supervisor-only links
+        return (user.permissions ?? []).includes(link.permission as any);
+      });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -168,7 +176,7 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {(user.role === "admin" || user.role === "employee") && (
+        {(user.role === "admin" || user.role === "employee" || user.role === "supervisor") && adminLinks.length > 0 && (
           <View style={[styles.adminSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Text style={[styles.adminTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               لوحة الإدارة

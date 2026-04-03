@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FS } from "@/lib/firebase";
 
-export type UserRole = "customer" | "merchant" | "employee" | "admin";
+export type UserRole = "customer" | "merchant" | "employee" | "supervisor" | "admin";
 export type ProductUnit = "meter" | "kilo";
 export type EmployeePermission =
   | "view_orders"
@@ -10,7 +10,10 @@ export type EmployeePermission =
   | "view_products"
   | "edit_products"
   | "view_users"
-  | "send_notifications";
+  | "send_notifications"
+  | "manage_staff"
+  | "approve_upgrades"
+  | "delete_orders";
 
 export interface User {
   id: string;
@@ -23,6 +26,7 @@ export interface User {
   registeredAt?: string;
   city?: string;
   notes?: string;
+  sessionToken?: string;
 }
 
 export interface ColorOption {
@@ -336,7 +340,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem("theme"),
         ]);
 
-      if (userData) setUserState(JSON.parse(userData));
+      if (userData) {
+        const parsedUser: User = JSON.parse(userData);
+        // Validate session token against Firestore (prevents two sessions with same phone)
+        try {
+          if (parsedUser.phone && parsedUser.sessionToken) {
+            const remoteToken = await FS.getSession(parsedUser.phone);
+            if (remoteToken && remoteToken !== parsedUser.sessionToken) {
+              // Another device logged in with the same phone — force logout
+              await AsyncStorage.removeItem("user");
+              setUserState(null);
+            } else {
+              setUserState(parsedUser);
+            }
+          } else {
+            setUserState(parsedUser);
+          }
+        } catch {
+          // If Firestore unavailable, trust local session
+          setUserState(parsedUser);
+        }
+      }
       if (customersData) setRegisteredCustomersState(JSON.parse(customersData));
       if (productsData) setProductsState(JSON.parse(productsData));
       if (ordersData) setOrdersState(JSON.parse(ordersData));
@@ -463,8 +487,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       FS.saveOrder(order).catch(() => {});
+      // Notify staff about new order
+      const staffNotif: Notification = {
+        id: `notif_order_new_${order.id}`,
+        title: "طلب جديد",
+        body: `وصل طلب جديد من ${order.userName} (${order.userPhone})`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        targetRole: "employee",
+      };
+      const staffNotifSupervisor: Notification = { ...staffNotif, id: `${staffNotif.id}_sv`, targetRole: "supervisor" };
+      const notifUpdated = [staffNotifSupervisor, staffNotif, ...notifications];
+      setNotifications(notifUpdated);
+      await AsyncStorage.setItem("notifications", JSON.stringify(notifUpdated));
     },
-    [orders]
+    [orders, notifications]
   );
 
   const updateOrderStatus = useCallback(
@@ -473,9 +510,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       const updatedOrder = updated.find((o) => o.id === orderId);
-      if (updatedOrder) FS.saveOrder(updatedOrder).catch(() => {});
+      if (updatedOrder) {
+        FS.saveOrder(updatedOrder).catch(() => {});
+        // Notify customer about status change
+        const statusLabels: Record<string, string> = {
+          received: "تم استلام طلبك",
+          preparing: "طلبك قيد التجهيز",
+          ready: "طلبك جاهز للاستلام",
+        };
+        if (statusLabels[status]) {
+          const custNotif: Notification = {
+            id: `notif_status_${orderId}_${status}`,
+            title: statusLabels[status],
+            body: `تم تحديث حالة طلبك #${orderId.slice(0, 8)} إلى: ${statusLabels[status]}`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            targetUserId: updatedOrder.userId,
+          };
+          const notifUpdated = [custNotif, ...notifications];
+          setNotifications(notifUpdated);
+          await AsyncStorage.setItem("notifications", JSON.stringify(notifUpdated));
+        }
+      }
     },
-    [orders]
+    [orders, notifications]
   );
 
   const deleteOrder = useCallback(

@@ -21,6 +21,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   customer: "زبون",
   merchant: "تاجر",
   employee: "موظف",
+  supervisor: "مشرف",
   admin: "مدير",
 };
 
@@ -28,6 +29,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   customer: "#888",
   merchant: "#C9A84C",
   employee: "#2980B9",
+  supervisor: "#8E44AD",
   admin: "#C0392B",
 };
 
@@ -38,9 +40,12 @@ const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   edit_products: "تعديل المنتجات",
   view_users: "عرض المستخدمين",
   send_notifications: "إرسال الإشعارات",
+  manage_staff: "إدارة الموظفين",
+  approve_upgrades: "الموافقة على الترقيات",
+  delete_orders: "حذف الطلبات",
 };
 
-const ALL_PERMISSIONS: EmployeePermission[] = [
+const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
   "view_orders",
   "edit_orders",
   "view_products",
@@ -49,436 +54,390 @@ const ALL_PERMISSIONS: EmployeePermission[] = [
   "send_notifications",
 ];
 
-const STAFF_USERS: User[] = [
-  { id: "u1", phone: "0000000001", name: "مدير النظام", role: "admin" },
-  { id: "u2", phone: "0000000002", name: "تاجر", role: "merchant" },
-  { id: "u3", phone: "0000000003", name: "موظف", role: "employee", permissions: ["view_orders", "view_products"] },
+const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
+  "view_orders",
+  "edit_orders",
+  "view_products",
+  "edit_products",
+  "view_users",
+  "send_notifications",
+  "manage_staff",
+  "approve_upgrades",
+  "delete_orders",
 ];
 
-type FilterRole = "all" | UserRole;
+// Static demo staff (not in registeredCustomers)
+const DEMO_STAFF: User[] = [
+  { id: "u1", phone: "0000000001", name: "مدير النظام", role: "admin" },
+  {
+    id: "u3",
+    phone: "0000000003",
+    name: "موظف",
+    role: "employee",
+    permissions: ["view_orders", "view_products"],
+  },
+  {
+    id: "u4",
+    phone: "0000000004",
+    name: "مشرف",
+    role: "supervisor",
+    permissions: ["view_orders", "edit_orders", "view_products", "view_users", "send_notifications", "approve_upgrades"],
+  },
+];
+
+type TabKey = "customers" | "staff";
 
 export default function AdminUsersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, registeredCustomers, updateRegisteredCustomer } = useApp();
-  const [users, setUsers] = useState<User[]>(() => [
-    ...STAFF_USERS,
-    ...registeredCustomers,
-  ]);
-  const [filterRole, setFilterRole] = useState<FilterRole>("all");
+  const [activeTab, setActiveTab] = useState<TabKey>("customers");
+  const [staffList, setStaffList] = useState<User[]>(DEMO_STAFF);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
 
-  React.useEffect(() => {
-    setUsers([...STAFF_USERS, ...registeredCustomers]);
-  }, [registeredCustomers]);
-
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const saveUserChange = (updatedUser: User) => {
-    const isRegistered = registeredCustomers.some((c) => c.id === updatedUser.id);
-    if (isRegistered) updateRegisteredCustomer(updatedUser);
+  // Customers & merchants from registeredCustomers
+  const customerList = registeredCustomers.filter(
+    (c) => c.role === "customer" || c.role === "merchant"
+  );
+  const pendingUpgrades = customerList.filter((u) => u.upgradeStatus === "pending");
+  const activeCustomers = customerList.filter((u) => u.upgradeStatus !== "pending");
+
+  const saveCustomerChange = (updatedUser: User) => {
+    updateRegisteredCustomer(updatedUser);
   };
 
-  const handleChangeRole = (userId: string, newRole: UserRole) => {
+  const handleChangeCustomerRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setUsers((prev) => {
-      const updated = prev.map((u) =>
-        u.id === userId ? { ...u, role: newRole, upgradeStatus: undefined } : u
-      );
-      const changedUser = updated.find((u) => u.id === userId);
-      if (changedUser) saveUserChange(changedUser);
-      return updated;
-    });
+    const updated = customerList.find((u) => u.id === userId);
+    if (updated) saveCustomerChange({ ...updated, role: newRole, upgradeStatus: undefined });
   };
 
   const handleToggleVip = (userId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setUsers((prev) => {
-      const updated = prev.map((u) => (u.id === userId ? { ...u, vip: !u.vip } : u));
-      const changedUser = updated.find((u) => u.id === userId);
-      if (changedUser) saveUserChange(changedUser);
-      return updated;
-    });
+    const target = customerList.find((u) => u.id === userId);
+    if (target) saveCustomerChange({ ...target, vip: !target.vip });
   };
 
-  const handleTogglePermission = (userId: string, permission: EmployeePermission) => {
+  const handleApproveUpgrade = (userId: string) => {
+    Alert.alert("تأكيد", "هل تريد ترقية هذا المستخدم إلى تاجر؟", [
+      { text: "إلغاء", style: "cancel" },
+      { text: "موافقة", onPress: () => handleChangeCustomerRole(userId, "merchant") },
+    ]);
+  };
+
+  const handleRejectUpgrade = (userId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    const target = customerList.find((u) => u.id === userId);
+    if (target) saveCustomerChange({ ...target, upgradeStatus: "rejected" });
+  };
+
+  const handleToggleStaffPermission = (userId: string, permission: EmployeePermission) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setUsers((prev) => {
-      const updated = prev.map((u) => {
+    setStaffList((prev) =>
+      prev.map((u) => {
         if (u.id !== userId) return u;
         const current = u.permissions ?? [];
         const perms = current.includes(permission)
           ? current.filter((p) => p !== permission)
           : [...current, permission];
         return { ...u, permissions: perms };
-      });
-      const changedUser = updated.find((u) => u.id === userId);
-      if (changedUser) saveUserChange(changedUser);
-      return updated;
-    });
+      })
+    );
   };
 
-  const handleSaveName = (userId: string) => {
+  const handleSaveStaffName = (userId: string) => {
     const trimmed = editingNameValue.trim();
     if (trimmed.length < 2) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setUsers((prev) => {
-      const updated = prev.map((u) => (u.id === userId ? { ...u, name: trimmed } : u));
-      const changedUser = updated.find((u) => u.id === userId);
-      if (changedUser) saveUserChange(changedUser);
-      return updated;
-    });
+    setStaffList((prev) => prev.map((u) => (u.id === userId ? { ...u, name: trimmed } : u)));
     setEditingNameId(null);
     setEditingNameValue("");
   };
 
-  const handleApproveUpgrade = (userId: string) => {
-    Alert.alert("تأكيد", "هل تريد ترقية هذا المستخدم إلى تاجر؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "موافقة", onPress: () => handleChangeRole(userId, "merchant") },
-    ]);
+  const handleSaveCustomerName = (userId: string) => {
+    const trimmed = editingNameValue.trim();
+    if (trimmed.length < 2) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const target = customerList.find((u) => u.id === userId);
+    if (target) saveCustomerChange({ ...target, name: trimmed });
+    setEditingNameId(null);
+    setEditingNameValue("");
   };
 
-  const handleRejectUpgrade = (userId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setUsers((prev) => {
-      const updated = prev.map((u) =>
-        u.id === userId ? { ...u, upgradeStatus: "rejected" as const } : u
-      );
-      const changedUser = updated.find((u) => u.id === userId);
-      if (changedUser) saveUserChange(changedUser);
-      return updated;
-    });
-  };
-
-  const FILTER_OPTIONS: { key: FilterRole; label: string }[] = [
-    { key: "all", label: "الكل" },
-    { key: "admin", label: "مدير" },
-    { key: "employee", label: "موظف" },
-    { key: "merchant", label: "تاجر" },
-    { key: "customer", label: "زبون" },
+  const tabs: { key: TabKey; label: string; count: number }[] = [
+    { key: "customers", label: "الزبائن والتجار", count: customerList.length },
+    { key: "staff", label: "فريق العمل", count: staffList.length },
   ];
 
-  const pendingUpgrades = users.filter((u) => u.upgradeStatus === "pending");
-  const filteredUsers = users.filter((u) => {
-    if (u.upgradeStatus === "pending") return false;
-    if (filterRole === "all") return true;
-    return u.role === filterRole;
-  });
+  const renderNameEdit = (u: User, onSave: (id: string) => void) => (
+    <View style={styles.nameEditRow}>
+      {editingNameId === u.id ? (
+        <>
+          <Pressable
+            onPress={() => onSave(u.id)}
+            style={[styles.nameActionBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}
+          >
+            <Icon name="check" size={14} color={colors.background} />
+          </Pressable>
+          <Pressable
+            onPress={() => { setEditingNameId(null); setEditingNameValue(""); }}
+            style={[styles.nameActionBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 8 }]}
+          >
+            <Icon name="x" size={14} color={colors.foreground} />
+          </Pressable>
+          <TextInput
+            style={[styles.nameInput, { color: colors.foreground, backgroundColor: colors.input, borderColor: colors.gold, fontFamily: "Inter_500Medium" }]}
+            value={editingNameValue}
+            onChangeText={setEditingNameValue}
+            textAlign="right"
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => onSave(u.id)}
+          />
+        </>
+      ) : (
+        <Pressable
+          onPress={() => { setEditingNameId(u.id); setEditingNameValue(u.name); }}
+          style={[styles.editNameBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
+          <Icon name="edit-3" size={13} color={colors.gold} />
+          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12 }}>تعديل الاسم</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+
+  const renderPermissions = (u: User, allowedPerms: EmployeePermission[], onToggle: (id: string, p: EmployeePermission) => void) => (
+    <View style={{ gap: 8 }}>
+      <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+        الصلاحيات
+      </Text>
+      <View style={styles.permissionsGrid}>
+        {allowedPerms.map((perm) => {
+          const active = (u.permissions ?? []).includes(perm);
+          return (
+            <Pressable
+              key={perm}
+              onPress={() => onToggle(u.id, perm)}
+              style={[
+                styles.permChip,
+                { backgroundColor: active ? colors.gold + "22" : colors.surface, borderColor: active ? colors.gold : colors.border },
+              ]}
+            >
+              <Icon name={active ? "check-square" : "square"} size={13} color={active ? colors.gold : colors.mutedForeground} />
+              <Text style={{ color: active ? colors.gold : colors.foreground, fontFamily: active ? "Inter_500Medium" : "Inter_400Regular", fontSize: 11 }}>
+                {PERMISSION_LABELS[perm]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  const renderUserCard = (u: User, section: "customer" | "staff") => {
+    const isExpanded = expandedUser === u.id;
+    const isStaff = section === "staff";
+    const showPermissions = (u.role === "employee" || u.role === "supervisor") && isStaff;
+    const allowedPerms = u.role === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_PERMISSIONS;
+
+    return (
+      <View key={u.id} style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <Pressable onPress={() => setExpandedUser(isExpanded ? null : u.id)} style={styles.userRow}>
+          <View style={styles.userExpandIcon}>
+            <Icon name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+          </View>
+          <View style={styles.userDetails}>
+            <View style={styles.userNameRow}>
+              <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                {u.name}
+              </Text>
+              {u.vip && (
+                <View style={[styles.vipBadge, { backgroundColor: colors.gold + "33" }]}>
+                  <Icon name="star" size={10} color={colors.gold} />
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10 }}>مميز</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              {u.phone}
+            </Text>
+            {u.registeredAt && (
+              <Text style={[styles.userPhone, { color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }]}>
+                تسجيل: {new Date(u.registeredAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+              </Text>
+            )}
+          </View>
+          <View style={{ alignItems: "flex-end", gap: 4 }}>
+            <View style={[styles.roleChip, { backgroundColor: ROLE_COLORS[u.role] + "22", borderColor: ROLE_COLORS[u.role] + "55" }]}>
+              <Text style={{ color: ROLE_COLORS[u.role], fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                {ROLE_LABELS[u.role]}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+
+        {isExpanded && user?.role === "admin" && u.id !== user.id && (
+          <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
+            {isStaff ? (
+              // Staff edit: name + permissions only
+              <>
+                {renderNameEdit(u, handleSaveStaffName)}
+                {showPermissions && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
+              </>
+            ) : (
+              // Customer edit: name + role change + VIP toggle
+              <>
+                {renderNameEdit(u, handleSaveCustomerName)}
+                <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                  تغيير الدور
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: "row-reverse" }}>
+                  {(["customer", "merchant"] as UserRole[]).map((role) => (
+                    <Pressable
+                      key={role}
+                      onPress={() => handleChangeCustomerRole(u.id, role)}
+                      style={[styles.roleBtn, { backgroundColor: u.role === role ? colors.gold : colors.surface, borderColor: u.role === role ? colors.gold : colors.border }]}
+                    >
+                      <Text style={{ color: u.role === role ? colors.background : colors.foreground, fontFamily: u.role === role ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 12 }}>
+                        {ROLE_LABELS[role]}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <View style={styles.vipToggleRow}>
+                  <Pressable
+                    onPress={() => handleToggleVip(u.id)}
+                    style={[styles.vipToggleBtn, { backgroundColor: u.vip ? colors.gold + "22" : colors.surface, borderColor: u.vip ? colors.gold : colors.border }]}
+                  >
+                    <Icon name="star" size={14} color={u.vip ? colors.gold : colors.mutedForeground} />
+                    <Text style={{ color: u.vip ? colors.gold : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                      {u.vip ? "إلغاء العميل المميز" : "تعيين عميل مميز"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="إدارة المستخدمين" onBack={() => router.back()} />
 
-      <View style={[styles.filterBar, { borderBottomColor: colors.border }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {FILTER_OPTIONS.map(({ key, label }) => (
+      {/* Tab switcher */}
+      <View style={[styles.tabBar, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
+        {tabs.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
             <Pressable
-              key={key}
-              onPress={() => setFilterRole(key)}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: filterRole === key ? colors.gold : colors.surface,
-                  borderColor: filterRole === key ? colors.gold : colors.border,
-                },
-              ]}
+              key={tab.key}
+              onPress={() => { setActiveTab(tab.key); setExpandedUser(null); }}
+              style={[styles.tab, { borderBottomColor: active ? colors.gold : "transparent" }]}
             >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  {
-                    color: filterRole === key ? colors.background : colors.foreground,
-                    fontFamily: filterRole === key ? "Inter_600SemiBold" : "Inter_400Regular",
-                  },
-                ]}
-              >
-                {label}
+              <Text style={[styles.tabText, { color: active ? colors.gold : colors.mutedForeground, fontFamily: active ? "Inter_700Bold" : "Inter_400Regular" }]}>
+                {tab.label}
               </Text>
+              <View style={[styles.tabCount, { backgroundColor: active ? colors.gold + "33" : colors.border + "66" }]}>
+                <Text style={{ color: active ? colors.gold : colors.mutedForeground, fontSize: 11, fontFamily: "Inter_600SemiBold" }}>
+                  {tab.count}
+                </Text>
+              </View>
             </Pressable>
-          ))}
-        </ScrollView>
+          );
+        })}
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
-        <View style={[styles.statsRow, { borderColor: colors.border }]}>
-          {[
-            { label: "إجمالي العملاء", value: registeredCustomers.length, color: colors.foreground },
-            { label: "عملاء مميزون", value: registeredCustomers.filter(c => c.vip).length, color: colors.gold },
-            { label: "طلبات ترقية", value: pendingUpgrades.length, color: "#C0392B" },
-          ].map((stat) => (
-            <View key={stat.label} style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.statNum, { color: stat.color, fontFamily: "Inter_700Bold" }]}>
-                {stat.value}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {stat.label}
-              </Text>
+        {activeTab === "customers" ? (
+          <>
+            {/* Stats */}
+            <View style={styles.statsRow}>
+              {[
+                { label: "إجمالي الزبائن", value: customerList.filter(c => c.role === "customer").length, color: colors.foreground },
+                { label: "التجار", value: customerList.filter(c => c.role === "merchant").length, color: colors.gold },
+                { label: "طلبات الترقية", value: pendingUpgrades.length, color: "#C0392B" },
+              ].map((stat) => (
+                <View key={stat.label} style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.statNum, { color: stat.color, fontFamily: "Inter_700Bold" }]}>{stat.value}</Text>
+                  <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{stat.label}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
 
-        {pendingUpgrades.length > 0 && (filterRole === "all" || filterRole === "merchant") && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-              طلبات الترقية ({pendingUpgrades.length})
-            </Text>
-            {pendingUpgrades.map((u) => (
-              <View
-                key={u.id}
-                style={[
-                  styles.upgradeCard,
-                  { backgroundColor: colors.gold + "11", borderColor: colors.gold + "44", borderRadius: colors.radius },
-                ]}
-              >
-                <View style={styles.userInfo}>
-                  <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                    {u.name}
-                  </Text>
-                  <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                    {u.phone}
-                  </Text>
-                </View>
-                <View style={styles.upgradeActions}>
-                  <Pressable
-                    onPress={() => handleRejectUpgrade(u.id)}
-                    style={[styles.rejectBtn, { borderColor: colors.destructive + "66", borderRadius: 8 }]}
-                  >
-                    <Text style={{ color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                      رفض
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleApproveUpgrade(u.id)}
-                    style={[styles.approveBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}
-                  >
-                    <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                      موافقة
-                    </Text>
-                  </Pressable>
-                </View>
+            {/* Pending upgrades */}
+            {pendingUpgrades.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                  طلبات الترقية ({pendingUpgrades.length})
+                </Text>
+                {pendingUpgrades.map((u) => (
+                  <View key={u.id} style={[styles.upgradeCard, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "44", borderRadius: colors.radius }]}>
+                    <View style={styles.userInfo}>
+                      <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{u.name}</Text>
+                      <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{u.phone}</Text>
+                    </View>
+                    <View style={styles.upgradeActions}>
+                      <Pressable onPress={() => handleRejectUpgrade(u.id)} style={[styles.rejectBtn, { borderColor: colors.destructive + "66", borderRadius: 8 }]}>
+                        <Text style={{ color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>رفض</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleApproveUpgrade(u.id)} style={[styles.approveBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}>
+                        <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>موافقة</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            )}
+
+            {/* Customer list */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                الزبائن والتجار ({activeCustomers.length})
+              </Text>
+              {activeCustomers.length === 0 && (
+                <Text style={[{ color: colors.mutedForeground, textAlign: "center", fontFamily: "Inter_400Regular", paddingVertical: 20 }]}>
+                  لا يوجد زبائن مسجلون بعد
+                </Text>
+              )}
+              {activeCustomers.map((u) => renderUserCard(u, "customer"))}
+            </View>
+          </>
+        ) : (
+          <>
+            {/* Staff stats */}
+            <View style={styles.statsRow}>
+              {[
+                { label: "موظفون", value: staffList.filter(s => s.role === "employee").length, color: "#2980B9" },
+                { label: "مشرفون", value: staffList.filter(s => s.role === "supervisor").length, color: "#8E44AD" },
+                { label: "مدراء", value: staffList.filter(s => s.role === "admin").length, color: "#C0392B" },
+              ].map((stat) => (
+                <View key={stat.label} style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.statNum, { color: stat.color, fontFamily: "Inter_700Bold" }]}>{stat.value}</Text>
+                  <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{stat.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Staff list */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                فريق العمل ({staffList.length})
+              </Text>
+              {staffList.map((u) => renderUserCard(u, "staff"))}
+            </View>
+          </>
         )}
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-            المستخدمون ({filteredUsers.length})
-          </Text>
-          {filteredUsers.map((u) => {
-            const isExpanded = expandedUser === u.id;
-            const isEmployee = u.role === "employee";
-            return (
-              <View
-                key={u.id}
-                style={[
-                  styles.userCard,
-                  { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
-                ]}
-              >
-                <Pressable
-                  onPress={() => setExpandedUser(isExpanded ? null : u.id)}
-                  style={styles.userRow}
-                >
-                  <View style={styles.userExpandIcon}>
-                    <Icon
-                      name={isExpanded ? "chevron-up" : "chevron-down"}
-                      size={16}
-                      color={colors.mutedForeground}
-                    />
-                  </View>
-                  <View style={styles.userDetails}>
-                    <View style={styles.userNameRow}>
-                      <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                        {u.name}
-                      </Text>
-                      {u.vip && (
-                        <View style={[styles.vipBadge, { backgroundColor: colors.gold + "33" }]}>
-                          <Icon name="star" size={10} color={colors.gold} />
-                          <Text style={[{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10 }]}>
-                            مميز
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                      {u.phone}
-                    </Text>
-                    {u.registeredAt && (
-                      <Text style={[styles.userPhone, { color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }]}>
-                        تسجيل: {new Date(u.registeredAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={{ alignItems: "flex-end", gap: 4 }}>
-                    <View
-                      style={[
-                        styles.roleChip,
-                        {
-                          backgroundColor: ROLE_COLORS[u.role] + "22",
-                          borderColor: ROLE_COLORS[u.role] + "55",
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          color: ROLE_COLORS[u.role],
-                          fontFamily: "Inter_600SemiBold",
-                          fontSize: 12,
-                        }}
-                      >
-                        {ROLE_LABELS[u.role]}
-                      </Text>
-                    </View>
-                  </View>
-                </Pressable>
-
-                {isExpanded && user?.role === "admin" && u.id !== user.id && (
-                  <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
-                    <View style={styles.nameEditRow}>
-                      {editingNameId === u.id ? (
-                        <>
-                          <Pressable
-                            onPress={() => handleSaveName(u.id)}
-                            style={[styles.nameActionBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}
-                          >
-                            <Icon name="check" size={14} color={colors.background} />
-                          </Pressable>
-                          <Pressable
-                            onPress={() => { setEditingNameId(null); setEditingNameValue(""); }}
-                            style={[styles.nameActionBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 8 }]}
-                          >
-                            <Icon name="x" size={14} color={colors.foreground} />
-                          </Pressable>
-                          <TextInput
-                            style={[styles.nameInput, { color: colors.foreground, backgroundColor: colors.input, borderColor: colors.gold, fontFamily: "Inter_500Medium" }]}
-                            value={editingNameValue}
-                            onChangeText={setEditingNameValue}
-                            textAlign="right"
-                            autoFocus
-                            returnKeyType="done"
-                            onSubmitEditing={() => handleSaveName(u.id)}
-                          />
-                        </>
-                      ) : (
-                        <Pressable
-                          onPress={() => { setEditingNameId(u.id); setEditingNameValue(u.name); }}
-                          style={[styles.editNameBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                        >
-                          <Icon name="edit-3" size={13} color={colors.gold} />
-                          <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 12 }}>
-                            تعديل الاسم
-                          </Text>
-                        </Pressable>
-                      )}
-                    </View>
-                    <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                      تغيير الدور
-                    </Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: "row-reverse" }}>
-                      {(["customer", "merchant", "employee", "admin"] as UserRole[]).map((role) => (
-                        <Pressable
-                          key={role}
-                          onPress={() => handleChangeRole(u.id, role)}
-                          style={[
-                            styles.roleBtn,
-                            {
-                              backgroundColor: u.role === role ? colors.gold : colors.surface,
-                              borderColor: u.role === role ? colors.gold : colors.border,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              color: u.role === role ? colors.background : colors.foreground,
-                              fontFamily: u.role === role ? "Inter_600SemiBold" : "Inter_400Regular",
-                              fontSize: 12,
-                            }}
-                          >
-                            {ROLE_LABELS[role]}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-
-                    {u.role === "customer" && (
-                      <View style={styles.vipToggleRow}>
-                        <Pressable
-                          onPress={() => handleToggleVip(u.id)}
-                          style={[
-                            styles.vipToggleBtn,
-                            {
-                              backgroundColor: u.vip ? colors.gold + "22" : colors.surface,
-                              borderColor: u.vip ? colors.gold : colors.border,
-                            },
-                          ]}
-                        >
-                          <Icon name={u.vip ? "star" : "star"} size={14} color={u.vip ? colors.gold : colors.mutedForeground} />
-                          <Text
-                            style={{
-                              color: u.vip ? colors.gold : colors.mutedForeground,
-                              fontFamily: "Inter_500Medium",
-                              fontSize: 13,
-                            }}
-                          >
-                            {u.vip ? "إلغاء العميل المميز" : "تعيين عميل مميز"}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    )}
-
-                    {isEmployee && (
-                      <View style={{ gap: 8 }}>
-                        <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                          الصلاحيات
-                        </Text>
-                        <View style={styles.permissionsGrid}>
-                          {ALL_PERMISSIONS.map((perm) => {
-                            const active = (u.permissions ?? []).includes(perm);
-                            return (
-                              <Pressable
-                                key={perm}
-                                onPress={() => handleTogglePermission(u.id, perm)}
-                                style={[
-                                  styles.permChip,
-                                  {
-                                    backgroundColor: active ? colors.gold + "22" : colors.surface,
-                                    borderColor: active ? colors.gold : colors.border,
-                                  },
-                                ]}
-                              >
-                                <Icon
-                                  name={active ? "check-square" : "square"}
-                                  size={13}
-                                  color={active ? colors.gold : colors.mutedForeground}
-                                />
-                                <Text
-                                  style={{
-                                    color: active ? colors.gold : colors.foreground,
-                                    fontFamily: active ? "Inter_500Medium" : "Inter_400Regular",
-                                    fontSize: 11,
-                                  }}
-                                >
-                                  {PERMISSION_LABELS[perm]}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
       </ScrollView>
     </View>
   );
@@ -486,13 +445,41 @@ export default function AdminUsersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  filterBar: { borderBottomWidth: 1 },
-  filterScroll: { gap: 8, padding: 12, flexDirection: "row-reverse" },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1 },
-  filterChipText: { fontSize: 13 },
+  tabBar: {
+    flexDirection: "row-reverse",
+    borderBottomWidth: 1,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 14,
+    borderBottomWidth: 2,
+  },
+  tabText: { fontSize: 14 },
+  tabCount: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: "center",
+  },
   content: { padding: 16, gap: 20 },
   section: { gap: 10 },
   sectionTitle: { fontSize: 17, textAlign: "right" },
+  statsRow: { flexDirection: "row-reverse", gap: 10 },
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  statNum: { fontSize: 22 },
+  statLabel: { fontSize: 10, textAlign: "center" },
   upgradeCard: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -505,23 +492,13 @@ const styles = StyleSheet.create({
   rejectBtn: { paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1 },
   approveBtn: { paddingHorizontal: 14, paddingVertical: 8 },
   userCard: { borderWidth: 1, overflow: "hidden" },
-  userRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    padding: 14,
-    gap: 12,
-  },
+  userRow: { flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 12 },
   userExpandIcon: { padding: 2 },
   userDetails: { flex: 1, gap: 3, alignItems: "flex-end" },
   userNameRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
   userName: { fontSize: 14 },
   userPhone: { fontSize: 12 },
-  roleChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
+  roleChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
   vipBadge: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -530,18 +507,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 8,
   },
-  expandedSection: {
-    borderTopWidth: 1,
-    padding: 14,
-    gap: 12,
-  },
+  expandedSection: { borderTopWidth: 1, padding: 14, gap: 12 },
   expandLabel: { fontSize: 12, textAlign: "right" },
-  roleBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
+  roleBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14, borderWidth: 1 },
   vipToggleRow: { alignItems: "flex-end" },
   vipToggleBtn: {
     flexDirection: "row-reverse",
@@ -552,11 +520,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  permissionsGrid: {
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    gap: 8,
-  },
+  permissionsGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 },
   permChip: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -566,11 +530,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  nameEditRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
-  },
+  nameEditRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
   nameInput: {
     flex: 1,
     borderWidth: 1.5,
@@ -579,12 +539,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
   },
-  nameActionBtn: {
-    width: 34,
-    height: 34,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  nameActionBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   editNameBtn: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -594,19 +549,4 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  statsRow: {
-    flexDirection: "row-reverse",
-    gap: 10,
-    marginBottom: 4,
-  },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-  },
-  statNum: { fontSize: 22 },
-  statLabel: { fontSize: 10, textAlign: "center" },
 });

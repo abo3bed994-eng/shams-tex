@@ -7,6 +7,42 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 
+function filterNotificationsForUser(notifications: any[], user: any): any[] {
+  if (!user) return [];
+
+  return notifications.filter((n) => {
+    // Admin sees everything
+    if (user.role === "admin") return true;
+
+    // Supervisor: sees supervisor-targeted + upgrade requests + order-related (no customer-specific)
+    if (user.role === "supervisor") {
+      if (n.targetUserId) return false; // don't show personal notifications for other users
+      if (n.targetRole === "supervisor") return true;
+      if (n.targetRole === "employee") return true; // supervisor oversees employee tasks too
+      if (n.actionType === "upgrade_request") return true;
+      if (!n.targetRole && !n.targetUserId) return true; // broadcast
+      return false;
+    }
+
+    // Employee: only order-related notifications (targetRole === "employee")
+    if (user.role === "employee") {
+      if (n.targetUserId) return false;
+      if (n.targetRole === "employee") return true;
+      return false;
+    }
+
+    // Customer / Merchant: only their own notifications or broadcasts for their role
+    if (user.role === "customer" || user.role === "merchant") {
+      if (n.targetUserId) return n.targetUserId === user.id;
+      if (n.targetRole) return n.targetRole === user.role;
+      // No target at all = broadcast (don't show to customers unless explicitly targeted)
+      return false;
+    }
+
+    return false;
+  });
+}
+
 export default function NotificationsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -14,17 +50,12 @@ export default function NotificationsScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Filter notifications visible to current user
-  const visibleNotifications = notifications.filter((n) => {
-    if (n.targetUserId) return n.targetUserId === user?.id;
-    if (n.targetRole) return n.targetRole === user?.role;
-    return true;
-  });
+  const visibleNotifications = filterNotificationsForUser(notifications, user);
 
   const handleNotifPress = (notifId: string, actionType?: string, actionUserId?: string) => {
     markNotificationRead(notifId);
 
-    if (actionType === "upgrade_request" && actionUserId && user?.role === "admin") {
+    if (actionType === "upgrade_request" && actionUserId && (user?.role === "admin" || user?.role === "supervisor")) {
       const targetUser = registeredCustomers.find((c) => c.id === actionUserId);
       const userName = targetUser?.name ?? "المستخدم";
       Alert.alert(
@@ -32,20 +63,23 @@ export default function NotificationsScreen() {
         `يطلب ${userName} الترقية إلى تاجر. ما قرارك؟`,
         [
           { text: "رفض", style: "destructive", onPress: () => {
-            if (targetUser) {
-              updateRegisteredCustomer({ ...targetUser, upgradeStatus: "rejected" });
-            }
+            if (targetUser) updateRegisteredCustomer({ ...targetUser, upgradeStatus: "rejected" });
           }},
           { text: "إلغاء", style: "cancel" },
           { text: "موافقة", onPress: () => {
-            if (targetUser) {
-              updateRegisteredCustomer({ ...targetUser, role: "merchant", upgradeStatus: "approved" });
-            }
+            if (targetUser) updateRegisteredCustomer({ ...targetUser, role: "merchant", upgradeStatus: "approved" });
             Alert.alert("تم", `تمت ترقية ${userName} إلى تاجر`);
           }},
         ]
       );
     }
+  };
+
+  const getNotifIcon = (notif: any) => {
+    if (notif.actionType === "upgrade_request") return "user-plus";
+    if (notif.targetRole === "employee" || notif.targetRole === "supervisor") return "package";
+    if (notif.targetUserId) return "bell";
+    return "bell";
   };
 
   return (
@@ -66,7 +100,7 @@ export default function NotificationsScreen() {
         ) : (
           visibleNotifications.map((notif) => {
             const isAction = notif.actionType === "upgrade_request";
-            const iconName = isAction ? "user-plus" : "bell";
+            const iconName = getNotifIcon(notif);
             const activeColor = isAction ? colors.gold : (notif.read ? colors.mutedForeground : colors.gold);
 
             return (
@@ -83,22 +117,14 @@ export default function NotificationsScreen() {
                   },
                 ]}
               >
-                <View
-                  style={[
-                    styles.iconContainer,
-                    { backgroundColor: activeColor + "22" },
-                  ]}
-                >
+                <View style={[styles.iconContainer, { backgroundColor: activeColor + "22" }]}>
                   <Icon name={iconName as any} size={18} color={activeColor} />
                 </View>
                 <View style={styles.notifContent}>
                   <Text
                     style={[
                       styles.notifTitle,
-                      {
-                        color: colors.foreground,
-                        fontFamily: notif.read ? "Inter_500Medium" : "Inter_700Bold",
-                      },
+                      { color: colors.foreground, fontFamily: notif.read ? "Inter_500Medium" : "Inter_700Bold" },
                     ]}
                   >
                     {notif.title}
