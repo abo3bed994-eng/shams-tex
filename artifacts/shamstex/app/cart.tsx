@@ -47,7 +47,7 @@ export default function CartScreen() {
       userPhone: user?.phone ?? "",
       items: [...cart],
       total: hasPiecesOrder ? 0 : totalPrice,
-      status: "received",
+      status: "pending",
       createdAt: new Date().toISOString(),
       notes,
     };

@@ -12,14 +12,22 @@ interface OrderCardProps {
 }
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: string }> = {
-  received: { label: "تم استلام الطلب", color: "#3498DB", icon: "clock" },
+  pending: { label: "بانتظار الاستلام", color: "#9B59B6", icon: "clock" },
+  received: { label: "تم استلام الطلب", color: "#3498DB", icon: "inbox" },
   preparing: { label: "جاري التجهيز", color: "#F39C12", icon: "package" },
   ready: { label: "جاهز للاستلام", color: "#27AE60", icon: "check-circle" },
+};
+
+const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
+  pending: { next: "received", label: "استلام" },
+  received: { next: "preparing", label: "تجهيز" },
+  preparing: { next: "ready", label: "جاهز" },
 };
 
 export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: OrderCardProps) {
   const colors = useColors();
   const statusInfo = STATUS_CONFIG[order.status];
+  const nextAction = NEXT_STATUS[order.status];
 
   const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
   const date = new Date(order.createdAt).toLocaleDateString("ar-EG", {
@@ -35,7 +43,7 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
         styles.card,
         {
           backgroundColor: colors.card,
-          borderColor: colors.border,
+          borderColor: order.status === "pending" ? "#9B59B644" : colors.border,
           borderRadius: colors.radius,
           opacity: pressed ? 0.85 : 1,
         },
@@ -43,7 +51,7 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
     >
       <View style={styles.header}>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "22" }]}>
-          <Icon name={statusInfo.icon} size={12} color={statusInfo.color} />
+          <Icon name={statusInfo.icon as any} size={12} color={statusInfo.color} />
           <Text style={[styles.statusText, { color: statusInfo.color, fontFamily: "Inter_600SemiBold" }]}>
             {statusInfo.label}
           </Text>
@@ -79,11 +87,9 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
           {order.total > 0 ? `${order.total} ج.م` : "يرجى التواصل مع المبيعات"}
         </Text>
 
-        {isAdmin && order.status !== "ready" && onStatusChange && (
+        {isAdmin && nextAction && onStatusChange && (
           <Pressable
-            onPress={() =>
-              onStatusChange(order.status === "received" ? "preparing" : "ready")
-            }
+            onPress={() => onStatusChange(nextAction.next)}
             style={({ pressed }) => [
               styles.actionBtn,
               {
@@ -94,7 +100,7 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
             ]}
           >
             <Text style={[styles.actionText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
-              {order.status === "received" ? "استلام" : "جاهز"}
+              {nextAction.label}
             </Text>
           </Pressable>
         )}
@@ -123,42 +129,19 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
   },
-  statusText: {
-    fontSize: 12,
-  },
-  orderId: {
-    fontSize: 12,
-  },
-  customerName: {
-    fontSize: 14,
-    textAlign: "right",
-  },
-  details: {
-    flexDirection: "row-reverse",
-    gap: 16,
-  },
-  detailItem: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 5,
-  },
-  detailText: {
-    fontSize: 13,
-  },
+  statusText: { fontSize: 12 },
+  orderId: { fontSize: 12 },
+  customerName: { fontSize: 14, textAlign: "right" },
+  details: { flexDirection: "row-reverse", gap: 16 },
+  detailItem: { flexDirection: "row-reverse", alignItems: "center", gap: 5 },
+  detailText: { fontSize: 13 },
   footer: {
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 4,
   },
-  total: {
-    fontSize: 16,
-  },
-  actionBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  actionText: {
-    fontSize: 13,
-  },
+  total: { fontSize: 16 },
+  actionBtn: { paddingHorizontal: 16, paddingVertical: 8 },
+  actionText: { fontSize: 13 },
 });

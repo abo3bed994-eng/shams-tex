@@ -1,5 +1,5 @@
 import React from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,9 +10,43 @@ import GoldHeader from "@/components/GoldHeader";
 export default function NotificationsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { notifications, markNotificationRead } = useApp();
+  const { notifications, markNotificationRead, user, registeredCustomers, updateRegisteredCustomer } = useApp();
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // Filter notifications visible to current user
+  const visibleNotifications = notifications.filter((n) => {
+    if (n.targetUserId) return n.targetUserId === user?.id;
+    if (n.targetRole) return n.targetRole === user?.role;
+    return true;
+  });
+
+  const handleNotifPress = (notifId: string, actionType?: string, actionUserId?: string) => {
+    markNotificationRead(notifId);
+
+    if (actionType === "upgrade_request" && actionUserId && user?.role === "admin") {
+      const targetUser = registeredCustomers.find((c) => c.id === actionUserId);
+      const userName = targetUser?.name ?? "المستخدم";
+      Alert.alert(
+        "طلب ترقية إلى تاجر",
+        `يطلب ${userName} الترقية إلى تاجر. ما قرارك؟`,
+        [
+          { text: "رفض", style: "destructive", onPress: () => {
+            if (targetUser) {
+              updateRegisteredCustomer({ ...targetUser, upgradeStatus: "rejected" });
+            }
+          }},
+          { text: "إلغاء", style: "cancel" },
+          { text: "موافقة", onPress: () => {
+            if (targetUser) {
+              updateRegisteredCustomer({ ...targetUser, role: "merchant", upgradeStatus: "approved" });
+            }
+            Alert.alert("تم", `تمت ترقية ${userName} إلى تاجر`);
+          }},
+        ]
+      );
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -22,7 +56,7 @@ export default function NotificationsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
-        {notifications.length === 0 ? (
+        {visibleNotifications.length === 0 ? (
           <View style={styles.empty}>
             <Icon name="bell-off" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
@@ -30,56 +64,63 @@ export default function NotificationsScreen() {
             </Text>
           </View>
         ) : (
-          notifications.map((notif) => (
-            <Pressable
-              key={notif.id}
-              onPress={() => markNotificationRead(notif.id)}
-              style={({ pressed }) => [
-                styles.notifCard,
-                {
-                  backgroundColor: notif.read ? colors.card : colors.gold + "11",
-                  borderColor: notif.read ? colors.border : colors.gold + "44",
-                  borderRadius: colors.radius,
-                  opacity: pressed ? 0.85 : 1,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.iconContainer,
-                  { backgroundColor: (notif.read ? colors.mutedForeground : colors.gold) + "22" },
+          visibleNotifications.map((notif) => {
+            const isAction = notif.actionType === "upgrade_request";
+            const iconName = isAction ? "user-plus" : "bell";
+            const activeColor = isAction ? colors.gold : (notif.read ? colors.mutedForeground : colors.gold);
+
+            return (
+              <Pressable
+                key={notif.id}
+                onPress={() => handleNotifPress(notif.id, notif.actionType, notif.actionUserId)}
+                style={({ pressed }) => [
+                  styles.notifCard,
+                  {
+                    backgroundColor: notif.read ? colors.card : colors.gold + "11",
+                    borderColor: notif.read ? colors.border : colors.gold + "44",
+                    borderRadius: colors.radius,
+                    opacity: pressed ? 0.85 : 1,
+                  },
                 ]}
               >
-                <Icon
-                  name="bell"
-                  size={18}
-                  color={notif.read ? colors.mutedForeground : colors.gold}
-                />
-              </View>
-              <View style={styles.notifContent}>
-                <Text
+                <View
                   style={[
-                    styles.notifTitle,
-                    {
-                      color: colors.foreground,
-                      fontFamily: notif.read ? "Inter_500Medium" : "Inter_700Bold",
-                    },
+                    styles.iconContainer,
+                    { backgroundColor: activeColor + "22" },
                   ]}
                 >
-                  {notif.title}
-                </Text>
-                <Text style={[styles.notifBody, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  {notif.body}
-                </Text>
-                <Text style={[styles.notifTime, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  {new Date(notif.createdAt).toLocaleDateString("ar-EG")}
-                </Text>
-              </View>
-              {!notif.read && (
-                <View style={[styles.unreadDot, { backgroundColor: colors.gold }]} />
-              )}
-            </Pressable>
-          ))
+                  <Icon name={iconName as any} size={18} color={activeColor} />
+                </View>
+                <View style={styles.notifContent}>
+                  <Text
+                    style={[
+                      styles.notifTitle,
+                      {
+                        color: colors.foreground,
+                        fontFamily: notif.read ? "Inter_500Medium" : "Inter_700Bold",
+                      },
+                    ]}
+                  >
+                    {notif.title}
+                  </Text>
+                  <Text style={[styles.notifBody, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    {notif.body}
+                  </Text>
+                  {isAction && !notif.read && (
+                    <Text style={[styles.tapHint, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+                      اضغط للمراجعة والرد ←
+                    </Text>
+                  )}
+                  <Text style={[styles.notifTime, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    {new Date(notif.createdAt).toLocaleDateString("ar-EG")}
+                  </Text>
+                </View>
+                {!notif.read && (
+                  <View style={[styles.unreadDot, { backgroundColor: colors.gold }]} />
+                )}
+              </Pressable>
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -89,11 +130,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, gap: 10 },
-  empty: {
-    alignItems: "center",
-    paddingTop: 80,
-    gap: 16,
-  },
+  empty: { alignItems: "center", paddingTop: 80, gap: 16 },
   emptyText: { fontSize: 16 },
   notifCard: {
     flexDirection: "row-reverse",
@@ -112,6 +149,7 @@ const styles = StyleSheet.create({
   notifContent: { flex: 1, gap: 4 },
   notifTitle: { fontSize: 14, textAlign: "right" },
   notifBody: { fontSize: 13, textAlign: "right", lineHeight: 20 },
+  tapHint: { fontSize: 12, textAlign: "right" },
   notifTime: { fontSize: 11 },
   unreadDot: {
     width: 8,

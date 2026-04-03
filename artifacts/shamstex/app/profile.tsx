@@ -38,10 +38,13 @@ export default function ProfileScreen() {
     setRequestSent(true);
     addNotification({
       id: Date.now().toString(),
-      title: "طلب ترقية",
-      body: `${user?.name} يطلب الترقية إلى تاجر`,
+      title: "طلب ترقية إلى تاجر",
+      body: `${user?.name} (${user?.phone}) يطلب الترقية إلى تاجر`,
       createdAt: new Date().toISOString(),
       read: false,
+      targetRole: "admin",
+      actionType: "upgrade_request",
+      actionUserId: user?.id,
     });
     Alert.alert("تم إرسال الطلب", "سيتم مراجعة طلبك من قبل الإدارة وإبلاغك بالنتيجة.");
   };

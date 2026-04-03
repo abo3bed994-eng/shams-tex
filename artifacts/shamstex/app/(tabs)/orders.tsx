@@ -15,7 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Order, OrderStatus } from "@/context/AppContext";
 import OrderCard from "@/components/OrderCard";
 
-type FilterType = "all" | "received" | "preparing" | "ready";
+type FilterType = "all" | "pending" | "received" | "preparing" | "ready";
 
 export default function OrdersScreen() {
   const colors = useColors();
@@ -33,6 +33,7 @@ export default function OrdersScreen() {
 
   const FILTERS: { key: FilterType; label: string }[] = [
     { key: "all", label: "الكل" },
+    { key: "pending", label: "جديد" },
     { key: "received", label: "مستلم" },
     { key: "preparing", label: "تجهيز" },
     { key: "ready", label: "جاهز" },
@@ -131,7 +132,7 @@ export default function OrdersScreen() {
                     : undefined
                 }
               />
-              {!isAdmin && order.status === "received" && (
+              {!isAdmin && order.status === "pending" && (
                 <Pressable
                   onPress={() => handleDeleteOrder(order)}
                   style={[

@@ -9,12 +9,14 @@ import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
-  { key: "received", label: "تم استلام الطلب", icon: "check-circle" },
+  { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
+  { key: "received", label: "تم استلام الطلب", icon: "inbox" },
   { key: "preparing", label: "جاري تجهيز الطلب", icon: "package" },
   { key: "ready", label: "الطلب جاهز للاستلام", icon: "gift" },
 ];
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
+  pending: "#9B59B6",
   received: "#3498DB",
   preparing: "#F39C12",
   ready: "#27AE60",

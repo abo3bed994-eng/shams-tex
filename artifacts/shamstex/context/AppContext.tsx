@@ -56,7 +56,7 @@ export interface CartItem {
   weight?: number;
 }
 
-export type OrderStatus = "received" | "preparing" | "ready";
+export type OrderStatus = "pending" | "received" | "preparing" | "ready";
 
 export interface Order {
   id: string;
@@ -86,6 +86,10 @@ export interface Notification {
   body: string;
   createdAt: string;
   read: boolean;
+  targetRole?: UserRole;
+  targetUserId?: string;
+  actionType?: "upgrade_request";
+  actionUserId?: string;
 }
 
 export interface ContactEntry {

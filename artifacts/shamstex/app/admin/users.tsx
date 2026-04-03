@@ -76,39 +76,60 @@ export default function AdminUsersScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const saveUserChange = (updatedUser: User) => {
+    const isRegistered = registeredCustomers.some((c) => c.id === updatedUser.id);
+    if (isRegistered) updateRegisteredCustomer(updatedUser);
+  };
+
   const handleChangeRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole, upgradeStatus: undefined } : u))
-    );
+    setUsers((prev) => {
+      const updated = prev.map((u) =>
+        u.id === userId ? { ...u, role: newRole, upgradeStatus: undefined } : u
+      );
+      const changedUser = updated.find((u) => u.id === userId);
+      if (changedUser) saveUserChange(changedUser);
+      return updated;
+    });
   };
 
   const handleToggleVip = (userId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, vip: !u.vip } : u))
-    );
+    setUsers((prev) => {
+      const updated = prev.map((u) => (u.id === userId ? { ...u, vip: !u.vip } : u));
+      const changedUser = updated.find((u) => u.id === userId);
+      if (changedUser) saveUserChange(changedUser);
+      return updated;
+    });
   };
 
   const handleTogglePermission = (userId: string, permission: EmployeePermission) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setUsers((prev) =>
-      prev.map((u) => {
+    setUsers((prev) => {
+      const updated = prev.map((u) => {
         if (u.id !== userId) return u;
         const current = u.permissions ?? [];
-        const updated = current.includes(permission)
+        const perms = current.includes(permission)
           ? current.filter((p) => p !== permission)
           : [...current, permission];
-        return { ...u, permissions: updated };
-      })
-    );
+        return { ...u, permissions: perms };
+      });
+      const changedUser = updated.find((u) => u.id === userId);
+      if (changedUser) saveUserChange(changedUser);
+      return updated;
+    });
   };
 
   const handleSaveName = (userId: string) => {
     const trimmed = editingNameValue.trim();
     if (trimmed.length < 2) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, name: trimmed } : u)));
+    setUsers((prev) => {
+      const updated = prev.map((u) => (u.id === userId ? { ...u, name: trimmed } : u));
+      const changedUser = updated.find((u) => u.id === userId);
+      if (changedUser) saveUserChange(changedUser);
+      return updated;
+    });
     setEditingNameId(null);
     setEditingNameValue("");
   };
@@ -122,9 +143,14 @@ export default function AdminUsersScreen() {
 
   const handleRejectUpgrade = (userId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, upgradeStatus: "rejected" } : u))
-    );
+    setUsers((prev) => {
+      const updated = prev.map((u) =>
+        u.id === userId ? { ...u, upgradeStatus: "rejected" as const } : u
+      );
+      const changedUser = updated.find((u) => u.id === userId);
+      if (changedUser) saveUserChange(changedUser);
+      return updated;
+    });
   };
 
   const FILTER_OPTIONS: { key: FilterRole; label: string }[] = [
