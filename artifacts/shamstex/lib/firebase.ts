@@ -66,15 +66,51 @@ export const FS = {
   },
 
   subscribeOrders(callback: (orders: any[]) => void): Unsubscribe {
-    return onSnapshot(collection(db, "orders"), (snap) => {
-      callback(snap.docs.map((d) => d.data()));
-    });
+    // Try with orderBy, fallback to unordered on error
+    let unsub = onSnapshot(
+      query(collection(db, "orders"), orderBy("createdAt", "desc")),
+      (snap) => {
+        const data = snap.docs.map((d) => d.data());
+        callback(data);
+      },
+      (_err) => {
+        // Fallback: subscribe without ordering
+        unsub = onSnapshot(
+          collection(db, "orders"),
+          (snap) => callback(snap.docs.map((d) => d.data())),
+          () => {}
+        );
+      }
+    );
+    return () => unsub();
   },
 
   subscribeCustomers(callback: (customers: any[]) => void): Unsubscribe {
-    return onSnapshot(collection(db, "customers"), (snap) => {
-      callback(snap.docs.map((d) => d.data()));
-    });
+    return onSnapshot(
+      collection(db, "customers"),
+      (snap) => callback(snap.docs.map((d) => d.data())),
+      () => {}
+    );
+  },
+
+  subscribeNotifications(callback: (notifs: any[]) => void): Unsubscribe {
+    let unsub = onSnapshot(
+      query(collection(db, "notifications"), orderBy("createdAt", "desc")),
+      (snap) => callback(snap.docs.map((d) => d.data())),
+      (_err) => {
+        // Fallback: subscribe without ordering
+        unsub = onSnapshot(
+          collection(db, "notifications"),
+          (snap) => callback(snap.docs.map((d) => d.data())),
+          () => {}
+        );
+      }
+    );
+    return () => unsub();
+  },
+
+  async saveNotification(notification: object & { id: string }) {
+    await setDoc(doc(db, "notifications", notification.id), notification);
   },
 
   async saveSession(phone: string, token: string) {

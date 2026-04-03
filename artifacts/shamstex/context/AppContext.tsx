@@ -326,6 +326,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadPersistedData();
   }, []);
 
+  // Real-time Firestore listeners — update UI instantly without reloading
+  useEffect(() => {
+    const unsubOrders = FS.subscribeOrders((freshOrders) => {
+      if (freshOrders.length > 0) {
+        setOrdersState(freshOrders);
+        AsyncStorage.setItem("orders", JSON.stringify(freshOrders)).catch(() => {});
+      }
+    });
+
+    const unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
+      if (freshCustomers.length > 0) {
+        setRegisteredCustomersState(freshCustomers);
+        AsyncStorage.setItem("registered_customers", JSON.stringify(freshCustomers)).catch(() => {});
+      }
+    });
+
+    const unsubNotifications = FS.subscribeNotifications((freshNotifs) => {
+      if (freshNotifs.length > 0) {
+        setNotifications(freshNotifs);
+        AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
+      }
+    });
+
+    return () => {
+      unsubOrders();
+      unsubCustomers();
+      unsubNotifications();
+    };
+  }, []);
+
   const loadPersistedData = async () => {
     try {
       const [userData, customersData, productsData, ordersData, tabsData, notificationsData, settingsData, themeData] =
@@ -357,7 +387,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setUserState(parsedUser);
           }
         } catch {
-          // If Firestore unavailable, trust local session
           setUserState(parsedUser);
         }
       }
@@ -376,34 +405,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
 
-    // Sync from Firestore in the background (overrides local cache)
+    // Fetch products & settings from Firestore (not covered by listeners)
     try {
-      const [fsCustomers, fsProducts, fsOrders, fsSettings] = await Promise.all([
-        FS.getAllCustomers(),
+      const [fsProducts, fsSettings] = await Promise.all([
         FS.getAllProducts(),
-        FS.getAllOrders(),
         FS.getSettings(),
       ]);
-
-      if (fsCustomers.length > 0) {
-        setRegisteredCustomersState(fsCustomers);
-        await AsyncStorage.setItem("registered_customers", JSON.stringify(fsCustomers));
-      }
       if (fsProducts.length > 0) {
         setProductsState(fsProducts);
         await AsyncStorage.setItem("products", JSON.stringify(fsProducts));
-      }
-      if (fsOrders.length > 0) {
-        setOrdersState(fsOrders);
-        await AsyncStorage.setItem("orders", JSON.stringify(fsOrders));
       }
       if (fsSettings) {
         setSettingsState({ ...DEFAULT_SETTINGS, ...fsSettings });
         await AsyncStorage.setItem("settings", JSON.stringify(fsSettings));
       }
-    } catch (_e) {
-      // Firestore unavailable — continue with local data
-    }
+    } catch (_e) {}
   };
 
   const setUser = useCallback(async (u: User | null) => {
@@ -497,11 +513,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         targetRole: "employee",
       };
       const staffNotifSupervisor: Notification = { ...staffNotif, id: `${staffNotif.id}_sv`, targetRole: "supervisor" };
-      const notifUpdated = [staffNotifSupervisor, staffNotif, ...notifications];
-      setNotifications(notifUpdated);
-      await AsyncStorage.setItem("notifications", JSON.stringify(notifUpdated));
+      // Save to Firestore so real-time listeners on all devices pick them up
+      FS.saveNotification(staffNotif).catch(() => {});
+      FS.saveNotification(staffNotifSupervisor).catch(() => {});
     },
-    [orders, notifications]
+    [orders]
   );
 
   const updateOrderStatus = useCallback(
@@ -520,20 +536,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
         if (statusLabels[status]) {
           const custNotif: Notification = {
-            id: `notif_status_${orderId}_${status}`,
+            id: `notif_status_${orderId}_${status}_${Date.now()}`,
             title: statusLabels[status],
             body: `تم تحديث حالة طلبك #${orderId.slice(0, 8)} إلى: ${statusLabels[status]}`,
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
           };
-          const notifUpdated = [custNotif, ...notifications];
-          setNotifications(notifUpdated);
-          await AsyncStorage.setItem("notifications", JSON.stringify(notifUpdated));
+          // Save to Firestore — listener will push it to customer's device instantly
+          FS.saveNotification(custNotif).catch(() => {});
         }
       }
     },
-    [orders, notifications]
+    [orders]
   );
 
   const deleteOrder = useCallback(
@@ -553,9 +568,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addNotification = useCallback(
     async (notification: Notification) => {
+      // Optimistic local update
       const updated = [notification, ...notifications];
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
+      // Persist to Firestore so all clients receive it via real-time listener
+      FS.saveNotification(notification).catch(() => {});
     },
     [notifications]
   );
@@ -565,6 +583,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
+      // Sync read status to Firestore
+      const notif = updated.find((n) => n.id === id);
+      if (notif) FS.saveNotification(notif).catch(() => {});
     },
     [notifications]
   );
