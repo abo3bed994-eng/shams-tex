@@ -58,6 +58,17 @@ export default function NotificationsScreen() {
     if (actionType === "upgrade_request" && actionUserId && (user?.role === "admin" || user?.role === "supervisor")) {
       const targetUser = registeredCustomers.find((c) => c.id === actionUserId);
       const userName = targetUser?.name ?? "المستخدم";
+
+      // Already actioned — don't show dialog again
+      if (targetUser?.upgradeStatus === "approved" || targetUser?.role === "merchant") {
+        Alert.alert("تم", `تمت ترقية ${userName} إلى تاجر مسبقاً`);
+        return;
+      }
+      if (targetUser?.upgradeStatus === "rejected") {
+        Alert.alert("تم", `تم رفض طلب ترقية ${userName} مسبقاً`);
+        return;
+      }
+
       Alert.alert(
         "طلب ترقية إلى تاجر",
         `يطلب ${userName} الترقية إلى تاجر. ما قرارك؟`,

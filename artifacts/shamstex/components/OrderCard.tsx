@@ -9,6 +9,8 @@ interface OrderCardProps {
   onPress?: () => void;
   isAdmin?: boolean;
   onStatusChange?: (status: OrderStatus) => void;
+  onPrevStatus?: (status: OrderStatus) => void;
+  canControl?: boolean; // whether this user can change this specific order
 }
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: string }> = {
@@ -25,10 +27,18 @@ const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: strin
   preparing: { next: "ready", label: "جاهز" },
 };
 
-export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: OrderCardProps) {
+// Allows going back one step (admin only)
+const PREV_STATUS: Partial<Record<OrderStatus, { prev: OrderStatus; label: string }>> = {
+  received: { prev: "pending", label: "إلغاء الاستلام" },
+  preparing: { prev: "received", label: "رجوع لاستلام" },
+  ready: { prev: "preparing", label: "رجوع لتجهيز" },
+};
+
+export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onPrevStatus, canControl }: OrderCardProps) {
   const colors = useColors();
   const statusInfo = STATUS_CONFIG[order.status];
   const nextAction = NEXT_STATUS[order.status];
+  const prevAction = PREV_STATUS[order.status];
 
   const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
   const date = new Date(order.createdAt).toLocaleDateString("ar-EG", {
@@ -36,6 +46,9 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
     month: "short",
     year: "numeric",
   });
+
+  // Show "locked by" info when order is assigned to someone else
+  const showAssigned = isAdmin && order.assignedTo && order.assignedToName;
 
   return (
     <Pressable
@@ -68,6 +81,16 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
         </Text>
       )}
 
+      {/* Assigned employee info */}
+      {showAssigned && (
+        <View style={[styles.assignedRow, { backgroundColor: "#3498DB11", borderColor: "#3498DB33" }]}>
+          <Icon name="user" size={12} color="#3498DB" />
+          <Text style={{ color: "#3498DB", fontFamily: "Inter_500Medium", fontSize: 12 }}>
+            مُستلَم بواسطة: {order.assignedToName}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.details}>
         <View style={styles.detailItem}>
           <Icon name="shopping-bag" size={14} color={colors.mutedForeground} />
@@ -88,23 +111,57 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange }: O
           {order.total > 0 ? `${order.total} ج.م` : "يرجى التواصل مع المبيعات"}
         </Text>
 
-        {isAdmin && nextAction && onStatusChange && (
-          <Pressable
-            onPress={() => onStatusChange(nextAction.next)}
-            style={({ pressed }) => [
-              styles.actionBtn,
-              {
-                backgroundColor: colors.gold,
-                borderRadius: colors.radius - 4,
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}
-          >
-            <Text style={[styles.actionText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
-              {nextAction.label}
-            </Text>
-          </Pressable>
-        )}
+        <View style={styles.actionGroup}>
+          {/* Back button — shown to admin or assigned employee */}
+          {isAdmin && prevAction && onPrevStatus && canControl && (
+            <Pressable
+              onPress={() => onPrevStatus(prevAction.prev)}
+              style={({ pressed }) => [
+                styles.prevBtn,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: colors.radius - 4,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Icon name="chevron-right" size={12} color={colors.mutedForeground} />
+              <Text style={[styles.prevText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                {prevAction.label}
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Next status button */}
+          {isAdmin && nextAction && onStatusChange && canControl && (
+            <Pressable
+              onPress={() => onStatusChange(nextAction.next)}
+              style={({ pressed }) => [
+                styles.actionBtn,
+                {
+                  backgroundColor: colors.gold,
+                  borderRadius: colors.radius - 4,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.actionText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
+                {nextAction.label}
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Locked — assigned to someone else */}
+          {isAdmin && order.assignedTo && !canControl && order.status !== "cancelled" && nextAction && (
+            <View style={[styles.lockedBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Icon name="lock" size={12} color={colors.mutedForeground} />
+              <Text style={[styles.prevText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                مُقفَل
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -133,6 +190,15 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12 },
   orderId: { fontSize: 12 },
   customerName: { fontSize: 14, textAlign: "right" },
+  assignedRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
   details: { flexDirection: "row-reverse", gap: 16 },
   detailItem: { flexDirection: "row-reverse", alignItems: "center", gap: 5 },
   detailText: { fontSize: 13 },
@@ -141,8 +207,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 4,
+    gap: 8,
   },
-  total: { fontSize: 16 },
+  total: { fontSize: 16, flex: 1 },
+  actionGroup: { flexDirection: "row-reverse", gap: 6, alignItems: "center" },
   actionBtn: { paddingHorizontal: 16, paddingVertical: 8 },
   actionText: { fontSize: 13 },
+  prevBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+  },
+  prevText: { fontSize: 12 },
+  lockedBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+  },
 });

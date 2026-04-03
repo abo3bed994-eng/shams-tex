@@ -72,6 +72,8 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   notes?: string;
+  assignedTo?: string;      // employee/supervisor id who received this order
+  assignedToName?: string;  // their display name
 }
 
 export interface Tab {
@@ -182,7 +184,7 @@ interface AppContextType {
   orders: Order[];
   setOrders: (orders: Order[]) => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
   tabs: Tab[];
@@ -446,7 +448,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRegisteredCustomersState(updated);
     await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
     FS.saveCustomer(updatedUser).catch(() => {});
-  }, [registeredCustomers]);
+    // If the updated user is the currently logged-in user, sync their session too
+    if (user && user.phone === updatedUser.phone) {
+      const synced = { ...user, ...updatedUser };
+      setUserState(synced);
+      await AsyncStorage.setItem("user", JSON.stringify(synced));
+    }
+  }, [registeredCustomers, user]);
 
   const setProducts = useCallback(async (prods: Product[]) => {
     setProductsState(prods);
@@ -522,8 +530,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateOrderStatus = useCallback(
-    async (orderId: string, status: OrderStatus) => {
-      const updated = orders.map((o) => (o.id === orderId ? { ...o, status } : o));
+    async (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => {
+      const updated = orders.map((o) => {
+        if (o.id !== orderId) return o;
+        const patch: Partial<Order> = { status };
+        // When an employee/supervisor receives an order, assign it to them
+        if (status === "received" && assignedToId) {
+          patch.assignedTo = assignedToId;
+          patch.assignedToName = assignedToName;
+        }
+        // When reverting back to pending, release assignment
+        if (status === "pending") {
+          patch.assignedTo = undefined;
+          patch.assignedToName = undefined;
+        }
+        return { ...o, ...patch };
+      });
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       const updatedOrder = updated.find((o) => o.id === orderId);

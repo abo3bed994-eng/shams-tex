@@ -127,14 +127,34 @@ export default function OrdersScreen() {
             )}
           </View>
         ) : (
-          filtered.map((order) => (
+          filtered.map((order) => {
+            // Admin can control all orders
+            // Employee/supervisor can control only if: no assignedTo yet, OR they are the one assigned
+            const userCanControlThisOrder =
+              user?.role === "admin"
+              || (canEditStatus && (!order.assignedTo || order.assignedTo === user?.id));
+
+            return (
             <View key={order.id}>
               <OrderCard
                 order={order}
                 isAdmin={canEditStatus}
+                canControl={userCanControlThisOrder}
                 onPress={() => router.push(`/order/${order.id}`)}
                 onStatusChange={
-                  canEditStatus && order.status !== "cancelled"
+                  canEditStatus && order.status !== "cancelled" && userCanControlThisOrder
+                    ? (status: OrderStatus) => {
+                        // When employee/supervisor receives order, assign it to them
+                        if (status === "received" && user?.role !== "admin") {
+                          updateOrderStatus(order.id, status, user?.id, user?.name);
+                        } else {
+                          updateOrderStatus(order.id, status);
+                        }
+                      }
+                    : undefined
+                }
+                onPrevStatus={
+                  user?.role === "admin" && order.status !== "cancelled" && userCanControlThisOrder
                     ? (status: OrderStatus) => updateOrderStatus(order.id, status)
                     : undefined
                 }
@@ -170,7 +190,8 @@ export default function OrdersScreen() {
                 </Pressable>
               )}
             </View>
-          ))
+          );
+          })
         )}
       </ScrollView>
     </View>

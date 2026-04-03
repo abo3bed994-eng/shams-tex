@@ -28,7 +28,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme } = useApp();
+  const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme, registeredCustomers } = useApp();
   const [requestSent, setRequestSent] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -39,7 +39,10 @@ export default function ProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setRequestSent(true);
     // Persist upgradeStatus = "pending" so re-login won't allow re-request
-    updateRegisteredCustomer({ ...user, upgradeStatus: "pending" });
+    const pendingUser = { ...user, upgradeStatus: "pending" as const };
+    updateRegisteredCustomer(pendingUser);
+    // Also update current session immediately so UI shows disabled button right away
+    setUser(pendingUser);
     addNotification({
       id: `upgrade_${user.id}_${Date.now()}`,
       title: "طلب ترقية إلى تاجر",
