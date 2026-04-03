@@ -20,16 +20,23 @@ type FilterType = "all" | "pending" | "received" | "preparing" | "ready";
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, orders, updateOrderStatus, deleteOrder } = useApp();
+  const { user, orders, updateOrderStatus, deleteOrder, cancelOrder } = useApp();
   const [filter, setFilter] = useState<FilterType>("all");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const isAdmin = user?.role === "admin" || user?.role === "employee";
+  const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
+  const canEditStatus = user?.role === "admin" || user?.role === "supervisor" || user?.role === "employee";
 
-  const myOrders = isAdmin ? orders : orders.filter((o) => o.userId === user?.id);
+  const myOrders = isStaff ? orders : orders.filter((o) => o.userId === user?.id);
   const filtered = filter === "all" ? myOrders : myOrders.filter((o) => o.status === filter);
+
+  // Returns true if customer can still cancel (within 5 minutes of creation)
+  const canCancelOrder = (order: Order) => {
+    const created = new Date(order.createdAt).getTime();
+    return Date.now() - created < 5 * 60 * 1000;
+  };
 
   const FILTERS: { key: FilterType; label: string }[] = [
     { key: "all", label: "الكل" },
@@ -39,16 +46,16 @@ export default function OrdersScreen() {
     { key: "ready", label: "جاهز" },
   ];
 
-  const handleDeleteOrder = (order: Order) => {
+  const handleCancelOrder = (order: Order) => {
     Alert.alert(
-      "حذف الطلب",
-      "هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.",
+      "إلغاء الطلب",
+      "هل أنت متأكد من إلغاء هذا الطلب؟ سيظهر الطلب كملغي.",
       [
-        { text: "إلغاء", style: "cancel" },
+        { text: "لا، ابقِه", style: "cancel" },
         {
-          text: "حذف",
+          text: "نعم، إلغاء الطلب",
           style: "destructive",
-          onPress: () => deleteOrder(order.id),
+          onPress: () => cancelOrder(order.id),
         },
       ]
     );
@@ -58,9 +65,9 @@ export default function OrdersScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-          {isAdmin ? "إدارة الطلبات" : "طلباتي"}
+          {isStaff ? "إدارة الطلبات" : "طلباتي"}
         </Text>
-        {!isAdmin && (
+        {!isStaff && (
           <Pressable
             onPress={() => router.push("/cart")}
             style={({ pressed }) => [styles.cartBtn, { opacity: pressed ? 0.6 : 1 }]}
@@ -103,9 +110,9 @@ export default function OrdersScreen() {
           <View style={styles.empty}>
             <Icon name="package" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              {isAdmin ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
+              {isStaff ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
             </Text>
-            {!isAdmin && (
+            {!isStaff && (
               <Pressable
                 onPress={() => router.push("/(tabs)/products")}
                 style={({ pressed }) => [
@@ -124,25 +131,41 @@ export default function OrdersScreen() {
             <View key={order.id}>
               <OrderCard
                 order={order}
-                isAdmin={isAdmin}
+                isAdmin={canEditStatus}
                 onPress={() => router.push(`/order/${order.id}`)}
                 onStatusChange={
-                  isAdmin
+                  canEditStatus && order.status !== "cancelled"
                     ? (status: OrderStatus) => updateOrderStatus(order.id, status)
                     : undefined
                 }
               />
-              {!isAdmin && order.status === "pending" && (
+              {/* Customer cancel button — only within 5 minutes and for pending orders */}
+              {!isStaff && order.status === "pending" && canCancelOrder(order) && (
                 <Pressable
-                  onPress={() => handleDeleteOrder(order)}
+                  onPress={() => handleCancelOrder(order)}
                   style={[
                     styles.deleteOrderBtn,
-                    { borderColor: colors.destructive + "44", backgroundColor: colors.destructive + "11" },
+                    { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11" },
                   ]}
                 >
-                  <Icon name="trash-2" size={14} color={colors.destructive} />
-                  <Text style={[{ color: colors.destructive, fontFamily: "Inter_500Medium", fontSize: 13 }]}>
-                    إلغاء الطلب
+                  <Icon name="x-circle" size={14} color="#E74C3C" />
+                  <Text style={[{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }]}>
+                    إلغاء الطلب (متاح 5 دقائق)
+                  </Text>
+                </Pressable>
+              )}
+              {/* Admin delete button */}
+              {isStaff && user?.role === "admin" && (
+                <Pressable
+                  onPress={() => Alert.alert("حذف نهائي", "هل تريد حذف هذا الطلب نهائياً؟", [
+                    { text: "إلغاء", style: "cancel" },
+                    { text: "حذف", style: "destructive", onPress: () => deleteOrder(order.id) },
+                  ])}
+                  style={[styles.deleteOrderBtn, { borderColor: "#C0392B44", backgroundColor: "#C0392B11" }]}
+                >
+                  <Icon name="trash-2" size={14} color="#C0392B" />
+                  <Text style={[{ color: "#C0392B", fontFamily: "Inter_500Medium", fontSize: 13 }]}>
+                    حذف الطلب نهائياً
                   </Text>
                 </Pressable>
               )}

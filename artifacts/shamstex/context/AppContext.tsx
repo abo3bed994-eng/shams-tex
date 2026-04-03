@@ -60,7 +60,7 @@ export interface CartItem {
   weight?: number;
 }
 
-export type OrderStatus = "pending" | "received" | "preparing" | "ready";
+export type OrderStatus = "pending" | "received" | "preparing" | "ready" | "cancelled";
 
 export interface Order {
   id: string;
@@ -184,6 +184,7 @@ interface AppContextType {
   addOrder: (order: Order) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
+  cancelOrder: (orderId: string) => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
@@ -551,12 +552,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [orders]
   );
 
+  // Admin: fully remove order
   const deleteOrder = useCallback(
     async (orderId: string) => {
       const updated = orders.filter((o) => o.id !== orderId);
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       FS.deleteOrder(orderId).catch(() => {});
+    },
+    [orders]
+  );
+
+  // Customer: mark order as cancelled (keeps record, shows as cancelled)
+  const cancelOrder = useCallback(
+    async (orderId: string) => {
+      const updated = orders.map((o) => (o.id === orderId ? { ...o, status: "cancelled" as OrderStatus } : o));
+      setOrdersState(updated);
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      const cancelled = updated.find((o) => o.id === orderId);
+      if (cancelled) FS.saveOrder(cancelled).catch(() => {});
     },
     [orders]
   );
@@ -622,6 +636,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addOrder,
         updateOrderStatus,
         deleteOrder,
+        cancelOrder,
         tabs,
         setTabs,
         notifications,

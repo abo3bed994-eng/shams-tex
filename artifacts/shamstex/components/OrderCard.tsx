@@ -16,6 +16,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: s
   received: { label: "تم استلام الطلب", color: "#3498DB", icon: "inbox" },
   preparing: { label: "جاري التجهيز", color: "#F39C12", icon: "package" },
   ready: { label: "جاهز للاستلام", color: "#27AE60", icon: "check-circle" },
+  cancelled: { label: "ملغي من الزبون", color: "#E74C3C", icon: "x-circle" },
 };
 
 const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {

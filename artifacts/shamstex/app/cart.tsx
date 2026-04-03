@@ -34,7 +34,13 @@ export default function CartScreen() {
 
   const hasPiecesOrder = cart.some((i) => i.orderType === "pieces");
 
+  const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
+
   const handleCheckout = async () => {
+    if (isStaff) {
+      Alert.alert("غير مسموح", "أعضاء فريق العمل لا يمكنهم تقديم طلبات شراء.");
+      return;
+    }
     if (cart.length === 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);

@@ -28,6 +28,27 @@ const TYPE_OPTIONS: { key: NotifType; label: string; icon: string; desc: string 
   { key: "private", label: "خاص", icon: "user", desc: "رسالة لشخص محدد" },
 ];
 
+// Static staff accounts for private messaging (mirrors login.tsx DEMO_ACCOUNTS)
+const STAFF_USERS = [
+  { id: "u3", phone: "0000000003", name: "موظف", role: "employee" as const },
+  { id: "u4", phone: "0000000004", name: "مشرف", role: "supervisor" as const },
+];
+
+const ROLE_LABEL: Record<string, string> = {
+  customer: "زبون",
+  merchant: "تاجر",
+  employee: "موظف",
+  supervisor: "مشرف",
+  admin: "مدير",
+};
+const ROLE_COLOR: Record<string, string> = {
+  customer: "#888",
+  merchant: "#C9A84C",
+  employee: "#2980B9",
+  supervisor: "#8E44AD",
+  admin: "#C0392B",
+};
+
 export default function AdminNotificationsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -41,7 +62,13 @@ export default function AdminNotificationsScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const selectedUser = registeredCustomers.find((c) => c.id === selectedUserId);
+  // Merge registered customers + staff for private message picker
+  const allPickableUsers = [
+    ...STAFF_USERS,
+    ...registeredCustomers,
+  ];
+
+  const selectedUser = allPickableUsers.find((c) => c.id === selectedUserId);
 
   const handleSend = async () => {
     if (!title || !body) {
@@ -161,41 +188,50 @@ export default function AdminNotificationsScreen() {
             </Pressable>
             {showUserPicker && (
               <View style={[styles.userList, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
-                {registeredCustomers.length === 0 ? (
+                {allPickableUsers.length === 0 ? (
                   <Text style={[styles.noUsers, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                    لا يوجد عملاء مسجلون
+                    لا يوجد مستخدمون
                   </Text>
                 ) : (
-                  registeredCustomers.map((c) => (
-                    <Pressable
-                      key={c.id}
-                      onPress={() => { setSelectedUserId(c.id); setShowUserPicker(false); }}
-                      style={[
-                        styles.userItem,
-                        {
-                          backgroundColor: selectedUserId === c.id ? colors.gold + "22" : "transparent",
-                          borderBottomColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <View style={[styles.userAvatar, { backgroundColor: colors.gold + "33" }]}>
-                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                          {c.name.charAt(0)}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
-                          {c.name}
-                        </Text>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                          {c.phone}
-                        </Text>
-                      </View>
-                      {selectedUserId === c.id && (
-                        <Icon name="check" size={16} color={colors.gold} />
-                      )}
-                    </Pressable>
-                  ))
+                  allPickableUsers.map((c) => {
+                    const roleColor = ROLE_COLOR[c.role] ?? "#888";
+                    const roleLabel = ROLE_LABEL[c.role] ?? c.role;
+                    return (
+                      <Pressable
+                        key={c.id}
+                        onPress={() => { setSelectedUserId(c.id); setShowUserPicker(false); }}
+                        style={[
+                          styles.userItem,
+                          {
+                            backgroundColor: selectedUserId === c.id ? colors.gold + "22" : "transparent",
+                            borderBottomColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <View style={[styles.userAvatar, { backgroundColor: roleColor + "33" }]}>
+                          <Text style={{ color: roleColor, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                            {c.name.charAt(0)}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
+                              {c.name}
+                            </Text>
+                            <View style={{ backgroundColor: roleColor + "22", borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
+                              <Text style={{ color: roleColor, fontFamily: "Inter_600SemiBold", fontSize: 10 }}>{roleLabel}</Text>
+                            </View>
+                          </View>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                            {c.phone}
+                          </Text>
+                        </View>
+                        {selectedUserId === c.id && (
+                          <Icon name="check" size={16} color={colors.gold} />
+                        )}
+                      </Pressable>
+                    );
+                  })
                 )}
               </View>
             )}

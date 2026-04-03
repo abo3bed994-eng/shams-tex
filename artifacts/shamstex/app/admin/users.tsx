@@ -135,6 +135,14 @@ export default function AdminUsersScreen() {
     if (target) saveCustomerChange({ ...target, upgradeStatus: "rejected" });
   };
 
+  const handleChangeStaffRole = (userId: string, newRole: "employee" | "supervisor") => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const defaultPerms = newRole === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_PERMISSIONS;
+    setStaffList((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, role: newRole, permissions: defaultPerms } : u))
+    );
+  };
+
   const handleToggleStaffPermission = (userId: string, permission: EmployeePermission) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStaffList((prev) =>
@@ -284,9 +292,51 @@ export default function AdminUsersScreen() {
         {isExpanded && user?.role === "admin" && u.id !== user.id && (
           <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
             {isStaff ? (
-              // Staff edit: name + permissions only
+              // Staff edit: name + role change + permissions
               <>
                 {renderNameEdit(u, handleSaveStaffName)}
+                {(u.role === "employee" || u.role === "supervisor") && (
+                  <View style={{ gap: 8 }}>
+                    <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                      الدور الوظيفي
+                    </Text>
+                    <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                      {(["supervisor", "employee"] as ("supervisor" | "employee")[]).map((role) => (
+                        <Pressable
+                          key={role}
+                          onPress={() => handleChangeStaffRole(u.id, role)}
+                          style={[
+                            styles.roleBtn,
+                            {
+                              backgroundColor: u.role === role ? ROLE_COLORS[role] + "33" : colors.surface,
+                              borderColor: u.role === role ? ROLE_COLORS[role] : colors.border,
+                              flex: 1,
+                              flexDirection: "row-reverse",
+                              alignItems: "center",
+                              gap: 6,
+                              justifyContent: "center",
+                            },
+                          ]}
+                        >
+                          <Icon
+                            name={role === "supervisor" ? "shield-check" : "briefcase"}
+                            size={14}
+                            color={u.role === role ? ROLE_COLORS[role] : colors.mutedForeground}
+                          />
+                          <Text
+                            style={{
+                              color: u.role === role ? ROLE_COLORS[role] : colors.foreground,
+                              fontFamily: u.role === role ? "Inter_700Bold" : "Inter_400Regular",
+                              fontSize: 13,
+                            }}
+                          >
+                            {ROLE_LABELS[role]}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                )}
                 {showPermissions && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
               </>
             ) : (

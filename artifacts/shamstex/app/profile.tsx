@@ -28,24 +28,27 @@ const ROLE_LABELS: Record<string, string> = {
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, setUser, orders, addNotification, theme, setTheme } = useApp();
+  const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme } = useApp();
   const [requestSent, setRequestSent] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
   const myOrdersCount = orders.filter((o) => o.userId === user?.id).length;
 
   const handleUpgradeRequest = () => {
+    if (!user) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setRequestSent(true);
+    // Persist upgradeStatus = "pending" so re-login won't allow re-request
+    updateRegisteredCustomer({ ...user, upgradeStatus: "pending" });
     addNotification({
-      id: Date.now().toString(),
+      id: `upgrade_${user.id}_${Date.now()}`,
       title: "طلب ترقية إلى تاجر",
-      body: `${user?.name} (${user?.phone}) يطلب الترقية إلى تاجر`,
+      body: `${user.name} (${user.phone}) يطلب الترقية إلى تاجر`,
       createdAt: new Date().toISOString(),
       read: false,
       targetRole: "admin",
       actionType: "upgrade_request",
-      actionUserId: user?.id,
+      actionUserId: user.id,
     });
     Alert.alert("تم إرسال الطلب", "سيتم مراجعة طلبك من قبل الإدارة وإبلاغك بالنتيجة.");
   };

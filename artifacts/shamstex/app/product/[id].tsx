@@ -118,7 +118,13 @@ export default function ProductDetailScreen() {
     });
   };
 
+  const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
+
   const handleAddToCart = () => {
+    if (isStaff) {
+      Alert.alert("للعرض فقط", "أعضاء فريق العمل يمكنهم عرض المنتجات فقط ولا يمكنهم الطلب.");
+      return;
+    }
     if (orderType === "pieces") {
       if (selectedColorCount === 0 || totalPieces === 0) {
         Alert.alert("تنبيه", "الرجاء اختيار لون وتحديد الكمية");

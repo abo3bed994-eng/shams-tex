@@ -20,11 +20,11 @@ import Icon from "@/components/Icon";
 
 type Step = "phone" | "otp" | "name";
 
-const DEMO_ACCOUNTS: Record<string, { name: string; role: "admin" | "supervisor" | "merchant" | "employee" }> = {
-  "0000000001": { name: "مدير النظام", role: "admin" },
-  "0000000002": { name: "تاجر", role: "merchant" },
-  "0000000003": { name: "موظف", role: "employee" },
-  "0000000004": { name: "مشرف", role: "supervisor" },
+const DEMO_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" | "supervisor" | "merchant" | "employee" }> = {
+  "0000000001": { id: "u1", name: "مدير النظام", role: "admin" },
+  "0000000002": { id: "u2", name: "تاجر", role: "merchant" },
+  "0000000003": { id: "u3", name: "موظف", role: "employee" },
+  "0000000004": { id: "u4", name: "مشرف", role: "supervisor" },
 };
 
 export default function LoginScreen() {
@@ -62,7 +62,8 @@ export default function LoginScreen() {
 
     if (isDemo) {
       const demo = DEMO_ACCOUNTS[phone];
-      await finishLogin(demo.name, demo.role, null);
+      // Pass stable demo user object so the same ID is used across all logins
+      await finishLogin(demo.name, demo.role, { id: demo.id, phone, name: demo.name, role: demo.role });
       return;
     }
 
