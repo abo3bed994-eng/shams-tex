@@ -341,8 +341,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
       if (freshCustomers.length > 0) {
-        setRegisteredCustomersState(freshCustomers);
-        AsyncStorage.setItem("registered_customers", JSON.stringify(freshCustomers)).catch(() => {});
+        // Deduplicate by phone — prevents duplicates when same phone registered twice
+        const deduped = [...new Map(freshCustomers.map((c) => [c.phone, c])).values()];
+        setRegisteredCustomersState(deduped);
+        AsyncStorage.setItem("registered_customers", JSON.stringify(deduped)).catch(() => {});
       }
     });
 
@@ -461,10 +463,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const registerCustomer = useCallback(async (newUser: User) => {
-    const updated = [...registeredCustomers.filter((c) => c.phone !== newUser.phone), newUser];
+    // If this phone already exists, preserve their existing ID to avoid Firestore duplicates
+    const existing = registeredCustomers.find((c) => c.phone === newUser.phone);
+    const userToSave = existing ? { ...newUser, id: existing.id } : newUser;
+    const updated = [...registeredCustomers.filter((c) => c.phone !== newUser.phone), userToSave];
     setRegisteredCustomersState(updated);
     await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
-    FS.saveCustomer(newUser).catch(() => {});
+    FS.saveCustomer(userToSave).catch(() => {});
   }, [registeredCustomers]);
 
   const updateRegisteredCustomer = useCallback(async (updatedUser: User) => {

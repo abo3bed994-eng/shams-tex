@@ -100,10 +100,14 @@ export default function AdminUsersScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Customers & merchants from registeredCustomers
-  const customerList = registeredCustomers.filter(
-    (c) => c.role === "customer" || c.role === "merchant"
-  );
+  // Customers & merchants from registeredCustomers — deduplicate by phone as safety net
+  const customerList = [
+    ...new Map(
+      registeredCustomers
+        .filter((c) => c.role === "customer" || c.role === "merchant")
+        .map((c) => [c.phone, c])
+    ).values(),
+  ];
   const pendingUpgrades = customerList.filter((u) => u.upgradeStatus === "pending");
   const activeCustomers = customerList.filter((u) => u.upgradeStatus !== "pending");
 

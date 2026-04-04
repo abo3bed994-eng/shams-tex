@@ -9,15 +9,20 @@ import { Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 
 // Configure how notifications are shown while app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldShowAlert: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Wrapped in try-catch because Android Expo Go (SDK 53+) does not support push
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: true,
+      shouldShowAlert: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (_) {
+  // Not supported in current environment — silently ignore
+}
 
 /**
  * Register this device for push notifications.
