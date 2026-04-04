@@ -67,6 +67,14 @@ export const FS = {
     return snap.exists() ? snap.data() : null;
   },
 
+  subscribeProducts(callback: (products: any[]) => void): Unsubscribe {
+    return onSnapshot(
+      collection(db, "products"),
+      (snap) => callback(snap.docs.map((d) => d.data())),
+      () => {}
+    );
+  },
+
   subscribeOrders(callback: (orders: any[]) => void): Unsubscribe {
     // Try with orderBy, fallback to unordered on error
     let unsub = onSnapshot(

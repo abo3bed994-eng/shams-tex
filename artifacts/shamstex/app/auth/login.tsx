@@ -20,11 +20,11 @@ import Icon from "@/components/Icon";
 
 type Step = "phone" | "otp" | "name";
 
-const DEMO_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" | "supervisor" | "merchant" | "employee" }> = {
-  "0000000001": { id: "u1", name: "مدير النظام", role: "admin" },
-  "0000000002": { id: "u2", name: "تاجر", role: "merchant" },
-  "0000000003": { id: "u3", name: "موظف", role: "employee" },
-  "0000000004": { id: "u4", name: "مشرف", role: "supervisor" },
+const DEMO_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" | "supervisor" | "merchant" | "employee"; permissions?: string[] }> = {
+  "0000000001": { id: "u1", name: "مدير النظام", role: "admin", permissions: [] },
+  "0000000002": { id: "u2", name: "تاجر", role: "merchant", permissions: [] },
+  "0000000003": { id: "u3", name: "موظف", role: "employee", permissions: ["view_orders", "view_products"] },
+  "0000000004": { id: "u4", name: "مشرف", role: "supervisor", permissions: ["view_orders", "edit_orders", "view_products", "view_users", "send_notifications", "approve_upgrades"] },
 };
 
 export default function LoginScreen() {
@@ -62,8 +62,8 @@ export default function LoginScreen() {
 
     if (isDemo) {
       const demo = DEMO_ACCOUNTS[phone];
-      // Pass stable demo user object so the same ID is used across all logins
-      await finishLogin(demo.name, demo.role, { id: demo.id, phone, name: demo.name, role: demo.role });
+      // Pass stable demo user object including default permissions for first-time setup
+      await finishLogin(demo.name, demo.role, { id: demo.id, phone, name: demo.name, role: demo.role, permissions: demo.permissions });
       return;
     }
 
@@ -107,11 +107,8 @@ export default function LoginScreen() {
       }),
       sessionToken,
     };
-    // Save session token to Firebase so other devices are kicked out
-    try {
-      const { FS } = await import("@/lib/firebase");
-      await FS.saveSession(userToSet.phone, sessionToken);
-    } catch {}
+    // Register user in Firestore so permissions can be managed by admin
+    await registerCustomer(userToSet);
     await setUser(userToSet);
     setLoading(false);
     router.replace("/(tabs)");

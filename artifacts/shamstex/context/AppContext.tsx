@@ -363,10 +363,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    const unsubProducts = FS.subscribeProducts((freshProducts) => {
+      if (freshProducts.length > 0) {
+        const sorted = [...freshProducts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setProductsState(sorted);
+        AsyncStorage.setItem("products", JSON.stringify(sorted)).catch(() => {});
+      }
+    });
+
     return () => {
       unsubOrders();
       unsubCustomers();
       unsubNotifications();
+      unsubProducts();
     };
   }, []);
 
@@ -385,7 +394,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       freshRecord.role !== currentUser.role ||
       freshRecord.vip !== currentUser.vip ||
       freshRecord.upgradeStatus !== currentUser.upgradeStatus ||
-      freshRecord.name !== currentUser.name;
+      freshRecord.name !== currentUser.name ||
+      JSON.stringify(freshRecord.permissions ?? []) !== JSON.stringify(currentUser.permissions ?? []);
     if (changed) {
       const synced: User = { ...currentUser, ...freshRecord };
       setUserState(synced);
@@ -409,23 +419,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (userData) {
         const parsedUser: User = JSON.parse(userData);
-        // Validate session token against Firestore (prevents two sessions with same phone)
-        try {
-          if (parsedUser.phone && parsedUser.sessionToken) {
-            const remoteToken = await FS.getSession(parsedUser.phone);
-            if (remoteToken && remoteToken !== parsedUser.sessionToken) {
-              // Another device logged in with the same phone — force logout
-              await AsyncStorage.removeItem("user");
-              setUserState(null);
-            } else {
-              setUserState(parsedUser);
-            }
-          } else {
-            setUserState(parsedUser);
-          }
-        } catch {
-          setUserState(parsedUser);
-        }
+        setUserState(parsedUser);
       }
       if (customersData) setRegisteredCustomersState(JSON.parse(customersData));
       if (productsData) setProductsState(JSON.parse(productsData));
@@ -471,9 +465,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const registerCustomer = useCallback(async (newUser: User) => {
-    // If this phone already exists, preserve their existing ID to avoid Firestore duplicates
+    // If this phone already exists, preserve their existing ID and permissions
     const existing = registeredCustomers.find((c) => c.phone === newUser.phone);
-    const userToSave = existing ? { ...newUser, id: existing.id } : newUser;
+    // Preserve existing permissions — ?? means: only fallback if existing.permissions is null/undefined
+    const userToSave = existing
+      ? { ...newUser, id: existing.id, permissions: existing.permissions ?? newUser.permissions }
+      : newUser;
     const updated = [...registeredCustomers.filter((c) => c.phone !== newUser.phone), userToSave];
     setRegisteredCustomersState(updated);
     await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));

@@ -91,12 +91,27 @@ type TabKey = "customers" | "staff";
 export default function AdminUsersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, registeredCustomers, updateRegisteredCustomer, addNotification } = useApp();
+  const { user, registeredCustomers, updateRegisteredCustomer, registerCustomer, addNotification } = useApp();
   const [activeTab, setActiveTab] = useState<TabKey>("customers");
-  const [staffList, setStaffList] = useState<User[]>(DEMO_STAFF);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
+
+  // Merge DEMO_STAFF with Firestore data — Firestore data always wins (has real permissions)
+  const staffList: User[] = DEMO_STAFF.map((demo) => {
+    const fromRegistry = registeredCustomers.find((c) => c.phone === demo.phone);
+    return fromRegistry ? { ...demo, ...fromRegistry } : demo;
+  });
+
+  // Save staff member to Firestore & registered list
+  const saveStaffMember = (updatedUser: User) => {
+    const exists = registeredCustomers.find((c) => c.phone === updatedUser.phone);
+    if (exists) {
+      updateRegisteredCustomer(updatedUser);
+    } else {
+      registerCustomer(updatedUser);
+    }
+  };
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -178,30 +193,27 @@ export default function AdminUsersScreen() {
   const handleChangeStaffRole = (userId: string, newRole: "employee" | "supervisor") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const defaultPerms = newRole === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_PERMISSIONS;
-    setStaffList((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole, permissions: defaultPerms } : u))
-    );
+    const target = staffList.find((u) => u.id === userId);
+    if (target) saveStaffMember({ ...target, role: newRole, permissions: defaultPerms });
   };
 
   const handleToggleStaffPermission = (userId: string, permission: EmployeePermission) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStaffList((prev) =>
-      prev.map((u) => {
-        if (u.id !== userId) return u;
-        const current = u.permissions ?? [];
-        const perms = current.includes(permission)
-          ? current.filter((p) => p !== permission)
-          : [...current, permission];
-        return { ...u, permissions: perms };
-      })
-    );
+    const target = staffList.find((u) => u.id === userId);
+    if (!target) return;
+    const current = target.permissions ?? [];
+    const perms = current.includes(permission)
+      ? current.filter((p) => p !== permission)
+      : [...current, permission];
+    saveStaffMember({ ...target, permissions: perms });
   };
 
   const handleSaveStaffName = (userId: string) => {
     const trimmed = editingNameValue.trim();
     if (trimmed.length < 2) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setStaffList((prev) => prev.map((u) => (u.id === userId ? { ...u, name: trimmed } : u)));
+    const target = staffList.find((u) => u.id === userId);
+    if (target) saveStaffMember({ ...target, name: trimmed });
     setEditingNameId(null);
     setEditingNameValue("");
   };

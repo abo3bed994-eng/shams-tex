@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -70,10 +70,13 @@ export default function ProfileScreen() {
     ]);
   };
 
-  if (!user) {
-    router.replace("/auth/login");
-    return null;
-  }
+  useEffect(() => {
+    if (!user) {
+      router.replace("/auth/login");
+    }
+  }, [user]);
+
+  if (!user) return null;
 
   const allAdminLinks = [
     { label: "إدارة المنتجات", icon: "layers", route: "/admin/products", permission: "view_products" },
