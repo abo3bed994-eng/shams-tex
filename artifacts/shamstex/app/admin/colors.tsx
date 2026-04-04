@@ -20,8 +20,10 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function AdminColorsScreen() {
+  useAdminGuard();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings, setSettings } = useApp();

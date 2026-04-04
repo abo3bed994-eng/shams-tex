@@ -61,23 +61,44 @@ Expo React Native app for Shams Tex fabric company.
 ### User Roles
 - **Customer**: sees retail prices, can order
 - **Merchant**: sees wholesale prices (approved by admin)
-- **Employee**: limited admin access
+- **Employee**: limited admin access, permissions from admin
+- **Supervisor**: broader admin access, can manage staff
 - **Admin**: full control
+
+### Permissions System
+- Employee/Supervisor permissions stored in Firestore `customers` collection
+- Permissions: `view_orders`, `edit_orders`, `view_products`, `edit_products`, `view_users`, `send_notifications`, `manage_staff`, `approve_upgrades`, `delete_orders`
+- Admin screens guarded by `useAdminGuard(permission)` hook — unauthorized access redirects back
+- Permission changes sync in real-time to logged-in staff sessions
+
+### Session Management
+- Single-device enforcement: login from new device invalidates previous session via Firestore `sessions` collection
+- Session token checked on app startup — mismatched token triggers auto-logout
+
+### Real-time Sync
+- Firestore listeners for: orders, customers, notifications, products
+- Product order changes by admin reflect instantly for all users
+- Permission/role changes sync to active sessions automatically
 
 ### Demo accounts
 - `0000000001` → Admin
 - `0000000002` → Merchant  
-- `0000000003` → Employee
+- `0000000003` → Employee (default: view_orders, view_products)
+- `0000000004` → Supervisor (default: view_orders, edit_orders, view_products, view_users, send_notifications, approve_upgrades)
 - Any other number → Customer
 
 ### Key Files
 - `app/_layout.tsx` — root layout with providers and splash screen
 - `app/(tabs)/` — main tab screens (home, products, orders, contact)
 - `app/product/[id].tsx` — product detail with color selection
-- `app/cart.tsx` — shopping cart
+- `app/cart.tsx` — shopping cart with try-catch checkout
 - `app/order/[id].tsx` — order detail with status tracking
-- `app/admin/` — admin management screens
-- `context/AppContext.tsx` — global state with AsyncStorage persistence
+- `app/admin/` — admin management screens (all guarded by useAdminGuard)
+- `context/AppContext.tsx` — global state with AsyncStorage persistence + Firestore listeners
+- `hooks/useAdminGuard.ts` — permission guard hook for admin screens
+- `hooks/useColors.ts` — design token hook
+- `lib/firebase.ts` — Firestore operations + real-time subscriptions
+- `lib/pushService.ts` — Expo push notifications
 - `constants/colors.ts` — black/gold luxury design tokens
 
 ### Pricing Logic

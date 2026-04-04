@@ -17,6 +17,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, User, UserRole, EmployeePermission } from "@/context/AppContext";
 import { notifyUserByPhone } from "@/lib/pushService";
 import GoldHeader from "@/components/GoldHeader";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   customer: "زبون",
@@ -89,6 +90,7 @@ const DEMO_STAFF: User[] = [
 type TabKey = "customers" | "staff";
 
 export default function AdminUsersScreen() {
+  useAdminGuard("view_users");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, registeredCustomers, updateRegisteredCustomer, registerCustomer, addNotification } = useApp();

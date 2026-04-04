@@ -18,6 +18,7 @@ import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
 import { notifyAll, notifyByRoles, notifyUserByPhone } from "@/lib/pushService";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 type NotifType = "all" | "customers" | "employees" | "supervisors" | "private";
 
@@ -51,6 +52,7 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 export default function AdminNotificationsScreen() {
+  useAdminGuard("send_notifications");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { addNotification, notifications, registeredCustomers, user } = useApp();

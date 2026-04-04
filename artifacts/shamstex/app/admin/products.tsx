@@ -19,6 +19,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Product } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 const UNIT_LABELS: Record<string, string> = {
   meter: "م",
@@ -26,6 +27,7 @@ const UNIT_LABELS: Record<string, string> = {
 };
 
 export default function AdminProductsScreen() {
+  useAdminGuard("view_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { products, setProducts } = useApp();

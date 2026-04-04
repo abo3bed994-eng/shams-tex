@@ -107,6 +107,11 @@ export default function LoginScreen() {
       }),
       sessionToken,
     };
+    // Save session token to Firebase — invalidates sessions on other devices
+    try {
+      const { FS } = await import("@/lib/firebase");
+      await FS.saveSession(userToSet.phone, sessionToken);
+    } catch {}
     // Register user in Firestore so permissions can be managed by admin
     await registerCustomer(userToSet);
     await setUser(userToSet);

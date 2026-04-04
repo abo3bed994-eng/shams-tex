@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Tab } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 const TAB_TYPES: { value: Tab["type"]; label: string }[] = [
   { value: "home", label: "الرئيسية" },
@@ -30,6 +31,7 @@ const TAB_TYPES: { value: Tab["type"]; label: string }[] = [
 const TAB_ICONS = ["home", "grid", "package", "phone", "info", "star", "heart", "settings"];
 
 export default function AdminTabsScreen() {
+  useAdminGuard();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { tabs, setTabs } = useApp();

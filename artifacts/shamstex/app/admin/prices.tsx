@@ -17,8 +17,10 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Product } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function AdminPricesScreen() {
+  useAdminGuard("edit_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { products, setProducts } = useApp();

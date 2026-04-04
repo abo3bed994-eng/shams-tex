@@ -20,6 +20,7 @@ import { useApp, AppSettings, ContactEntry, SocialEntry } from "@/context/AppCon
 import { persistImageUri } from "@/utils/persistImage";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 const SOCIAL_ICONS = ["message-circle", "instagram", "facebook", "tiktok", "twitter", "youtube", "globe"];
 
@@ -76,6 +77,7 @@ const fieldStyles = StyleSheet.create({
 });
 
 export default function AdminSettingsScreen() {
+  useAdminGuard();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings, setSettings } = useApp();

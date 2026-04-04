@@ -20,8 +20,10 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function EditProductScreen() {
+  useAdminGuard("edit_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();

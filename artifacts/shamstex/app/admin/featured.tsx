@@ -16,8 +16,10 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function AdminFeaturedScreen() {
+  useAdminGuard("edit_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { products, settings, setSettings } = useApp();

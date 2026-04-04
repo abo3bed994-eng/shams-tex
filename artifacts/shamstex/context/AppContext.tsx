@@ -419,7 +419,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (userData) {
         const parsedUser: User = JSON.parse(userData);
-        setUserState(parsedUser);
+        try {
+          if (parsedUser.phone && parsedUser.sessionToken) {
+            const remoteToken = await FS.getSession(parsedUser.phone);
+            if (remoteToken && remoteToken !== parsedUser.sessionToken) {
+              await AsyncStorage.removeItem("user");
+              setUserState(null);
+            } else {
+              setUserState(parsedUser);
+            }
+          } else {
+            setUserState(parsedUser);
+          }
+        } catch {
+          setUserState(parsedUser);
+        }
       }
       if (customersData) setRegisteredCustomersState(JSON.parse(customersData));
       if (productsData) setProductsState(JSON.parse(productsData));
@@ -436,16 +450,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
 
-    // Fetch products & settings from Firestore (not covered by listeners)
+    // Fetch settings from Firestore (products are covered by subscribeProducts listener)
     try {
-      const [fsProducts, fsSettings] = await Promise.all([
-        FS.getAllProducts(),
-        FS.getSettings(),
-      ]);
-      if (fsProducts.length > 0) {
-        setProductsState(fsProducts);
-        await AsyncStorage.setItem("products", JSON.stringify(fsProducts));
-      }
+      const fsSettings = await FS.getSettings();
       if (fsSettings) {
         setSettingsState({ ...DEFAULT_SETTINGS, ...fsSettings });
         await AsyncStorage.setItem("settings", JSON.stringify(fsSettings));
@@ -499,11 +506,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addToCart = useCallback((item: CartItem) => {
     setCart((prev) => {
       const existing = prev.find(
-        (c) => c.productId === item.productId && c.colorName === item.colorName
+        (c) => c.productId === item.productId && c.colorName === item.colorName && c.orderType === item.orderType
       );
       if (existing) {
         return prev.map((c) =>
-          c.productId === item.productId && c.colorName === item.colorName
+          c.productId === item.productId && c.colorName === item.colorName && c.orderType === item.orderType
             ? { ...c, quantity: c.quantity + item.quantity }
             : c
         );

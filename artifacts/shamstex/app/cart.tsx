@@ -58,13 +58,18 @@ export default function CartScreen() {
       notes,
     };
 
-    await addOrder(order);
-    clearCart();
-    setLoading(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
-      { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
-    ]);
+    try {
+      await addOrder(order);
+      clearCart();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
+        { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
+      ]);
+    } catch {
+      Alert.alert("خطأ", "تعذّر إرسال الطلب. يُرجى المحاولة مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
