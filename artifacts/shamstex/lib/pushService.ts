@@ -1,27 +1,54 @@
 /**
  * Expo Push Notification Service
  * Handles token registration and sending push notifications via Expo Push API.
+ * Uses lazy imports to avoid crashing on Android Expo Go (SDK 53+).
  */
 
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
 import { Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 
-// Configure how notifications are shown while app is in foreground
-// Wrapped in try-catch because Android Expo Go (SDK 53+) does not support push
-try {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldPlaySound: true,
-      shouldShowAlert: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-} catch (_) {
-  // Not supported in current environment — silently ignore
+let _Notifications: typeof import("expo-notifications") | null = null;
+let _Device: typeof import("expo-device") | null = null;
+let _initDone = false;
+
+async function getNotifications() {
+  if (!_Notifications) {
+    try {
+      _Notifications = await import("expo-notifications");
+    } catch (_) {
+      return null;
+    }
+  }
+  return _Notifications;
+}
+
+async function getDevice() {
+  if (!_Device) {
+    try {
+      _Device = await import("expo-device");
+    } catch (_) {
+      return null;
+    }
+  }
+  return _Device;
+}
+
+async function initHandler() {
+  if (_initDone) return;
+  _initDone = true;
+  try {
+    const Notif = await getNotifications();
+    if (!Notif) return;
+    Notif.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldPlaySound: true,
+        shouldShowAlert: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (_) {}
 }
 
 /**
@@ -34,10 +61,13 @@ export async function registerForPushNotifications(
   role: string
 ): Promise<string | null> {
   try {
-    // Must be a real physical device
-    if (!Device.isDevice) return null;
+    const Device = await getDevice();
+    if (!Device || !Device.isDevice) return null;
 
-    // Request permission
+    await initHandler();
+    const Notifications = await getNotifications();
+    if (!Notifications) return null;
+
     const { status: existing } = await Notifications.getPermissionsAsync();
     let finalStatus = existing;
     if (existing !== "granted") {
@@ -46,7 +76,6 @@ export async function registerForPushNotifications(
     }
     if (finalStatus !== "granted") return null;
 
-    // Set up Android notification channels
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("orders", {
         name: "طلبات جديدة",
@@ -65,13 +94,11 @@ export async function registerForPushNotifications(
       });
     }
 
-    // Get Expo push token — works for Expo Go and standalone builds
     let expoPushToken: string | null = null;
     try {
       const tokenData = await Notifications.getExpoPushTokenAsync();
       expoPushToken = tokenData.data;
     } catch (e1) {
-      // Some environments (emulators, Expo Go on certain iOS) can't get push tokens
       console.warn("Could not get Expo push token:", e1);
       return null;
     }
