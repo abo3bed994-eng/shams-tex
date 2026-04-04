@@ -333,16 +333,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Real-time Firestore listeners — update UI instantly without reloading
   useEffect(() => {
     const unsubOrders = FS.subscribeOrders((freshOrders) => {
-      if (freshOrders.length > 0) {
-        setOrdersState(freshOrders);
-        AsyncStorage.setItem("orders", JSON.stringify(freshOrders)).catch(() => {});
-      }
+      // Always sync — even if list becomes empty (e.g. all orders deleted)
+      setOrdersState(freshOrders);
+      AsyncStorage.setItem("orders", JSON.stringify(freshOrders)).catch(() => {});
     });
 
     const unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
       if (freshCustomers.length > 0) {
-        // Deduplicate by phone — prevents duplicates when same phone registered twice
-        const deduped = [...new Map(freshCustomers.map((c) => [c.phone, c])).values()];
+        // Deduplicate by phone — keep the most recently updated record per phone
+        const dedupMap = new Map<string, any>();
+        for (const c of freshCustomers) {
+          const existing = dedupMap.get(c.phone);
+          const cTime = c.lastUpdated || c.registeredAt || "";
+          const eTime = existing ? (existing.lastUpdated || existing.registeredAt || "") : "";
+          if (!existing || cTime > eTime) {
+            dedupMap.set(c.phone, c);
+          }
+        }
+        const deduped = [...dedupMap.values()];
         setRegisteredCustomersState(deduped);
         AsyncStorage.setItem("registered_customers", JSON.stringify(deduped)).catch(() => {});
       }
@@ -541,18 +549,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       FS.saveOrder(order).catch(() => {});
-      // Notify staff about new order (in-app via Firestore)
+      // Notify staff about new order — ONE notification doc for all staff roles
       const staffNotif: Notification = {
         id: `notif_order_new_${order.id}`,
-        title: "طلب جديد",
+        title: "🛍️ طلب جديد",
         body: `وصل طلب جديد من ${order.userName} (${order.userPhone})`,
         createdAt: new Date().toISOString(),
         read: false,
-        targetRole: "employee",
+        targetRole: "staff",   // handled in notification filter as "all staff roles"
       };
-      const staffNotifSupervisor: Notification = { ...staffNotif, id: `${staffNotif.id}_sv`, targetRole: "supervisor" };
       FS.saveNotification(staffNotif).catch(() => {});
-      FS.saveNotification(staffNotifSupervisor).catch(() => {});
       // Push notification to all employees & supervisors (even outside app)
       notifyStaffNewOrder(order.id, order.userName).catch(() => {});
     },

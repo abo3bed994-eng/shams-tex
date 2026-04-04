@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { router } from "expo-router";
@@ -22,6 +23,7 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const { user, orders, updateOrderStatus, deleteOrder, cancelOrder } = useApp();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [search, setSearch] = useState("");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -30,9 +32,17 @@ export default function OrdersScreen() {
   const canEditStatus = user?.role === "admin" || user?.role === "supervisor" || user?.role === "employee";
 
   const myOrders = isStaff ? orders : orders.filter((o) => o.userId === user?.id);
-  const filtered = filter === "all" ? myOrders : myOrders.filter((o) => o.status === filter);
+  const statusFiltered = filter === "all" ? myOrders : myOrders.filter((o) => o.status === filter);
 
-  // Returns true if customer can still cancel (within 5 minutes of creation)
+  // Search filter: by customer name or order ID prefix (staff only)
+  const filtered = isStaff && search.trim()
+    ? statusFiltered.filter((o) =>
+        o.userName.toLowerCase().includes(search.trim().toLowerCase()) ||
+        o.userPhone.includes(search.trim()) ||
+        o.id.toLowerCase().startsWith(search.trim().toLowerCase())
+      )
+    : statusFiltered;
+
   const canCancelOrder = (order: Order) => {
     const created = new Date(order.createdAt).getTime();
     return Date.now() - created < 5 * 60 * 1000;
@@ -77,6 +87,28 @@ export default function OrdersScreen() {
         )}
       </View>
 
+      {/* Search bar — staff only */}
+      {isStaff && (
+        <View style={[styles.searchRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+          <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 2 }]}>
+            <Icon name="search" size={16} color={colors.mutedForeground} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="بحث باسم الزبون أو رقم الطلب..."
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular", textAlign: "right" }]}
+              returnKeyType="search"
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                <Icon name="x" size={15} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+
       <View style={[styles.filterRow, { borderBottomColor: colors.border }]}>
         {FILTERS.map(({ key, label }) => (
           <Pressable
@@ -110,7 +142,7 @@ export default function OrdersScreen() {
           <View style={styles.empty}>
             <Icon name="package" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              {isStaff ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
+              {search.trim() ? "لا توجد طلبات مطابقة للبحث" : isStaff ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
             </Text>
             {!isStaff && (
               <Pressable
@@ -128,8 +160,6 @@ export default function OrdersScreen() {
           </View>
         ) : (
           filtered.map((order) => {
-            // Admin can control all orders
-            // Employee/supervisor can control only if: no assignedTo yet, OR they are the one assigned
             const userCanControlThisOrder =
               user?.role === "admin"
               || (canEditStatus && (!order.assignedTo || order.assignedTo === user?.id));
@@ -144,7 +174,6 @@ export default function OrdersScreen() {
                 onStatusChange={
                   canEditStatus && order.status !== "cancelled" && userCanControlThisOrder
                     ? (status: OrderStatus) => {
-                        // When employee/supervisor receives order, assign it to them
                         if (status === "received" && user?.role !== "admin") {
                           updateOrderStatus(order.id, status, user?.id, user?.name);
                         } else {
@@ -159,7 +188,7 @@ export default function OrdersScreen() {
                     : undefined
                 }
               />
-              {/* Customer cancel button — only within 5 minutes and for pending orders */}
+              {/* Customer cancel button */}
               {!isStaff && order.status === "pending" && canCancelOrder(order) && (
                 <Pressable
                   onPress={() => handleCancelOrder(order)}
@@ -177,20 +206,25 @@ export default function OrdersScreen() {
               {/* Admin delete button */}
               {isStaff && user?.role === "admin" && (
                 <Pressable
-                  onPress={() => Alert.alert("حذف نهائي", "هل تريد حذف هذا الطلب نهائياً؟", [
-                    { text: "إلغاء", style: "cancel" },
-                    { text: "حذف", style: "destructive", onPress: () => deleteOrder(order.id) },
-                  ])}
-                  style={[styles.deleteOrderBtn, { borderColor: "#C0392B44", backgroundColor: "#C0392B11" }]}
+                  onPress={() =>
+                    Alert.alert("حذف نهائي", "هل تريد حذف هذا الطلب نهائياً؟", [
+                      { text: "إلغاء", style: "cancel" },
+                      { text: "حذف", style: "destructive", onPress: () => deleteOrder(order.id) },
+                    ])
+                  }
+                  style={[
+                    styles.deleteOrderBtn,
+                    { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11" },
+                  ]}
                 >
-                  <Icon name="trash-2" size={14} color="#C0392B" />
-                  <Text style={[{ color: "#C0392B", fontFamily: "Inter_500Medium", fontSize: 13 }]}>
+                  <Icon name="trash-2" size={14} color="#E74C3C" />
+                  <Text style={[{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }]}>
                     حذف الطلب نهائياً
                   </Text>
                 </Pressable>
               )}
             </View>
-          );
+            );
           })
         )}
       </ScrollView>
@@ -210,6 +244,20 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 22 },
   cartBtn: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+  searchRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  searchBox: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    height: 42,
+    borderWidth: 1,
+    gap: 8,
+  },
+  searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
   filterRow: { flexDirection: "row-reverse", borderBottomWidth: 1 },
   filterBtn: { flex: 1, alignItems: "center", paddingVertical: 12 },
   filterText: { fontSize: 13 },

@@ -29,6 +29,9 @@ function RootLayoutNav() {
   const [splashDone, setSplashDone] = useState(false);
   const navigated = useRef(false);
   const pushRegistered = useRef<string | null>(null);
+  // Store pending notification navigation until the app is fully ready
+  const pendingNotifNav = useRef<string | null>(null);
+  const appReady = splashDone && !isLoading && navigated.current;
 
   // Register for push notifications whenever a user logs in
   useEffect(() => {
@@ -41,18 +44,32 @@ function RootLayoutNav() {
     }
   }, [user]);
 
-  // Handle notification taps — navigate to order if applicable, else notifications screen
+  // Handle notification taps — queue the navigation and execute once app is ready
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, any>;
+      let path = "/notifications";
       if (data?.orderId && (data?.type === "new_order" || data?.type === "order_status")) {
-        router.push(`/order/${data.orderId}`);
+        path = `/order/${data.orderId}`;
+      }
+      if (appReady) {
+        router.push(path as any);
       } else {
-        router.push("/notifications");
+        // App not ready — store the intent and fire it once ready
+        pendingNotifNav.current = path;
       }
     });
     return () => sub.remove();
-  }, []);
+  }, [appReady]);
+
+  // Fire pending notification navigation once app is fully ready
+  useEffect(() => {
+    if (appReady && pendingNotifNav.current) {
+      const path = pendingNotifNav.current;
+      pendingNotifNav.current = null;
+      setTimeout(() => router.push(path as any), 300);
+    }
+  }, [appReady]);
 
   useEffect(() => {
     if (splashDone && !isLoading && !navigated.current) {

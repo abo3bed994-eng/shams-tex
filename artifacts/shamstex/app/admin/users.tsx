@@ -117,7 +117,8 @@ export default function AdminUsersScreen() {
 
   const handleChangeCustomerRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const updated = customerList.find((u) => u.id === userId);
+    // Find by id OR phone (safety fallback after deduplication)
+    const updated = customerList.find((u) => u.id === userId) || customerList.find((u) => u.phone === userId);
     if (updated) {
       saveCustomerChange({ ...updated, role: newRole, upgradeStatus: undefined });
       // Notify the user about their role change
@@ -135,6 +136,21 @@ export default function AdminUsersScreen() {
           "🎉 تمت ترقيتك إلى تاجر!",
           "تم تفعيل حسابك. أغلق التطبيق وأعد فتحه لتحديث حسابك.",
           { type: "role_change", newRole: "merchant" }
+        ).catch(() => {});
+      } else if (newRole === "customer") {
+        addNotification({
+          id: `role_customer_${updated.id}_${Date.now()}`,
+          title: "تغيير الدور",
+          body: "تم تغيير دورك إلى زبون عادي. أغلق التطبيق وأعد فتحه لتحديث الحساب.",
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: updated.id,
+        });
+        notifyUserByPhone(
+          updated.phone,
+          "تغيير الدور",
+          "تم تغيير دورك إلى زبون عادي. أغلق التطبيق وأعد فتحه.",
+          { type: "role_change", newRole: "customer" }
         ).catch(() => {});
       }
     }

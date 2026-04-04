@@ -25,8 +25,10 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app);
 
 export const FS = {
-  async saveCustomer(customer: object & { id: string }) {
-    await setDoc(doc(db, "customers", customer.id), customer);
+  async saveCustomer(customer: object & { id: string; phone: string }) {
+    // Use phone as Firestore doc ID — prevents duplicate docs per phone number
+    const withTimestamp = { ...customer, lastUpdated: new Date().toISOString() };
+    await setDoc(doc(db, "customers", customer.phone), withTimestamp);
   },
 
   async getAllCustomers(): Promise<any[]> {

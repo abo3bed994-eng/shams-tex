@@ -14,28 +14,26 @@ function filterNotificationsForUser(notifications: any[], user: any): any[] {
     // Admin sees everything
     if (user.role === "admin") return true;
 
-    // Supervisor: sees supervisor-targeted + upgrade requests + order-related (no customer-specific)
+    // Supervisor: sees supervisor + staff targeted + upgrade requests (no customer-specific)
     if (user.role === "supervisor") {
-      if (n.targetUserId) return false; // don't show personal notifications for other users
-      if (n.targetRole === "supervisor") return true;
-      if (n.targetRole === "employee") return true; // supervisor oversees employee tasks too
+      if (n.targetUserId) return false;
+      if (n.targetRole === "supervisor" || n.targetRole === "staff") return true;
       if (n.actionType === "upgrade_request") return true;
       if (!n.targetRole && !n.targetUserId) return true; // broadcast
       return false;
     }
 
-    // Employee: only order-related notifications (targetRole === "employee")
+    // Employee: order-related notifications only
     if (user.role === "employee") {
       if (n.targetUserId) return false;
-      if (n.targetRole === "employee") return true;
+      if (n.targetRole === "employee" || n.targetRole === "staff") return true;
       return false;
     }
 
-    // Customer / Merchant: only their own notifications or broadcasts for their role
+    // Customer / Merchant: only their own notifications or role-targeted broadcasts
     if (user.role === "customer" || user.role === "merchant") {
       if (n.targetUserId) return n.targetUserId === user.id;
       if (n.targetRole) return n.targetRole === user.role;
-      // No target at all = broadcast (don't show to customers unless explicitly targeted)
       return false;
     }
 
