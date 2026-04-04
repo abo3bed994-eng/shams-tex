@@ -188,6 +188,7 @@ interface AppContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
+  sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
@@ -547,51 +548,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem("orders", JSON.stringify(ords));
   }, []);
 
+  const ordersRef = useRef<Order[]>([]);
+  ordersRef.current = orders;
+
   const addOrder = useCallback(
     async (order: Order) => {
-      const updated = [...orders, order];
+      const updated = [...ordersRef.current, order];
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       FS.saveOrder(order).catch(() => {});
-      // Notify staff about new order — ONE notification doc for all staff roles
       const staffNotif: Notification = {
         id: `notif_order_new_${order.id}`,
         title: "🛍️ طلب جديد",
         body: `وصل طلب جديد من ${order.userName} (${order.userPhone})`,
         createdAt: new Date().toISOString(),
         read: false,
-        targetRole: "staff",   // handled in notification filter as "all staff roles"
+        targetRole: "staff",
       };
       FS.saveNotification(staffNotif).catch(() => {});
-      // Push notification to all employees & supervisors (even outside app)
       notifyStaffNewOrder(order.id, order.userName).catch(() => {});
     },
-    [orders]
+    []
   );
 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => {
-      const updated = orders.map((o) => {
-        if (o.id !== orderId) return o;
-        const patch: Partial<Order> = { status };
-        // When an employee/supervisor receives an order, assign it to them
-        if (status === "received" && assignedToId) {
-          patch.assignedTo = assignedToId;
-          patch.assignedToName = assignedToName;
-        }
-        // When reverting back to pending, release assignment
-        if (status === "pending") {
-          patch.assignedTo = undefined;
-          patch.assignedToName = undefined;
-        }
-        return { ...o, ...patch };
-      });
-      setOrdersState(updated);
-      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      const patch: Partial<Order> = { status };
+      if (status === "received" && assignedToId) {
+        patch.assignedTo = assignedToId;
+        patch.assignedToName = assignedToName;
+      }
+      if (status === "pending") {
+        patch.assignedTo = undefined;
+        patch.assignedToName = undefined;
+      }
+      const updated = ordersRef.current.map((o) => (o.id !== orderId ? o : { ...o, ...patch }));
       const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (updatedOrder) {
         FS.saveOrder(updatedOrder).catch(() => {});
-        // Notify customer about status change
         const statusLabels: Record<string, string> = {
           received: "تم استلام طلبك",
           preparing: "طلبك قيد التجهيز",
@@ -608,7 +605,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             targetUserId: updatedOrder.userId,
           };
           FS.saveNotification(custNotif).catch(() => {});
-          // Push notification to customer's device
           if (updatedOrder.userPhone) {
             notifyUserByPhone(
               updatedOrder.userPhone,
@@ -620,30 +616,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [orders]
+    []
   );
 
-  // Admin: fully remove order
   const deleteOrder = useCallback(
     async (orderId: string) => {
-      const updated = orders.filter((o) => o.id !== orderId);
+      const updated = ordersRef.current.filter((o) => o.id !== orderId);
       setOrdersState(updated);
+      ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       FS.deleteOrder(orderId).catch(() => {});
     },
-    [orders]
+    []
   );
 
-  // Customer: mark order as cancelled (keeps record, shows as cancelled)
   const cancelOrder = useCallback(
     async (orderId: string) => {
-      const updated = orders.map((o) => (o.id === orderId ? { ...o, status: "cancelled" as OrderStatus } : o));
-      setOrdersState(updated);
-      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      const updated = ordersRef.current.map((o) => (o.id === orderId ? { ...o, status: "cancelled" as OrderStatus } : o));
       const cancelled = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (cancelled) FS.saveOrder(cancelled).catch(() => {});
     },
-    [orders]
+    []
+  );
+
+  const sendOrderMessage = useCallback(
+    async (orderId: string, message: string) => {
+      const order = ordersRef.current.find((o) => o.id === orderId);
+      if (!order) return;
+      const notif: Notification = {
+        id: `notif_msg_${orderId}_${Date.now()}`,
+        title: `رسالة بخصوص طلبك #${orderId.slice(0, 8)}`,
+        body: message,
+        createdAt: new Date().toISOString(),
+        read: false,
+        targetUserId: order.userId,
+      };
+      const updated = [notif, ...notificationsRef.current];
+      setNotifications(updated);
+      await AsyncStorage.setItem("notifications", JSON.stringify(updated));
+      FS.saveNotification(notif).catch(() => {});
+      if (order.userPhone) {
+        notifyUserByPhone(
+          order.userPhone,
+          notif.title,
+          message,
+          { type: "order_message", orderId }
+        ).catch(() => {});
+      }
+    },
+    []
   );
 
   const setTabs = useCallback(async (t: Tab[]) => {
@@ -651,28 +675,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem("tabs", JSON.stringify(t));
   }, []);
 
+  const notificationsRef = useRef<Notification[]>([]);
+  notificationsRef.current = notifications;
+
   const addNotification = useCallback(
     async (notification: Notification) => {
-      // Optimistic local update
-      const updated = [notification, ...notifications];
+      const updated = [notification, ...notificationsRef.current];
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
-      // Persist to Firestore so all clients receive it via real-time listener
       FS.saveNotification(notification).catch(() => {});
     },
-    [notifications]
+    []
   );
 
   const markNotificationRead = useCallback(
     async (id: string) => {
-      const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+      const updated = notificationsRef.current.map((n) => (n.id === id ? { ...n, read: true } : n));
+      const notif = updated.find((n) => n.id === id);
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
-      // Sync read status to Firestore
-      const notif = updated.find((n) => n.id === id);
       if (notif) FS.saveNotification(notif).catch(() => {});
     },
-    [notifications]
+    []
   );
 
   const setSettings = useCallback(async (s: AppSettings) => {
@@ -708,6 +732,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateOrderStatus,
         deleteOrder,
         cancelOrder,
+        sendOrderMessage,
         tabs,
         setTabs,
         notifications,

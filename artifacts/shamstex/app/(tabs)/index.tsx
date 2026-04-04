@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   Platform,
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import ProductCard from "@/components/ProductCard";
+import { filterNotificationsForUser } from "@/lib/notificationFilter";
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -58,28 +59,15 @@ export default function HomeScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Filter notifications by user role — same logic as notifications screen
-  const myNotifications = notifications.filter((n) => {
-    if (!user) return false;
-    if (user.role === "admin") return true;
-    if (user.role === "supervisor") {
-      if (n.targetUserId) return false;
-      if (n.targetRole === "supervisor" || n.targetRole === "staff") return true;
-      if (n.actionType === "upgrade_request") return true;
-      if (!n.targetRole && !n.targetUserId) return true;
-      return false;
-    }
-    if (user.role === "employee") {
-      if (n.targetUserId) return false;
-      return n.targetRole === "employee" || n.targetRole === "staff";
-    }
-    if (user.role === "customer" || user.role === "merchant") {
-      if (n.targetUserId) return n.targetUserId === user.id;
-      if (n.targetRole) return n.targetRole === user.role;
-      return false;
-    }
-    return false;
-  });
+  const navGuard = useRef(false);
+  const safePush = useCallback((path: string) => {
+    if (navGuard.current) return;
+    navGuard.current = true;
+    router.push(path as any);
+    setTimeout(() => { navGuard.current = false; }, 800);
+  }, []);
+
+  const myNotifications = filterNotificationsForUser(notifications, user);
   const unreadCount = myNotifications.filter((n) => !n.read).length;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -109,7 +97,7 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
         <View style={styles.headerLeft}>
           <Pressable
-            onPress={() => router.push("/notifications")}
+            onPress={() => safePush("/notifications")}
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Icon name="bell" size={22} color={colors.foreground} />
@@ -122,7 +110,7 @@ export default function HomeScreen() {
             )}
           </Pressable>
           <Pressable
-            onPress={() => router.push("/cart")}
+            onPress={() => safePush("/cart")}
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Icon name="shopping-cart" size={22} color={colors.foreground} />

@@ -6,40 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
-
-function filterNotificationsForUser(notifications: any[], user: any): any[] {
-  if (!user) return [];
-
-  return notifications.filter((n) => {
-    // Admin sees everything
-    if (user.role === "admin") return true;
-
-    // Supervisor: sees supervisor + staff targeted + upgrade requests (no customer-specific)
-    if (user.role === "supervisor") {
-      if (n.targetUserId) return false;
-      if (n.targetRole === "supervisor" || n.targetRole === "staff") return true;
-      if (n.actionType === "upgrade_request") return true;
-      if (!n.targetRole && !n.targetUserId) return true; // broadcast
-      return false;
-    }
-
-    // Employee: order-related notifications only
-    if (user.role === "employee") {
-      if (n.targetUserId) return false;
-      if (n.targetRole === "employee" || n.targetRole === "staff") return true;
-      return false;
-    }
-
-    // Customer / Merchant: only their own notifications or role-targeted broadcasts
-    if (user.role === "customer" || user.role === "merchant") {
-      if (n.targetUserId) return n.targetUserId === user.id;
-      if (n.targetRole) return n.targetRole === user.role;
-      return false;
-    }
-
-    return false;
-  });
-}
+import { filterNotificationsForUser } from "@/lib/notificationFilter";
 
 export default function NotificationsScreen() {
   const colors = useColors();

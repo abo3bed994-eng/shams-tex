@@ -1,5 +1,5 @@
-import React from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, OrderStatus } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import * as Haptics from "expo-haptics";
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
@@ -39,7 +40,10 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage } = useApp();
+  const [showMsgInput, setShowMsgInput] = useState(false);
+  const [msgText, setMsgText] = useState("");
+  const [sendingMsg, setSendingMsg] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -255,7 +259,65 @@ export default function OrderDetailScreen() {
           );
         })()}
 
-        {/* Admin permanent delete */}
+        {isStaff && order.status !== "cancelled" && (
+          <View style={[styles.msgSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            {!showMsgInput ? (
+              <Pressable
+                onPress={() => setShowMsgInput(true)}
+                style={[styles.msgToggleBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+              >
+                <Icon name="message-square" size={16} color={colors.gold} />
+                <Text style={[styles.msgToggleBtnText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
+                  إرسال رسالة للعميل
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.msgInputContainer}>
+                <Text style={[styles.msgLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                  إرسال رسالة + إشعار للعميل
+                </Text>
+                <TextInput
+                  style={[styles.msgInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, fontFamily: "Inter_400Regular", borderRadius: colors.radius - 4 }]}
+                  placeholder="مثال: الصنف غير متوفر حالياً..."
+                  placeholderTextColor={colors.mutedForeground}
+                  value={msgText}
+                  onChangeText={setMsgText}
+                  multiline
+                  textAlign="right"
+                />
+                <View style={styles.msgBtnRow}>
+                  <Pressable
+                    onPress={() => { setShowMsgInput(false); setMsgText(""); }}
+                    style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+                  >
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={async () => {
+                      if (!msgText.trim()) return;
+                      setSendingMsg(true);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      await sendOrderMessage(order.id, msgText.trim());
+                      setSendingMsg(false);
+                      setShowMsgInput(false);
+                      setMsgText("");
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      Alert.alert("تم", "تم إرسال الرسالة والإشعار للعميل بنجاح");
+                    }}
+                    disabled={sendingMsg || !msgText.trim()}
+                    style={[styles.msgSendBtn, { backgroundColor: colors.gold, borderRadius: colors.radius - 4, opacity: sendingMsg || !msgText.trim() ? 0.5 : 1 }]}
+                  >
+                    <Icon name="send" size={14} color={colors.background} />
+                    <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                      {sendingMsg ? "جاري الإرسال..." : "إرسال"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {isAdmin && (
           <Pressable
             onPress={() =>
@@ -400,4 +462,40 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   deleteBtnText: { fontSize: 13 },
+  msgSection: { borderWidth: 1, padding: 14 },
+  msgToggleBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+  },
+  msgToggleBtnText: { fontSize: 14 },
+  msgInputContainer: { gap: 10 },
+  msgLabel: { fontSize: 14, textAlign: "right" },
+  msgInput: {
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 70,
+    textAlignVertical: "top",
+  },
+  msgBtnRow: { flexDirection: "row-reverse", gap: 10 },
+  msgCancelBtn: {
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  msgSendBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flex: 1,
+    justifyContent: "center",
+  },
 });
