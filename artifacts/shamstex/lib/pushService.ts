@@ -1,7 +1,6 @@
 /**
  * Expo Push Notification Service
  * Handles token registration and sending push notifications via Expo Push API.
- * Works with Expo Go (foreground) and standalone builds (foreground + background).
  */
 
 import * as Notifications from "expo-notifications";
@@ -9,61 +8,40 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 
-// Configure how notifications are shown while app is open
+// Configure how notifications are shown while app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
     shouldShowAlert: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
 /**
  * Register this device for push notifications.
  * Saves the Expo push token to Firestore.
- * Call once on login or app startup when user is available.
+ * Totally safe — will not throw even if push is unavailable.
  */
 export async function registerForPushNotifications(
   phone: string,
   role: string
 ): Promise<string | null> {
-  if (!Device.isDevice) {
-    // Simulator — skip real push token
-    return null;
-  }
-
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    // Must be a real physical device
+    if (!Device.isDevice) return null;
 
-    if (existingStatus !== "granted") {
+    // Request permission
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let finalStatus = existing;
+    if (existing !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
+    if (finalStatus !== "granted") return null;
 
-    if (finalStatus !== "granted") {
-      return null;
-    }
-
-    // Get the Expo push token
-    // projectId is required for standalone builds (from expo.dev project settings)
-    // In Expo Go it works without it; in standalone it needs the correct Expo project ID
-    let expoPushToken: string;
-    try {
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      expoPushToken = tokenData.data;
-    } catch {
-      // Fallback for environments that need projectId
-      const tokenData = await Notifications.getDevicePushTokenAsync();
-      // DevicePushToken is FCM/APNs token — not usable with Expo Push API
-      // Store it anyway for logging; in production configure proper projectId
-      expoPushToken = tokenData.data as string;
-    }
-
-    // Save to Firestore
-    await FS.savePushToken(phone, role, expoPushToken);
-
-    // Android needs a notification channel
+    // Set up Android notification channels
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("orders", {
         name: "طلبات جديدة",
@@ -72,24 +50,40 @@ export async function registerForPushNotifications(
         sound: "default",
         lightColor: "#C9A84C",
         enableVibrate: true,
+        showBadge: true,
       });
       await Notifications.setNotificationChannelAsync("messages", {
         name: "رسائل",
         importance: Notifications.AndroidImportance.HIGH,
         sound: "default",
+        showBadge: true,
       });
     }
 
+    // Get Expo push token — works for Expo Go and standalone builds
+    let expoPushToken: string | null = null;
+    try {
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      expoPushToken = tokenData.data;
+    } catch (e1) {
+      // Some environments (emulators, Expo Go on certain iOS) can't get push tokens
+      console.warn("Could not get Expo push token:", e1);
+      return null;
+    }
+
+    if (expoPushToken) {
+      await FS.savePushToken(phone, role, expoPushToken);
+    }
     return expoPushToken;
   } catch (err) {
-    console.warn("Push token registration failed:", err);
+    console.warn("registerForPushNotifications error:", err);
     return null;
   }
 }
 
 /**
- * Send push notifications to a list of Expo push tokens via Expo Push API.
- * Works from the client (no server needed for development).
+ * Send push notifications via Expo Push API.
+ * Can be called from the client — no server required.
  */
 export async function sendExpoPush(
   tokens: string[],
@@ -98,7 +92,9 @@ export async function sendExpoPush(
   data?: Record<string, any>,
   channelId = "messages"
 ): Promise<void> {
-  const validTokens = tokens.filter((t) => t && t.startsWith("ExponentPushToken["));
+  const validTokens = tokens.filter(
+    (t) => t && (t.startsWith("ExponentPushToken[") || t.startsWith("ExpoPushToken["))
+  );
   if (validTokens.length === 0) return;
 
   const messages = validTokens.map((to) => ({
@@ -109,9 +105,11 @@ export async function sendExpoPush(
     priority: "high",
     channelId,
     data: data ?? {},
+    badge: 1,
   }));
 
   try {
+    const payload = messages.length === 1 ? messages[0] : messages;
     await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: {
@@ -119,7 +117,7 @@ export async function sendExpoPush(
         "Accept-Encoding": "gzip, deflate",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(messages.length === 1 ? messages[0] : messages),
+      body: JSON.stringify(payload),
     });
   } catch (err) {
     console.warn("Expo push send failed:", err);
@@ -127,7 +125,7 @@ export async function sendExpoPush(
 }
 
 /**
- * Send push notification to all employees and supervisors (for new orders).
+ * Send push to all employees and supervisors (for new orders).
  */
 export async function notifyStaffNewOrder(
   orderId: string,
@@ -143,12 +141,12 @@ export async function notifyStaffNewOrder(
       "orders"
     );
   } catch (err) {
-    console.warn("notifyStaffNewOrder failed:", err);
+    console.warn("notifyStaffNewOrder error:", err);
   }
 }
 
 /**
- * Send a push notification to a specific user by their phone number.
+ * Send push to a user identified by phone.
  */
 export async function notifyUserByPhone(
   phone: string,
@@ -158,16 +156,14 @@ export async function notifyUserByPhone(
 ): Promise<void> {
   try {
     const token = await FS.getPushTokenByPhone(phone);
-    if (token) {
-      await sendExpoPush([token], title, body, data, "messages");
-    }
+    if (token) await sendExpoPush([token], title, body, data, "messages");
   } catch (err) {
-    console.warn("notifyUserByPhone failed:", err);
+    console.warn("notifyUserByPhone error:", err);
   }
 }
 
 /**
- * Send push to all users matching certain roles.
+ * Send push to all users with given roles.
  */
 export async function notifyByRoles(
   roles: string[],
@@ -179,7 +175,7 @@ export async function notifyByRoles(
     const tokens = await FS.getPushTokensByRoles(roles);
     await sendExpoPush(tokens, title, body, data, "messages");
   } catch (err) {
-    console.warn("notifyByRoles failed:", err);
+    console.warn("notifyByRoles error:", err);
   }
 }
 
@@ -192,10 +188,9 @@ export async function notifyAll(
   data?: Record<string, any>
 ): Promise<void> {
   try {
-    const allTokens = await FS.getAllPushTokens();
-    const tokens = allTokens.map((t) => t.expoPushToken);
-    await sendExpoPush(tokens, title, body, data, "messages");
+    const all = await FS.getAllPushTokens();
+    await sendExpoPush(all.map((t) => t.expoPushToken), title, body, data, "messages");
   } catch (err) {
-    console.warn("notifyAll failed:", err);
+    console.warn("notifyAll error:", err);
   }
 }

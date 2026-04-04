@@ -15,6 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, User, UserRole, EmployeePermission } from "@/context/AppContext";
+import { notifyUserByPhone } from "@/lib/pushService";
 import GoldHeader from "@/components/GoldHeader";
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -90,7 +91,7 @@ type TabKey = "customers" | "staff";
 export default function AdminUsersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, registeredCustomers, updateRegisteredCustomer } = useApp();
+  const { user, registeredCustomers, updateRegisteredCustomer, addNotification } = useApp();
   const [activeTab, setActiveTab] = useState<TabKey>("customers");
   const [staffList, setStaffList] = useState<User[]>(DEMO_STAFF);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
@@ -113,7 +114,26 @@ export default function AdminUsersScreen() {
   const handleChangeCustomerRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const updated = customerList.find((u) => u.id === userId);
-    if (updated) saveCustomerChange({ ...updated, role: newRole, upgradeStatus: undefined });
+    if (updated) {
+      saveCustomerChange({ ...updated, role: newRole, upgradeStatus: undefined });
+      // Notify the user about their role change
+      if (newRole === "merchant") {
+        addNotification({
+          id: `role_merchant_${userId}_${Date.now()}`,
+          title: "🎉 تمت ترقيتك إلى تاجر!",
+          body: "تم تفعيل حسابك كتاجر. أغلق التطبيق وأعد فتحه لتحديث حسابك والاستفادة من أسعار الجملة.",
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: userId,
+        });
+        notifyUserByPhone(
+          updated.phone,
+          "🎉 تمت ترقيتك إلى تاجر!",
+          "تم تفعيل حسابك. أغلق التطبيق وأعد فتحه لتحديث حسابك.",
+          { type: "role_change", newRole: "merchant" }
+        ).catch(() => {});
+      }
+    }
   };
 
   const handleToggleVip = (userId: string) => {

@@ -360,6 +360,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Auto-sync logged-in user when their customer record changes in Firestore
+  // (fixes VIP badge, role upgrade, upgradeStatus not reflecting for logged-in customer)
+  const userRef = React.useRef<User | null>(null);
+  userRef.current = user;
+  useEffect(() => {
+    const currentUser = userRef.current;
+    if (!currentUser || !currentUser.phone) return;
+    // Find current user in the freshly-updated registeredCustomers list
+    const freshRecord = registeredCustomers.find((c) => c.phone === currentUser.phone);
+    if (!freshRecord) return;
+    // Only update if something relevant actually changed
+    const changed =
+      freshRecord.role !== currentUser.role ||
+      freshRecord.vip !== currentUser.vip ||
+      freshRecord.upgradeStatus !== currentUser.upgradeStatus ||
+      freshRecord.name !== currentUser.name;
+    if (changed) {
+      const synced: User = { ...currentUser, ...freshRecord };
+      setUserState(synced);
+      AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
+    }
+  }, [registeredCustomers]);
+
   const loadPersistedData = async () => {
     try {
       const [userData, customersData, productsData, ordersData, tabsData, notificationsData, settingsData, themeData] =
@@ -558,24 +581,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           received: "تم استلام طلبك",
           preparing: "طلبك قيد التجهيز",
           ready: "طلبك جاهز للاستلام",
+          pending: "تم إلغاء استلام طلبك — سيتم مراجعته مجدداً",
         };
         if (statusLabels[status]) {
           const custNotif: Notification = {
             id: `notif_status_${orderId}_${status}_${Date.now()}`,
             title: statusLabels[status],
-            body: `تم تحديث حالة طلبك #${orderId.slice(0, 8)} إلى: ${statusLabels[status]}`,
+            body: `تم تحديث حالة طلبك #${orderId.slice(0, 8)}`,
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
           };
-          // Save to Firestore — listener will push it to customer's device instantly
           FS.saveNotification(custNotif).catch(() => {});
-          // Also send real push notification to customer's device
+          // Push notification to customer's device
           if (updatedOrder.userPhone) {
             notifyUserByPhone(
               updatedOrder.userPhone,
               statusLabels[status],
-              `تم تحديث حالة طلبك #${orderId.slice(0, 8)}`,
+              `طلبك #${orderId.slice(0, 8)} — ${statusLabels[status]}`,
               { type: "order_status", orderId, status }
             ).catch(() => {});
           }

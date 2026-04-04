@@ -21,7 +21,7 @@ const OUT_OF_STOCK_LABEL = "غير متوفر";
 export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, settings } = useApp();
+  const { products, user, cart, settings } = useApp();
   const CATEGORIES = settings.categories.length > 0 ? settings.categories : ["الكل"];
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("الكل");
@@ -68,21 +68,40 @@ export default function ProductsScreen() {
         >
           المنتجات
         </Text>
-        {(user?.role === "admin" || user?.role === "employee") && (
-          <Pressable
-            onPress={() => router.push("/admin/add-product")}
-            style={({ pressed }) => [
-              styles.addBtn,
-              {
-                backgroundColor: colors.gold,
-                borderRadius: colors.radius - 4,
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}
-          >
-            <Icon name="plus" size={18} color={colors.background} />
-          </Pressable>
-        )}
+        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+          {/* Cart button for customers/merchants */}
+          {(user?.role === "customer" || user?.role === "merchant") && (
+            <Pressable
+              onPress={() => router.push("/cart")}
+              style={({ pressed }) => [styles.cartHeaderBtn, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Icon name="shopping-cart" size={22} color={colors.foreground} />
+              {cart.length > 0 && (
+                <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
+                  <Text style={[styles.cartBadgeText, { color: colors.background }]}>
+                    {cart.length}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+          {/* Add product button for admin/employee */}
+          {(user?.role === "admin" || user?.role === "employee") && (
+            <Pressable
+              onPress={() => router.push("/admin/add-product")}
+              style={({ pressed }) => [
+                styles.addBtn,
+                {
+                  backgroundColor: colors.gold,
+                  borderRadius: colors.radius - 4,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Icon name="plus" size={18} color={colors.background} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <View
@@ -256,6 +275,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  cartHeaderBtn: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  cartBadge: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold" },
   searchWrapper: {
     paddingHorizontal: 16,
     paddingVertical: 12,

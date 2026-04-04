@@ -41,10 +41,15 @@ function RootLayoutNav() {
     }
   }, [user]);
 
-  // Handle notification taps (when user opens app via notification)
+  // Handle notification taps — navigate to order if applicable, else notifications screen
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(() => {
-      router.push("/notifications");
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, any>;
+      if (data?.orderId && (data?.type === "new_order" || data?.type === "order_status")) {
+        router.push(`/order/${data.orderId}`);
+      } else {
+        router.push("/notifications");
+      }
     });
     return () => sub.remove();
   }, []);

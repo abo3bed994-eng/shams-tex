@@ -1,5 +1,5 @@
 import React from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,20 +20,35 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   received: "#3498DB",
   preparing: "#F39C12",
   ready: "#27AE60",
+  cancelled: "#E74C3C",
+};
+
+// Dynamic next/prev action map for staff
+const NEXT_ACTION: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
+  pending:   { next: "received",  label: "استلام الطلب" },
+  received:  { next: "preparing", label: "بدء التجهيز" },
+  preparing: { next: "ready",     label: "تأكيد الجاهزية" },
+};
+const PREV_ACTION: Partial<Record<OrderStatus, { prev: OrderStatus; label: string }>> = {
+  received:  { prev: "pending",   label: "إلغاء الاستلام" },
+  preparing: { prev: "received",  label: "رجوع لاستلام" },
+  ready:     { prev: "preparing", label: "رجوع لتجهيز" },
 };
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder } = useApp();
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const isAdmin = user?.role === "admin" || user?.role === "employee";
+  const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
+  const isAdmin = user?.role === "admin";
 
-  const currentStep = STATUS_STEPS.findIndex((s) => s.key === order?.status);
+  const isCancelled = order?.status === "cancelled";
+  const currentStep = isCancelled ? 0 : STATUS_STEPS.findIndex((s) => s.key === order?.status);
 
   if (!order) {
     return (
@@ -68,9 +83,9 @@ export default function OrderDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
         <View style={[styles.statusCard, { backgroundColor: activeColor + "11", borderColor: activeColor + "44", borderRadius: colors.radius }]}>
-          <Icon name={STATUS_STEPS[currentStep].icon as any} size={28} color={activeColor} />
+          <Icon name={isCancelled ? "x-circle" : STATUS_STEPS[currentStep].icon as any} size={28} color={activeColor} />
           <Text style={[styles.statusLabel, { color: activeColor, fontFamily: "Inter_700Bold" }]}>
-            {STATUS_STEPS[currentStep].label}
+            {isCancelled ? "تم إلغاء الطلب" : STATUS_STEPS[currentStep].label}
           </Text>
           <Text style={[styles.orderDate, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {date}
@@ -204,14 +219,69 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {isAdmin && order.status !== "ready" && (
-          <GoldButton
-            label={order.status === "received" ? "تأكيد الاستلام وبدء التجهيز" : "تأكيد جاهزية الطلب"}
+        {/* Dynamic action buttons for staff */}
+        {isStaff && order.status !== "cancelled" && (() => {
+          const nextAction = NEXT_ACTION[order.status];
+          const prevAction = PREV_ACTION[order.status];
+          return (
+            <View style={styles.actionRow}>
+              {/* Back button — admin and supervisor only */}
+              {(isAdmin || user?.role === "supervisor") && prevAction && (
+                <Pressable
+                  onPress={() => updateOrderStatus(order.id, prevAction.prev)}
+                  style={[styles.prevBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+                >
+                  <Icon name="chevron-right" size={14} color={colors.mutedForeground} />
+                  <Text style={[styles.prevBtnText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                    {prevAction.label}
+                  </Text>
+                </Pressable>
+              )}
+              {/* Next status button */}
+              {nextAction && (
+                <GoldButton
+                  label={nextAction.label}
+                  onPress={() => {
+                    if (nextAction.next === "received" && user?.role !== "admin") {
+                      updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
+                    } else {
+                      updateOrderStatus(order.id, nextAction.next);
+                    }
+                  }}
+                  style={{ flex: 1 }}
+                />
+              )}
+            </View>
+          );
+        })()}
+
+        {/* Admin permanent delete */}
+        {isAdmin && (
+          <Pressable
             onPress={() =>
-              updateOrderStatus(order.id, order.status === "received" ? "preparing" : "ready")
+              Alert.alert(
+                "حذف نهائي",
+                `هل أنت متأكد من حذف الطلب #${order.id.slice(0, 8)} نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`,
+                [
+                  { text: "إلغاء", style: "cancel" },
+                  {
+                    text: "حذف نهائياً",
+                    style: "destructive",
+                    onPress: () => {
+                      deleteOrder(order.id);
+                      router.back();
+                    },
+                  },
+                ]
+              )
             }
-            style={{ width: "100%" }}
-          />
+            style={[styles.deleteBtn, { borderColor: "#C0392B44", backgroundColor: "#C0392B11" }]}
+          >
+            <Icon name="trash-2" size={14} color="#C0392B" />
+            <Text style={[styles.deleteBtnText, { color: "#C0392B", fontFamily: "Inter_500Medium" }]}>
+              حذف الطلب نهائياً
+            </Text>
+          </Pressable>
         )}
       </ScrollView>
     </View>
@@ -305,4 +375,29 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 16 },
   totalPrice: { fontSize: 24 },
   salesContact: { fontSize: 14, textAlign: "center", lineHeight: 22 },
+  actionRow: {
+    flexDirection: "row-reverse",
+    gap: 10,
+    alignItems: "center",
+  },
+  prevBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+  },
+  prevBtnText: { fontSize: 13 },
+  deleteBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  deleteBtnText: { fontSize: 13 },
 });

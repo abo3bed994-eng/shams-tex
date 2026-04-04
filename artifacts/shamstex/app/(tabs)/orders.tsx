@@ -154,7 +154,7 @@ export default function OrdersScreen() {
                     : undefined
                 }
                 onPrevStatus={
-                  user?.role === "admin" && order.status !== "cancelled" && userCanControlThisOrder
+                  (user?.role === "admin" || user?.role === "supervisor") && order.status !== "cancelled" && userCanControlThisOrder
                     ? (status: OrderStatus) => updateOrderStatus(order.id, status)
                     : undefined
                 }
