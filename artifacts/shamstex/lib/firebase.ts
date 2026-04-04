@@ -121,4 +121,36 @@ export const FS = {
     const snap = await getDoc(doc(db, "sessions", phone));
     return snap.exists() ? snap.data().token : null;
   },
+
+  // Push notification tokens — keyed by user phone
+  async savePushToken(phone: string, role: string, expoPushToken: string) {
+    await setDoc(doc(db, "pushTokens", phone), {
+      phone,
+      role,
+      expoPushToken,
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
+  async deletePushToken(phone: string) {
+    await deleteDoc(doc(db, "pushTokens", phone));
+  },
+
+  async getPushTokensByRoles(roles: string[]): Promise<string[]> {
+    const snap = await getDocs(collection(db, "pushTokens"));
+    return snap.docs
+      .map((d) => d.data())
+      .filter((d) => roles.includes(d.role) && d.expoPushToken)
+      .map((d) => d.expoPushToken as string);
+  },
+
+  async getPushTokenByPhone(phone: string): Promise<string | null> {
+    const snap = await getDoc(doc(db, "pushTokens", phone));
+    return snap.exists() ? (snap.data().expoPushToken as string) : null;
+  },
+
+  async getAllPushTokens(): Promise<{ phone: string; role: string; expoPushToken: string }[]> {
+    const snap = await getDocs(collection(db, "pushTokens"));
+    return snap.docs.map((d) => d.data() as any);
+  },
 };

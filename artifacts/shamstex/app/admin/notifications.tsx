@@ -17,6 +17,7 @@ import { useApp } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
+import { notifyAll, notifyByRoles, notifyUserByPhone } from "@/lib/pushService";
 
 type NotifType = "all" | "customers" | "employees" | "supervisors" | "private";
 
@@ -52,15 +53,27 @@ const ROLE_COLOR: Record<string, string> = {
 export default function AdminNotificationsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { addNotification, notifications, registeredCustomers } = useApp();
+  const { addNotification, notifications, registeredCustomers, user } = useApp();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [notifType, setNotifType] = useState<NotifType>("all");
+  const [notifType, setNotifType] = useState<NotifType>(
+    user?.role === "supervisor" ? "private" : "all"
+  );
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showUserPicker, setShowUserPicker] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // Supervisor with send_notifications can only send private messages
+  const isSupervisor = user?.role === "supervisor";
+  const supervisorCanSend = isSupervisor && user?.permissions?.includes("send_notifications");
+  const isAdmin = user?.role === "admin";
+
+  // Filter type options based on role
+  const visibleTypeOptions = isSupervisor
+    ? TYPE_OPTIONS.filter((o) => o.key === "private")
+    : TYPE_OPTIONS;
 
   // Merge registered customers + staff for private message picker
   const allPickableUsers = [
@@ -71,6 +84,10 @@ export default function AdminNotificationsScreen() {
   const selectedUser = allPickableUsers.find((c) => c.id === selectedUserId);
 
   const handleSend = async () => {
+    if (!isAdmin && !supervisorCanSend) {
+      Alert.alert("غير مصرح", "ليس لديك صلاحية إرسال الإشعارات");
+      return;
+    }
     if (!title || !body) {
       Alert.alert("خطأ", "الرجاء إدخال العنوان والمحتوى");
       return;
@@ -99,6 +116,21 @@ export default function AdminNotificationsScreen() {
 
     await addNotification(notif);
 
+    // Send real push notifications to target devices
+    try {
+      if (notifType === "all") {
+        await notifyAll(title, body, { type: "broadcast" });
+      } else if (notifType === "customers") {
+        await notifyByRoles(["customer", "merchant"], title, body, { type: "broadcast" });
+      } else if (notifType === "employees") {
+        await notifyByRoles(["employee"], title, body, { type: "broadcast" });
+      } else if (notifType === "supervisors") {
+        await notifyByRoles(["supervisor"], title, body, { type: "broadcast" });
+      } else if (notifType === "private" && selectedUser) {
+        await notifyUserByPhone(selectedUser.phone, title, body, { type: "private" });
+      }
+    } catch (_) {}
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(false);
     setTitle("");
@@ -112,7 +144,7 @@ export default function AdminNotificationsScreen() {
       notifType === "supervisors" ? "تم إرسال الإشعار لجميع المشرفين" :
       `تم إرسال الإشعار لـ ${selectedUser?.name}`;
 
-    Alert.alert("تم الإرسال", successMsg);
+    Alert.alert("تم الإرسال ✓", successMsg);
   };
 
   const recentNotifs = notifications.slice(0, 5);
@@ -126,13 +158,23 @@ export default function AdminNotificationsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
         keyboardShouldPersistTaps="handled"
       >
+        {/* تنبيه للمشرفين بدون صلاحية */}
+        {isSupervisor && !supervisorCanSend && (
+          <View style={[styles.warningBanner, { backgroundColor: "#C0392B22", borderColor: "#C0392B55" }]}>
+            <Icon name="alert-triangle" size={18} color="#C0392B" />
+            <Text style={[styles.warningText, { color: "#C0392B", fontFamily: "Inter_500Medium" }]}>
+              لا تملك صلاحية إرسال الإشعارات. تواصل مع المدير لمنحك الإذن.
+            </Text>
+          </View>
+        )}
+
         {/* نوع الإشعار */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
             نوع الإشعار
           </Text>
           <View style={styles.typeRow}>
-            {TYPE_OPTIONS.map((opt) => {
+            {visibleTypeOptions.map((opt) => {
               const active = notifType === opt.key;
               return (
                 <Pressable
@@ -436,4 +478,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
   },
+  warningBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+  warningText: { flex: 1, fontSize: 13, textAlign: "right", lineHeight: 20 },
 });

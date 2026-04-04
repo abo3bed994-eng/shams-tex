@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FS } from "@/lib/firebase";
+import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
 
 export type UserRole = "customer" | "merchant" | "employee" | "supervisor" | "admin";
 export type ProductUnit = "meter" | "kilo";
@@ -512,7 +513,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       FS.saveOrder(order).catch(() => {});
-      // Notify staff about new order
+      // Notify staff about new order (in-app via Firestore)
       const staffNotif: Notification = {
         id: `notif_order_new_${order.id}`,
         title: "طلب جديد",
@@ -522,9 +523,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         targetRole: "employee",
       };
       const staffNotifSupervisor: Notification = { ...staffNotif, id: `${staffNotif.id}_sv`, targetRole: "supervisor" };
-      // Save to Firestore so real-time listeners on all devices pick them up
       FS.saveNotification(staffNotif).catch(() => {});
       FS.saveNotification(staffNotifSupervisor).catch(() => {});
+      // Push notification to all employees & supervisors (even outside app)
+      notifyStaffNewOrder(order.id, order.userName).catch(() => {});
     },
     [orders]
   );
@@ -568,6 +570,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
           // Save to Firestore — listener will push it to customer's device instantly
           FS.saveNotification(custNotif).catch(() => {});
+          // Also send real push notification to customer's device
+          if (updatedOrder.userPhone) {
+            notifyUserByPhone(
+              updatedOrder.userPhone,
+              statusLabels[status],
+              `تم تحديث حالة طلبك #${orderId.slice(0, 8)}`,
+              { type: "order_status", orderId, status }
+            ).catch(() => {});
+          }
         }
       }
     },

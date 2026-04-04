@@ -8,6 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -17,6 +18,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import SplashScreenComponent from "@/components/SplashScreenComponent";
 import Toast from "@/components/Toast";
+import { registerForPushNotifications } from "@/lib/pushService";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -26,6 +28,26 @@ function RootLayoutNav() {
   const { user, isLoading } = useApp();
   const [splashDone, setSplashDone] = useState(false);
   const navigated = useRef(false);
+  const pushRegistered = useRef<string | null>(null);
+
+  // Register for push notifications whenever a user logs in
+  useEffect(() => {
+    if (user && pushRegistered.current !== user.phone) {
+      pushRegistered.current = user.phone;
+      registerForPushNotifications(user.phone, user.role).catch(() => {});
+    }
+    if (!user) {
+      pushRegistered.current = null;
+    }
+  }, [user]);
+
+  // Handle notification taps (when user opens app via notification)
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(() => {
+      router.push("/notifications");
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (splashDone && !isLoading && !navigated.current) {
