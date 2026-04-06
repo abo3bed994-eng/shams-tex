@@ -127,6 +127,29 @@ export const FS = {
     await setDoc(doc(db, "notifications", notification.id), notification);
   },
 
+  async saveReturnRequest(req: object & { id: string }) {
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(req)) {
+      if (v !== undefined) clean[k] = v;
+    }
+    await setDoc(doc(db, "returnRequests", req.id), clean);
+  },
+
+  subscribeReturnRequests(callback: (reqs: any[]) => void): Unsubscribe {
+    let unsub = onSnapshot(
+      query(collection(db, "returnRequests"), orderBy("createdAt", "desc")),
+      (snap) => callback(snap.docs.map((d) => d.data())),
+      (_err) => {
+        unsub = onSnapshot(
+          collection(db, "returnRequests"),
+          (snap) => callback(snap.docs.map((d) => d.data())),
+          () => {}
+        );
+      }
+    );
+    return () => unsub();
+  },
+
   async saveSession(phone: string, token: string) {
     await setDoc(doc(db, "sessions", phone), { token, updatedAt: new Date().toISOString() });
   },

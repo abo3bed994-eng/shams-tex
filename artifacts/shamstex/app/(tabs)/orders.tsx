@@ -16,7 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Order, OrderStatus } from "@/context/AppContext";
 import OrderCard from "@/components/OrderCard";
 
-type FilterType = "all" | "pending" | "received" | "preparing" | "ready";
+type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "delivered";
 
 export default function OrdersScreen() {
   const colors = useColors();
@@ -54,6 +54,7 @@ export default function OrdersScreen() {
     { key: "received", label: "مستلم" },
     { key: "preparing", label: "تجهيز" },
     { key: "ready", label: "جاهز" },
+    { key: "delivered", label: "تم التسليم" },
   ];
 
   const handleCancelOrder = (order: Order) => {

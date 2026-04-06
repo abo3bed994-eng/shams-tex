@@ -61,7 +61,7 @@ export interface CartItem {
   weight?: number;
 }
 
-export type OrderStatus = "pending" | "received" | "preparing" | "ready" | "cancelled";
+export type OrderStatus = "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled";
 
 export interface Order {
   id: string;
@@ -72,10 +72,23 @@ export interface Order {
   total: number;
   status: OrderStatus;
   createdAt: string;
+  deliveredAt?: string;
   notes?: string;
   assignedTo?: string;
   assignedToName?: string;
   editable?: boolean;
+}
+
+export interface ReturnRequest {
+  id: string;
+  orderId: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  items: CartItem[];
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
 }
 
 export interface Tab {
@@ -193,6 +206,11 @@ interface AppContextType {
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
   updateOrderItems: (orderId: string, items: CartItem[], total: number) => Promise<void>;
+  editingOrderId: string | null;
+  setEditingOrderId: (id: string | null) => void;
+  returnRequests: ReturnRequest[];
+  addReturnRequest: (req: ReturnRequest) => Promise<void>;
+  updateReturnStatus: (reqId: string, status: "approved" | "rejected") => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
@@ -317,6 +335,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [products, setProductsState] = useState<Product[]>(SAMPLE_PRODUCTS);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrdersState] = useState<Order[]>([]);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [returnRequests, setReturnRequests] = useState<ReturnRequest[]>([]);
   const [tabs, setTabsState] = useState<Tab[]>(DEFAULT_TABS);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -368,6 +388,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    const unsubReturns = FS.subscribeReturnRequests((freshReqs) => {
+      if (freshReqs.length > 0) {
+        setReturnRequests(freshReqs);
+        AsyncStorage.setItem("returnRequests", JSON.stringify(freshReqs)).catch(() => {});
+      }
+    });
+
     const unsubProducts = FS.subscribeProducts((freshProducts) => {
       if (freshProducts.length > 0) {
         const sorted = [...freshProducts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -380,6 +407,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsubOrders();
       unsubCustomers();
       unsubNotifications();
+      unsubReturns();
       unsubProducts();
     };
   }, []);
@@ -410,7 +438,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPersistedData = async () => {
     try {
-      const [userData, customersData, productsData, ordersData, tabsData, notificationsData, settingsData, themeData] =
+      const [userData, customersData, productsData, ordersData, tabsData, notificationsData, settingsData, themeData, returnRequestsData] =
         await Promise.all([
           AsyncStorage.getItem("user"),
           AsyncStorage.getItem("registered_customers"),
@@ -420,6 +448,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem("notifications"),
           AsyncStorage.getItem("settings"),
           AsyncStorage.getItem("theme"),
+          AsyncStorage.getItem("returnRequests"),
         ]);
 
       if (userData) {
@@ -445,6 +474,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (ordersData) setOrdersState(JSON.parse(ordersData));
       if (tabsData) setTabsState(JSON.parse(tabsData));
       if (notificationsData) setNotifications(JSON.parse(notificationsData));
+      if (returnRequestsData) setReturnRequests(JSON.parse(returnRequestsData));
       if (settingsData) {
         const parsed = JSON.parse(settingsData);
         setSettingsState({ ...DEFAULT_SETTINGS, ...parsed });
@@ -586,6 +616,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         patch.assignedTo = "";
         patch.assignedToName = "";
       }
+      if (status === "delivered") {
+        patch.deliveredAt = new Date().toISOString();
+      }
       const updated = ordersRef.current.map((o) => (o.id !== orderId ? o : { ...o, ...patch }));
       const updatedOrder = updated.find((o) => o.id === orderId);
       setOrdersState(updated);
@@ -597,6 +630,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           received: "تم استلام طلبك",
           preparing: "طلبك قيد التجهيز",
           ready: "طلبك جاهز للاستلام",
+          delivered: "تم تسليم طلبك بنجاح",
           pending: "تم إلغاء استلام طلبك — سيتم مراجعته مجدداً",
         };
         if (statusLabels[status]) {
@@ -740,6 +774,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const addReturnRequest = useCallback(
+    async (req: ReturnRequest) => {
+      const updated = [req, ...returnRequests];
+      setReturnRequests(updated);
+      await AsyncStorage.setItem("returnRequests", JSON.stringify(updated));
+      FS.saveReturnRequest(req).catch(() => {});
+      const staffNotif: Notification = {
+        id: `notif_return_${req.orderId}_${Date.now()}`,
+        title: "طلب استرجاع جديد",
+        body: `العميل ${req.userName} يطلب استرجاع من الطلب #${req.orderId.slice(0, 8)}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        targetRole: "employee" as any,
+      };
+      const updatedNotifs = [staffNotif, ...notificationsRef.current];
+      setNotifications(updatedNotifs);
+      await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
+      FS.saveNotification(staffNotif).catch(() => {});
+    },
+    [returnRequests]
+  );
+
+  const updateReturnStatus = useCallback(
+    async (reqId: string, status: "approved" | "rejected") => {
+      const updated = returnRequests.map((r) => (r.id === reqId ? { ...r, status } : r));
+      setReturnRequests(updated);
+      await AsyncStorage.setItem("returnRequests", JSON.stringify(updated));
+      const req = updated.find((r) => r.id === reqId);
+      if (req) {
+        FS.saveReturnRequest(req).catch(() => {});
+        const custNotif: Notification = {
+          id: `notif_return_${reqId}_${status}_${Date.now()}`,
+          title: status === "approved" ? "تم قبول طلب الاسترجاع" : "تم رفض طلب الاسترجاع",
+          body: `طلب الاسترجاع للطلب #${req.orderId.slice(0, 8)} — ${status === "approved" ? "تمت الموافقة" : "تم الرفض"}`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: req.userId,
+        };
+        const updatedNotifs = [custNotif, ...notificationsRef.current];
+        setNotifications(updatedNotifs);
+        await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
+        FS.saveNotification(custNotif).catch(() => {});
+      }
+    },
+    [returnRequests]
+  );
+
   const setTabs = useCallback(async (t: Tab[]) => {
     setTabsState(t);
     await AsyncStorage.setItem("tabs", JSON.stringify(t));
@@ -806,6 +887,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sendOrderMessage,
         setOrderEditable,
         updateOrderItems,
+        editingOrderId,
+        setEditingOrderId,
+        returnRequests,
+        addReturnRequest,
+        updateReturnStatus,
         tabs,
         setTabs,
         notifications,

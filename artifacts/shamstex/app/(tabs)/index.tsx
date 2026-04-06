@@ -77,12 +77,13 @@ export default function HomeScreen() {
       : products.slice(0, 4);
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
-  const activeOrders = isStaff ? [] : orders.filter((o) => o.userId === user?.id && o.status !== "cancelled" && o.status !== "ready");
+  const activeOrders = isStaff ? [] : orders.filter((o) => o.userId === user?.id && !["cancelled", "delivered"].includes(o.status));
 
   const STATUS_LABEL: Record<string, { text: string; color: string }> = {
     pending: { text: "بانتظار الاستلام", color: "#9B59B6" },
     received: { text: "تم الاستلام", color: "#3498DB" },
     preparing: { text: "قيد التجهيز", color: "#F39C12" },
+    ready: { text: "جاهز للاستلام", color: "#27AE60" },
   };
 
   const hasVideo = videos.length > 0;

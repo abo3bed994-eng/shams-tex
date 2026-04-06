@@ -14,6 +14,7 @@ const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "received", label: "تم استلام الطلب", icon: "inbox" },
   { key: "preparing", label: "جاري تجهيز الطلب", icon: "package" },
   { key: "ready", label: "الطلب جاهز للاستلام", icon: "gift" },
+  { key: "delivered", label: "تم التسليم", icon: "check-circle" },
 ];
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -21,30 +22,35 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   received: "#3498DB",
   preparing: "#F39C12",
   ready: "#27AE60",
+  delivered: "#2ECC71",
   cancelled: "#E74C3C",
 };
 
-// Dynamic next/prev action map for staff
 const NEXT_ACTION: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
   pending:   { next: "received",  label: "استلام الطلب" },
   received:  { next: "preparing", label: "بدء التجهيز" },
   preparing: { next: "ready",     label: "تأكيد الجاهزية" },
+  ready:     { next: "delivered", label: "تأكيد التسليم" },
 };
 const PREV_ACTION: Partial<Record<OrderStatus, { prev: OrderStatus; label: string }>> = {
   received:  { prev: "pending",   label: "إلغاء الاستلام" },
   preparing: { prev: "received",  label: "رجوع لاستلام" },
   ready:     { prev: "preparing", label: "رجوع لتجهيز" },
+  delivered: { prev: "ready",     label: "رجوع لجاهز" },
 };
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, updateOrderItems } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId } = useApp();
   const [showMsgInput, setShowMsgInput] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
   const [editingOrder, setEditingOrder] = useState(false);
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [submittingReturn, setSubmittingReturn] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -211,20 +217,50 @@ export default function OrderDetailScreen() {
         )}
 
         <View style={[styles.totalCard, { backgroundColor: colors.card, borderColor: colors.gold + "33", borderRadius: colors.radius }]}>
-          {order.total > 0 ? (
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                {order.total} ج.م
+          {(() => {
+            const weightTotal = order.items
+              .filter((i) => i.orderType === "weight")
+              .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+            const hasPieces = order.items.some((i) => i.orderType === "pieces");
+            const piecesCount = order.items
+              .filter((i) => i.orderType === "pieces")
+              .reduce((a, b) => a + b.quantity, 0);
+
+            if (weightTotal > 0 && hasPieces) {
+              return (
+                <View style={{ gap: 10 }}>
+                  <View style={styles.totalRow}>
+                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                      {weightTotal} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                      مجموع الكيلو
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "center" }}>
+                    + {piecesCount} قطعة بالثوب — السعر يحدد من مسؤول المبيعات
+                  </Text>
+                </View>
+              );
+            }
+            if (weightTotal > 0) {
+              return (
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                    {weightTotal} ج.م
+                  </Text>
+                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                    المجموع الكلي
+                  </Text>
+                </View>
+              );
+            }
+            return (
+              <Text style={[styles.salesContact, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                الرجاء التواصل مع مسؤول المبيعات لتحديد السعر
               </Text>
-              <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                المجموع الكلي
-              </Text>
-            </View>
-          ) : (
-            <Text style={[styles.salesContact, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              الرجاء التواصل مع مسؤول المبيعات لتحديد السعر
-            </Text>
-          )}
+            );
+          })()}
         </View>
 
         {isStaff && !!order.assignedToName && (
@@ -381,6 +417,154 @@ export default function OrderDetailScreen() {
             />
           </View>
         )}
+
+        {(() => {
+          const orderReturn = returnRequests.find((r) => r.orderId === order.id);
+          const canReturn = isCustomer && order.status === "delivered" && order.deliveredAt && !orderReturn;
+          const deliveredAt = order.deliveredAt ? new Date(order.deliveredAt) : null;
+          const daysSinceDelivery = deliveredAt ? Math.floor((Date.now() - deliveredAt.getTime()) / (1000 * 60 * 60 * 24)) : 999;
+          const withinReturnWindow = daysSinceDelivery <= 15;
+
+          return (
+            <>
+              {orderReturn && (
+                <View style={[styles.returnStatusCard, {
+                  backgroundColor: orderReturn.status === "approved" ? "#27AE6011" : orderReturn.status === "rejected" ? "#C0392B11" : "#F39C1211",
+                  borderColor: orderReturn.status === "approved" ? "#27AE6044" : orderReturn.status === "rejected" ? "#C0392B44" : "#F39C1244",
+                  borderRadius: colors.radius,
+                }]}>
+                  <Icon
+                    name={orderReturn.status === "approved" ? "check-circle" : orderReturn.status === "rejected" ? "x-circle" : "clock"}
+                    size={18}
+                    color={orderReturn.status === "approved" ? "#27AE60" : orderReturn.status === "rejected" ? "#C0392B" : "#F39C12"}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: orderReturn.status === "approved" ? "#27AE60" : orderReturn.status === "rejected" ? "#C0392B" : "#F39C12", fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                      {orderReturn.status === "approved" ? "تمت الموافقة على الاسترجاع" : orderReturn.status === "rejected" ? "تم رفض طلب الاسترجاع" : "طلب استرجاع قيد المراجعة"}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 4 }}>
+                      السبب: {orderReturn.reason}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {isStaff && orderReturn && orderReturn.status === "pending" && (
+                <View style={[styles.returnStaffActions, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right", marginBottom: 8 }}>
+                    طلب استرجاع من العميل
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", marginBottom: 12 }}>
+                    السبب: {orderReturn.reason}
+                  </Text>
+                  <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                    <GoldButton
+                      label="قبول الاسترجاع"
+                      onPress={() => {
+                        Alert.alert("تأكيد", "هل تريد قبول طلب الاسترجاع؟", [
+                          { text: "إلغاء", style: "cancel" },
+                          { text: "قبول", onPress: () => updateReturnStatus(orderReturn.id, "approved") },
+                        ]);
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    <Pressable
+                      onPress={() => {
+                        Alert.alert("تأكيد", "هل تريد رفض طلب الاسترجاع؟", [
+                          { text: "إلغاء", style: "cancel" },
+                          { text: "رفض", style: "destructive", onPress: () => updateReturnStatus(orderReturn.id, "rejected") },
+                        ]);
+                      }}
+                      style={[styles.prevBtn, { backgroundColor: "#C0392B22", borderColor: "#C0392B44", borderRadius: colors.radius - 4, flex: 1 }]}
+                    >
+                      <Text style={{ color: "#C0392B", fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "center" }}>رفض</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {canReturn && withinReturnWindow && !showReturnForm && (
+                <Pressable
+                  onPress={() => setShowReturnForm(true)}
+                  style={[styles.returnBtn, { backgroundColor: "#F39C1218", borderColor: "#F39C12", borderRadius: colors.radius }]}
+                >
+                  <Icon name="rotate-ccw" size={16} color="#F39C12" />
+                  <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                    طلب استرجاع
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                    متاح خلال {15 - daysSinceDelivery} يوم
+                  </Text>
+                </Pressable>
+              )}
+
+              {canReturn && !withinReturnWindow && (
+                <View style={[styles.returnExpired, { backgroundColor: colors.surface, borderRadius: colors.radius }]}>
+                  <Icon name="clock" size={14} color={colors.mutedForeground} />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                    انتهت مهلة الاسترجاع (15 يوم من التسليم)
+                  </Text>
+                </View>
+              )}
+
+              {showReturnForm && (
+                <View style={[styles.returnFormCard, { backgroundColor: colors.card, borderColor: "#F39C12", borderRadius: colors.radius }]}>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: "right" }}>
+                    طلب استرجاع
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 4 }}>
+                    اكتب سبب الاسترجاع وسيتم مراجعة طلبك
+                  </Text>
+                  <TextInput
+                    style={[styles.returnInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, fontFamily: "Inter_400Regular", borderRadius: colors.radius - 4 }]}
+                    placeholder="سبب الاسترجاع..."
+                    placeholderTextColor={colors.mutedForeground}
+                    value={returnReason}
+                    onChangeText={setReturnReason}
+                    multiline
+                    textAlign="right"
+                  />
+                  <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 8 }}>
+                    <GoldButton
+                      label={submittingReturn ? "جاري الإرسال..." : "إرسال طلب الاسترجاع"}
+                      onPress={async () => {
+                        if (!returnReason.trim()) {
+                          Alert.alert("خطأ", "يرجى كتابة سبب الاسترجاع");
+                          return;
+                        }
+                        setSubmittingReturn(true);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        await addReturnRequest({
+                          id: `ret_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                          orderId: order.id,
+                          userId: user?.id ?? "",
+                          userName: user?.name ?? "",
+                          userPhone: user?.phone ?? "",
+                          items: order.items,
+                          reason: returnReason.trim(),
+                          status: "pending",
+                          createdAt: new Date().toISOString(),
+                        });
+                        setSubmittingReturn(false);
+                        setShowReturnForm(false);
+                        setReturnReason("");
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        Alert.alert("تم", "تم إرسال طلب الاسترجاع وسيتم مراجعته");
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    <Pressable
+                      onPress={() => { setShowReturnForm(false); setReturnReason(""); }}
+                      style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+                    >
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </>
+          );
+        })()}
 
         {isAdmin && (
           <Pressable
@@ -596,5 +780,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     flex: 1,
     justifyContent: "center",
+  },
+  returnStatusCard: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 16,
+    borderWidth: 1,
+  },
+  returnStaffActions: {
+    padding: 16,
+    borderWidth: 1,
+  },
+  returnBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+  },
+  returnExpired: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  returnFormCard: {
+    borderWidth: 1,
+    padding: 16,
+  },
+  returnInput: {
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 70,
+    textAlignVertical: "top",
+    marginTop: 12,
   },
 });

@@ -22,21 +22,24 @@ import GoldButton from "@/components/GoldButton";
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings } = useApp();
+  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId } = useApp();
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams<{ editOrderId?: string }>();
-  const editOrderId = params.editOrderId;
+  const paramEditId = params.editOrderId;
+  const editOrderId = paramEditId || editingOrderId;
   const editOrder = editOrderId ? orders.find((o) => o.id === editOrderId) : null;
   const loaded = useRef(false);
 
   useEffect(() => {
+    if (paramEditId && paramEditId !== editingOrderId) {
+      setEditingOrderId(paramEditId);
+    }
+  }, [paramEditId]);
+
+  useEffect(() => {
     if (editOrder && !loaded.current) {
       loaded.current = true;
-      clearCart();
-      editOrder.items.forEach((item) => {
-        (cart as CartItem[]).push(item);
-      });
       setCart([...editOrder.items]);
     }
   }, [editOrder]);
@@ -64,8 +67,9 @@ export default function CartScreen() {
 
     try {
       if (editOrderId) {
-        await updateOrderItems(editOrderId, [...cart], hasPiecesOrder ? 0 : totalPrice);
+        await updateOrderItems(editOrderId, [...cart], totalPrice);
         clearCart();
+        setEditingOrderId(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("تم تعديل الطلب!", "تم تحديث طلبك بنجاح.", [
           { text: "عرض الطلب", onPress: () => router.replace(`/order/${editOrderId}`) },
@@ -77,7 +81,7 @@ export default function CartScreen() {
           userName: user?.name ?? "عميل",
           userPhone: user?.phone ?? "",
           items: [...cart],
-          total: hasPiecesOrder ? 0 : totalPrice,
+          total: totalPrice,
           status: "pending",
           createdAt: new Date().toISOString(),
           notes,
@@ -292,7 +296,7 @@ export default function CartScreen() {
             {totalPrice > 0 && (
               <View style={styles.totalRow}>
                 <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  المجموع الكلي
+                  {hasPiecesOrder ? "مجموع الكيلو" : "المجموع الكلي"}
                 </Text>
                 <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                   {totalPrice} ج.م
