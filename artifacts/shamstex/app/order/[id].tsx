@@ -40,16 +40,20 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, updateOrderItems } = useApp();
   const [showMsgInput, setShowMsgInput] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
   const isAdmin = user?.role === "admin";
+  const isCustomer = user?.role === "customer" || user?.role === "merchant";
+  const isAssignedToMe = order?.assignedTo === user?.id;
+  const isLockedByOther = order?.assignedTo && !isAssignedToMe && !isAdmin;
 
   const isCancelled = order?.status === "cancelled";
   const currentStep = isCancelled ? 0 : STATUS_STEPS.findIndex((s) => s.key === order?.status);
@@ -223,13 +227,20 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {/* Dynamic action buttons for staff */}
+        {isStaff && !!order.assignedToName && (
+          <View style={[styles.assignedCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Icon name="user-check" size={15} color={colors.gold} />
+            <Text style={[styles.assignedText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+              استلمه: {order.assignedToName}
+            </Text>
+          </View>
+        )}
+
         {isStaff && order.status !== "cancelled" && (() => {
           const nextAction = NEXT_ACTION[order.status];
           const prevAction = PREV_ACTION[order.status];
           return (
             <View style={styles.actionRow}>
-              {/* Back button — admin and supervisor only */}
               {(isAdmin || user?.role === "supervisor") && prevAction && (
                 <Pressable
                   onPress={() => updateOrderStatus(order.id, prevAction.prev)}
@@ -241,8 +252,7 @@ export default function OrderDetailScreen() {
                   </Text>
                 </Pressable>
               )}
-              {/* Next status button */}
-              {nextAction && (
+              {nextAction && !isLockedByOther && (
                 <GoldButton
                   label={nextAction.label}
                   onPress={() => {
@@ -255,9 +265,42 @@ export default function OrderDetailScreen() {
                   style={{ flex: 1 }}
                 />
               )}
+              {nextAction && isLockedByOther && (
+                <View style={[styles.lockedMsg, { backgroundColor: colors.surface, borderRadius: colors.radius - 4 }]}>
+                  <Icon name="lock" size={14} color={colors.mutedForeground} />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right" }}>
+                    هذا الطلب مستلم من {order.assignedToName ?? "موظف آخر"}
+                  </Text>
+                </View>
+              )}
             </View>
           );
         })()}
+
+        {isStaff && order.status !== "cancelled" && !isLockedByOther && (
+          <Pressable
+            onPress={() => {
+              setOrderEditable(order.id, !order.editable);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Alert.alert(
+                order.editable ? "تم إغلاق التعديل" : "تم السماح بالتعديل",
+                order.editable
+                  ? "لن يستطيع العميل تعديل الطلب الآن"
+                  : "يمكن للعميل الآن تعديل الطلب واختيار بديل"
+              );
+            }}
+            style={[styles.editableBtn, {
+              backgroundColor: order.editable ? "#F39C1222" : colors.surface,
+              borderColor: order.editable ? "#F39C12" : colors.border,
+              borderRadius: colors.radius - 4,
+            }]}
+          >
+            <Icon name={order.editable ? "x-circle" : "edit-3"} size={14} color={order.editable ? "#F39C12" : colors.gold} />
+            <Text style={{ color: order.editable ? "#F39C12" : colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+              {order.editable ? "إغلاق تعديل العميل" : "خامة غير متوفرة — السماح بالتعديل"}
+            </Text>
+          </Pressable>
+        )}
 
         {isStaff && order.status !== "cancelled" && (
           <View style={[styles.msgSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -315,6 +358,27 @@ export default function OrderDetailScreen() {
                 </View>
               </View>
             )}
+          </View>
+        )}
+
+        {isCustomer && order.editable && (
+          <View style={[styles.editableCustomerCard, { backgroundColor: "#F39C1218", borderColor: "#F39C12", borderRadius: colors.radius }]}>
+            <View style={styles.editableCustomerHeader}>
+              <Icon name="alert-triangle" size={16} color="#F39C12" />
+              <Text style={{ color: "#F39C12", fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right", flex: 1 }}>
+                خامة غير متوفرة — يمكنك تعديل طلبك
+              </Text>
+            </View>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
+              تم إعلامك بأن أحد الأصناف غير متوفر. يمكنك الآن تعديل الطلب واختيار بديل.
+            </Text>
+            <GoldButton
+              label="تعديل الطلب"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push({ pathname: "/cart", params: { editOrderId: order.id } } as any);
+              }}
+            />
           </View>
         )}
 
@@ -437,6 +501,41 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 16 },
   totalPrice: { fontSize: 24 },
   salesContact: { fontSize: 14, textAlign: "center", lineHeight: 22 },
+  assignedCard: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    padding: 14,
+    borderWidth: 1,
+  },
+  assignedText: { fontSize: 14 },
+  lockedMsg: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flex: 1,
+  },
+  editableBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+  },
+  editableCustomerCard: {
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  editableCustomerHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
   actionRow: {
     flexDirection: "row-reverse",
     gap: 10,

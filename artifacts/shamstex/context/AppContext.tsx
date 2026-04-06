@@ -73,8 +73,9 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   notes?: string;
-  assignedTo?: string;      // employee/supervisor id who received this order
-  assignedToName?: string;  // their display name
+  assignedTo?: string;
+  assignedToName?: string;
+  editable?: boolean;
 }
 
 export interface Tab {
@@ -178,6 +179,7 @@ interface AppContextType {
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
   cart: CartItem[];
+  setCart: (items: CartItem[]) => void;
   addToCart: (item: CartItem) => void;
   removeFromCart: (productId: string, colorName: string) => void;
   updateCartItem: (productId: string, colorName: string, quantity: number) => void;
@@ -189,6 +191,8 @@ interface AppContextType {
   deleteOrder: (orderId: string) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
+  setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
+  updateOrderItems: (orderId: string, items: CartItem[], total: number) => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
@@ -579,8 +583,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         patch.assignedToName = assignedToName;
       }
       if (status === "pending") {
-        patch.assignedTo = undefined;
-        patch.assignedToName = undefined;
+        patch.assignedTo = "";
+        patch.assignedToName = "";
       }
       const updated = ordersRef.current.map((o) => (o.id !== orderId ? o : { ...o, ...patch }));
       const updatedOrder = updated.find((o) => o.id === orderId);
@@ -670,6 +674,72 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const setOrderEditable = useCallback(
+    async (orderId: string, editable: boolean) => {
+      const updated = ordersRef.current.map((o) =>
+        o.id === orderId ? { ...o, editable } : o
+      );
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) {
+        FS.saveOrder(updatedOrder).catch(() => {});
+        if (editable) {
+          const notif: Notification = {
+            id: `notif_editable_${orderId}_${Date.now()}`,
+            title: "يمكنك تعديل طلبك",
+            body: `الخامة غير متوفرة — يمكنك تعديل طلبك #${orderId.slice(0, 8)} واختيار بديل`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            targetUserId: updatedOrder.userId,
+          };
+          const updatedNotifs = [notif, ...notificationsRef.current];
+          setNotifications(updatedNotifs);
+          await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
+          FS.saveNotification(notif).catch(() => {});
+          if (updatedOrder.userPhone) {
+            notifyUserByPhone(
+              updatedOrder.userPhone,
+              notif.title,
+              notif.body,
+              { type: "order_editable", orderId }
+            ).catch(() => {});
+          }
+        }
+      }
+    },
+    []
+  );
+
+  const updateOrderItems = useCallback(
+    async (orderId: string, items: CartItem[], total: number) => {
+      const updated = ordersRef.current.map((o) =>
+        o.id === orderId ? { ...o, items, total, editable: false } : o
+      );
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) {
+        FS.saveOrder(updatedOrder).catch(() => {});
+        const staffNotif: Notification = {
+          id: `notif_edited_${orderId}_${Date.now()}`,
+          title: "تم تعديل الطلب من قبل العميل",
+          body: `العميل عدّل طلبه #${orderId.slice(0, 8)} — يرجى المراجعة`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetRole: "employee" as any,
+        };
+        const updatedNotifs = [staffNotif, ...notificationsRef.current];
+        setNotifications(updatedNotifs);
+        await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
+        FS.saveNotification(staffNotif).catch(() => {});
+      }
+    },
+    []
+  );
+
   const setTabs = useCallback(async (t: Tab[]) => {
     setTabsState(t);
     await AsyncStorage.setItem("tabs", JSON.stringify(t));
@@ -722,6 +792,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         products,
         setProducts,
         cart,
+        setCart,
         addToCart,
         removeFromCart,
         updateCartItem,
@@ -733,6 +804,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteOrder,
         cancelOrder,
         sendOrderMessage,
+        setOrderEditable,
+        updateOrderItems,
         tabs,
         setTabs,
         notifications,

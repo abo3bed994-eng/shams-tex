@@ -46,7 +46,11 @@ export const FS = {
   },
 
   async saveOrder(order: object & { id: string }) {
-    await setDoc(doc(db, "orders", order.id), order);
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(order)) {
+      if (v !== undefined) clean[k] = v;
+    }
+    await setDoc(doc(db, "orders", order.id), clean);
   },
 
   async getAllOrders(): Promise<any[]> {

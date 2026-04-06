@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Alert,
   Platform,
@@ -9,21 +9,36 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, Order } from "@/context/AppContext";
+import { useApp, Order, CartItem } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder } = useApp();
+  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart } = useApp();
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const params = useLocalSearchParams<{ editOrderId?: string }>();
+  const editOrderId = params.editOrderId;
+  const editOrder = editOrderId ? orders.find((o) => o.id === editOrderId) : null;
+  const loaded = useRef(false);
+
+  useEffect(() => {
+    if (editOrder && !loaded.current) {
+      loaded.current = true;
+      clearCart();
+      editOrder.items.forEach((item) => {
+        (cart as CartItem[]).push(item);
+      });
+      setCart([...editOrder.items]);
+    }
+  }, [editOrder]);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
@@ -46,25 +61,33 @@ export default function CartScreen() {
     setLoading(true);
     await new Promise((r) => setTimeout(r, 800));
 
-    const order: Order = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      userId: user?.id ?? "guest",
-      userName: user?.name ?? "عميل",
-      userPhone: user?.phone ?? "",
-      items: [...cart],
-      total: hasPiecesOrder ? 0 : totalPrice,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      notes,
-    };
-
     try {
-      await addOrder(order);
-      clearCart();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
-        { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
-      ]);
+      if (editOrderId) {
+        await updateOrderItems(editOrderId, [...cart], hasPiecesOrder ? 0 : totalPrice);
+        clearCart();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("تم تعديل الطلب!", "تم تحديث طلبك بنجاح.", [
+          { text: "عرض الطلب", onPress: () => router.replace(`/order/${editOrderId}`) },
+        ]);
+      } else {
+        const order: Order = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          userId: user?.id ?? "guest",
+          userName: user?.name ?? "عميل",
+          userPhone: user?.phone ?? "",
+          items: [...cart],
+          total: hasPiecesOrder ? 0 : totalPrice,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          notes,
+        };
+        await addOrder(order);
+        clearCart();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
+          { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
+        ]);
+      }
     } catch {
       Alert.alert("خطأ", "تعذّر إرسال الطلب. يُرجى المحاولة مرة أخرى.");
     } finally {
@@ -75,8 +98,8 @@ export default function CartScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader
-        title="سلة الطلبات"
-        subtitle={`${totalPieces} قطعة`}
+        title={editOrderId ? "تعديل الطلب" : "سلة الطلبات"}
+        subtitle={editOrderId ? `تعديل طلب #${editOrderId.slice(0, 8)}` : `${totalPieces} قطعة`}
         onBack={() => router.back()}
       />
 
@@ -240,7 +263,7 @@ export default function CartScreen() {
               </View>
             )}
             <GoldButton
-              label="إرسال الطلب"
+              label={editOrderId ? "تأكيد التعديل" : "إرسال الطلب"}
               onPress={handleCheckout}
               loading={loading}
               style={{ width: "100%" }}

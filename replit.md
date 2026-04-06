@@ -75,10 +75,22 @@ Expo React Native app for Shams Tex fabric company.
 - Single-device enforcement: login from new device invalidates previous session via Firestore `sessions` collection
 - Session token checked on app startup — mismatched token triggers auto-logout
 
+### Order Editing by Customer
+- Staff can mark an order as "editable" when an item is unavailable (button in order detail)
+- Customer sees a yellow banner and "تعديل الطلب" button; opens cart pre-filled with order items
+- On submit, `updateOrderItems` updates the order and clears editable flag
+- Customer cannot edit orders otherwise
+
+### Staff Order Locking
+- When a staff member receives an order, `assignedTo` and `assignedToName` are set
+- Other staff (except admin) cannot advance the order (buttons hidden, lock message shown)
+- "استلمه: [name]" card displayed for all staff in order detail
+
 ### Real-time Sync
 - Firestore listeners for: orders, customers, notifications, products
 - Product order changes by admin reflect instantly for all users
 - Permission/role changes sync to active sessions automatically
+- `saveOrder` strips `undefined` values before Firestore write to avoid silent failures
 
 ### Demo accounts
 - `0000000001` → Admin

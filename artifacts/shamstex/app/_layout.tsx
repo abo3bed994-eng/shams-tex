@@ -8,7 +8,6 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import * as Notifications from "expo-notifications";
 import React, { useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -44,22 +43,26 @@ function RootLayoutNav() {
     }
   }, [user]);
 
-  // Handle notification taps — queue the navigation and execute once app is ready
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, any>;
-      let path = "/notifications";
-      if (data?.orderId && (data?.type === "new_order" || data?.type === "order_status")) {
-        path = `/order/${data.orderId}`;
-      }
-      if (appReady) {
-        router.push(path as any);
-      } else {
-        // App not ready — store the intent and fire it once ready
-        pendingNotifNav.current = path;
-      }
-    });
-    return () => sub.remove();
+    let sub: { remove: () => void } | null = null;
+    (async () => {
+      try {
+        const Notifications = await import("expo-notifications");
+        sub = Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = response.notification.request.content.data as Record<string, any>;
+          let path = "/notifications";
+          if (data?.orderId && (data?.type === "new_order" || data?.type === "order_status")) {
+            path = `/order/${data.orderId}`;
+          }
+          if (appReady) {
+            router.push(path as any);
+          } else {
+            pendingNotifNav.current = path;
+          }
+        });
+      } catch (_) {}
+    })();
+    return () => { sub?.remove(); };
   }, [appReady]);
 
   // Fire pending notification navigation once app is fully ready
