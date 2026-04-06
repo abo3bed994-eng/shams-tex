@@ -22,7 +22,7 @@ import GoldButton from "@/components/GoldButton";
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId } = useApp();
+  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId, updateCartWeight } = useApp();
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams<{ editOrderId?: string }>();
@@ -61,6 +61,22 @@ export default function CartScreen() {
       return;
     }
     if (cart.length === 0) return;
+
+    const weightItems = cart.filter((i) => i.orderType === "weight");
+    const piecesItems = cart.filter((i) => i.orderType === "pieces");
+    for (const item of weightItems) {
+      if ((item.weight ?? 0) < 20) {
+        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب بالكيلو هو 20 كغ\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} كغ)`);
+        return;
+      }
+    }
+    for (const item of piecesItems) {
+      if (item.quantity < 50) {
+        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب بالمتر/الثوب هو 50 قطعة\n(${item.productName} — ${item.colorName}: ${item.quantity} قطعة)`);
+        return;
+      }
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     await new Promise((r) => setTimeout(r, 800));
@@ -176,12 +192,32 @@ export default function CartScreen() {
                 <View style={styles.itemFooter}>
                   {item.orderType === "weight" ? (
                     <Text style={[styles.itemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                      {item.unitPrice * (item.weight ?? 1)} ج.م ({item.weight} كغ)
+                      {item.unitPrice * (item.weight ?? 1)} ج.م
                     </Text>
                   ) : (
                     <Text style={[styles.contactSales, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                       الرجاء التواصل مع مسؤول المبيعات
                     </Text>
+                  )}
+
+                  {item.orderType === "weight" && (
+                    <View style={styles.qtyControls}>
+                      <Pressable
+                        onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) - 1)}
+                        style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                      >
+                        <Icon name="minus" size={14} color={colors.gold} />
+                      </Pressable>
+                      <Text style={[styles.qty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                        {item.weight ?? 1} كغ
+                      </Text>
+                      <Pressable
+                        onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) + 1)}
+                        style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                      >
+                        <Icon name="plus" size={14} color={colors.background} />
+                      </Pressable>
+                    </View>
                   )}
 
                   {item.orderType === "pieces" && (
@@ -204,6 +240,17 @@ export default function CartScreen() {
                     </View>
                   )}
                 </View>
+
+                {item.orderType === "weight" && (item.weight ?? 0) < 20 && (
+                  <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                    الحد الأدنى 20 كغ
+                  </Text>
+                )}
+                {item.orderType === "pieces" && item.quantity < 50 && (
+                  <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                    الحد الأدنى 50 قطعة
+                  </Text>
+                )}
               </View>
             ))}
 

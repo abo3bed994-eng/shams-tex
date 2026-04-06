@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -16,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, AppSettings, ContactEntry, SocialEntry } from "@/context/AppContext";
+import { useApp, AppSettings, ContactEntry, SocialEntry, WorkingDay } from "@/context/AppContext";
 import { persistImageUri } from "@/utils/persistImage";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
@@ -562,6 +563,79 @@ export default function AdminSettingsScreen() {
           />
         </Card>
 
+        <Card title="ساعات العمل">
+          {(draft.workingHours ?? []).map((day, idx) => (
+            <View
+              key={day.day}
+              style={[styles.workDayRow, { backgroundColor: colors.surface, borderColor: day.enabled ? colors.gold + "44" : colors.border }]}
+            >
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ color: day.enabled ? colors.foreground : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                  {day.day}
+                </Text>
+                <Switch
+                  value={day.enabled}
+                  onValueChange={(v) => {
+                    setDraft((d) => ({
+                      ...d,
+                      workingHours: (d.workingHours ?? []).map((wd, i) =>
+                        i === idx ? { ...wd, enabled: v } : wd
+                      ),
+                    }));
+                  }}
+                  trackColor={{ false: colors.border, true: colors.gold + "66" }}
+                  thumbColor={day.enabled ? colors.gold : colors.mutedForeground}
+                />
+              </View>
+              {day.enabled && (
+                <View style={{ flexDirection: "row-reverse", gap: 10, alignItems: "center" }}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>من</Text>
+                    <TextInput
+                      style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.input, borderColor: colors.border, fontFamily: "Inter_500Medium" }]}
+                      value={day.from}
+                      onChangeText={(v) => {
+                        setDraft((d) => ({
+                          ...d,
+                          workingHours: (d.workingHours ?? []).map((wd, i) =>
+                            i === idx ? { ...wd, from: v } : wd
+                          ),
+                        }));
+                      }}
+                      placeholder="09:00"
+                      placeholderTextColor={colors.mutedForeground}
+                      textAlign="center"
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>إلى</Text>
+                    <TextInput
+                      style={[styles.timeInput, { color: colors.foreground, backgroundColor: colors.input, borderColor: colors.border, fontFamily: "Inter_500Medium" }]}
+                      value={day.to}
+                      onChangeText={(v) => {
+                        setDraft((d) => ({
+                          ...d,
+                          workingHours: (d.workingHours ?? []).map((wd, i) =>
+                            i === idx ? { ...wd, to: v } : wd
+                          ),
+                        }));
+                      }}
+                      placeholder="17:00"
+                      placeholderTextColor={colors.mutedForeground}
+                      textAlign="center"
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
+          <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
+            الطلبات خارج ساعات العمل تبقى بحالة "معلق" حتى بداية الدوام
+          </Text>
+        </Card>
+
         <Card title="روابط التواصل الاجتماعي">
           {draft.social.map((item) => (
             <View
@@ -817,5 +891,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1.5,
+  },
+  workDayRow: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+  },
+  timeInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    textAlign: "center",
   },
 });

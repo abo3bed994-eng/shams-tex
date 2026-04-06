@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
@@ -79,6 +80,8 @@ export interface Order {
   editable?: boolean;
 }
 
+export type ReturnStatus = "pending" | "returned" | "settled";
+
 export interface ReturnRequest {
   id: string;
   orderId: string;
@@ -87,9 +90,17 @@ export interface ReturnRequest {
   userPhone: string;
   items: CartItem[];
   reason: string;
-  status: "pending" | "approved" | "rejected";
+  status: ReturnStatus;
   createdAt: string;
 }
+
+export interface WorkingDay {
+  day: string;
+  enabled: boolean;
+  from: string;
+  to: string;
+}
+
 
 export interface Tab {
   id: string;
@@ -111,6 +122,8 @@ export interface Notification {
   targetUserId?: string;
   actionType?: "upgrade_request";
   actionUserId?: string;
+  linkedOrderId?: string;
+  linkedReturnId?: string;
 }
 
 export interface ContactEntry {
@@ -141,6 +154,7 @@ export interface AppSettings {
   bannerVideoUris?: string[];
   globalColors: ColorOption[];
   stats: { clients: string; products: string; years: string };
+  workingHours?: WorkingDay[];
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -166,6 +180,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   featuredProductIds: ["1", "2", "3"],
   stats: { clients: "+500", products: "+50", years: "15+" },
+  workingHours: [
+    { day: "السبت", enabled: true, from: "09:00", to: "17:00" },
+    { day: "الأحد", enabled: true, from: "09:00", to: "17:00" },
+    { day: "الاثنين", enabled: true, from: "09:00", to: "17:00" },
+    { day: "الثلاثاء", enabled: true, from: "09:00", to: "17:00" },
+    { day: "الأربعاء", enabled: true, from: "09:00", to: "17:00" },
+    { day: "الخميس", enabled: true, from: "09:00", to: "14:00" },
+    { day: "الجمعة", enabled: false, from: "00:00", to: "00:00" },
+  ],
   globalColors: [
     { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
     { name: "أسود", hex: "#0A0A0A", quantity: 50 },
@@ -210,12 +233,14 @@ interface AppContextType {
   setEditingOrderId: (id: string | null) => void;
   returnRequests: ReturnRequest[];
   addReturnRequest: (req: ReturnRequest) => Promise<void>;
-  updateReturnStatus: (reqId: string, status: "approved" | "rejected") => Promise<void>;
+  updateReturnStatus: (reqId: string, status: ReturnStatus) => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
   addNotification: (notification: Notification) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  updateCartWeight: (productId: string, colorName: string, weight: number) => void;
   settings: AppSettings;
   setSettings: (settings: AppSettings) => Promise<void>;
   theme: AppTheme;
@@ -598,6 +623,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         read: false,
         targetRole: "staff",
+        linkedOrderId: order.id,
       };
       FS.saveNotification(staffNotif).catch(() => {});
       notifyStaffNewOrder(order.id, order.userName).catch(() => {});
@@ -605,8 +631,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const isWithinWorkingHours = useCallback(() => {
+    const wh = settingsRef.current.workingHours;
+    if (!wh || wh.length === 0) return true;
+    const now = new Date();
+    const arabicDays = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const todayAr = arabicDays[now.getDay()];
+    const todayEntry = wh.find((d) => d.day === todayAr);
+    if (!todayEntry || !todayEntry.enabled) return false;
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const [fh, fm] = todayEntry.from.split(":").map(Number);
+    const [th, tm] = todayEntry.to.split(":").map(Number);
+    return nowMins >= (fh * 60 + fm) && nowMins < (th * 60 + tm);
+  }, []);
+
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => {
+      const currentOrder = ordersRef.current.find((o) => o.id === orderId);
+      if (currentOrder?.status === "pending" && status === "received" && !isWithinWorkingHours()) {
+        Alert.alert("خارج ساعات العمل", "لا يمكن معالجة الطلبات خارج ساعات الدوام الرسمي");
+        return;
+      }
       const patch: Partial<Order> = { status };
       if (status === "received" && assignedToId) {
         patch.assignedTo = assignedToId;
@@ -641,6 +686,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
+            linkedOrderId: orderId,
           };
           FS.saveNotification(custNotif).catch(() => {});
           if (updatedOrder.userPhone) {
@@ -764,6 +810,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString(),
           read: false,
           targetRole: "employee" as any,
+          linkedOrderId: orderId,
         };
         const updatedNotifs = [staffNotif, ...notificationsRef.current];
         setNotifications(updatedNotifs);
@@ -787,6 +834,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         read: false,
         targetRole: "employee" as any,
+        linkedOrderId: req.orderId,
+        linkedReturnId: req.id,
       };
       const updatedNotifs = [staffNotif, ...notificationsRef.current];
       setNotifications(updatedNotifs);
@@ -797,7 +846,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateReturnStatus = useCallback(
-    async (reqId: string, status: "approved" | "rejected") => {
+    async (reqId: string, status: ReturnStatus) => {
       const updated = returnRequests.map((r) => (r.id === reqId ? { ...r, status } : r));
       setReturnRequests(updated);
       await AsyncStorage.setItem("returnRequests", JSON.stringify(updated));
@@ -806,11 +855,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         FS.saveReturnRequest(req).catch(() => {});
         const custNotif: Notification = {
           id: `notif_return_${reqId}_${status}_${Date.now()}`,
-          title: status === "approved" ? "تم قبول طلب الاسترجاع" : "تم رفض طلب الاسترجاع",
-          body: `طلب الاسترجاع للطلب #${req.orderId.slice(0, 8)} — ${status === "approved" ? "تمت الموافقة" : "تم الرفض"}`,
+          title: status === "returned" ? "تم استرجاع الطلب" : status === "settled" ? "تمت المخالصة" : "طلب الاسترجاع قيد المراجعة",
+          body: `طلب الاسترجاع للطلب #${req.orderId.slice(0, 8)} — ${status === "returned" ? "تم الاسترجاع" : "تمت المخالصة"}`,
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: req.userId,
+          linkedOrderId: req.orderId,
+          linkedReturnId: req.id,
         };
         const updatedNotifs = [custNotif, ...notificationsRef.current];
         setNotifications(updatedNotifs);
@@ -846,6 +897,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
       if (notif) FS.saveNotification(notif).catch(() => {});
+    },
+    []
+  );
+
+  const markAllNotificationsRead = useCallback(
+    async () => {
+      const updated = notificationsRef.current.map((n) => ({ ...n, read: true }));
+      setNotifications(updated);
+      await AsyncStorage.setItem("notifications", JSON.stringify(updated));
+      for (const n of updated) {
+        FS.saveNotification(n).catch(() => {});
+      }
+    },
+    []
+  );
+
+  const updateCartWeight = useCallback(
+    (productId: string, colorName: string, weight: number) => {
+      setCart((prev) =>
+        weight <= 0
+          ? prev.filter((c) => !(c.productId === productId && c.colorName === colorName))
+          : prev.map((c) =>
+              c.productId === productId && c.colorName === colorName
+                ? { ...c, weight }
+                : c
+            )
+      );
     },
     []
   );
@@ -897,6 +975,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         notifications,
         addNotification,
         markNotificationRead,
+        markAllNotificationsRead,
+        updateCartWeight,
         settings,
         setSettings,
         theme,

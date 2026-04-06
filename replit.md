@@ -54,7 +54,7 @@ Expo React Native app for Shams Tex fabric company.
 - Product catalog with fabric listings, colors, retail/wholesale pricing
 - Cart with weight-based and piece-based ordering
 - Order management with status tracking (pending → received → preparing → ready → delivered)
-- Return/refund system: customers can request return within 15 days of delivery, staff approve/reject
+- Return/refund system: 2-stage flow (pending → returned → settled) with visual progress tracker; customers can request return within 15 days of delivery
 - Admin panel: products, prices, users, notifications, tabs management
 - Push notifications system
 - About/contact pages
@@ -116,8 +116,30 @@ Expo React Native app for Shams Tex fabric company.
 - `lib/pushService.ts` — Expo push notifications
 - `constants/colors.ts` — black/gold luxury design tokens
 
+### Working Hours
+- `WorkingDay` interface: `{ day, enabled, from, to }` stored in `settings.workingHours`
+- Default: Sat–Thu 9:00–17:00 (Thu until 14:00), Friday off
+- Admin can edit working hours in admin settings (toggle days, set from/to times)
+- Orders cannot be moved from "pending" to "received" outside working hours (enforced in `updateOrderStatus`)
+
+### Minimum Order Validation
+- Weight orders: minimum 20 kg per item
+- Piece orders: minimum 50 pieces per item
+- Enforced at checkout with inline warnings in cart UI
+
+### Notification Linking
+- All notifications include `linkedOrderId` (and `linkedReturnId` for returns)
+- Tapping an order/return notification navigates directly to `/order/${linkedOrderId}`
+- Return notifications shown in red styling
+- All notifications auto-marked as read on page open
+
+### Contact Info in Order Detail
+- Customer/pieces orders show sales phone (from settings contacts matching "مبيعات")
+- Merchant orders show wholesale phone (matching "جملة" or "تاجر")
+- Tappable phone link to call directly
+
 ### Pricing Logic
-- Weight orders: price = weight × unit price (shown immediately)
+- Weight orders: price = weight × unit price (shown immediately); cart has +/- weight controls
 - Piece orders: "Contact sales" message (no price shown)
 
 ## TypeScript & Composite Projects

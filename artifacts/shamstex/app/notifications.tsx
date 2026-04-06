@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import Icon from "@/components/Icon";
@@ -11,20 +11,25 @@ import { filterNotificationsForUser } from "@/lib/notificationFilter";
 export default function NotificationsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { notifications, markNotificationRead, user, registeredCustomers, updateRegisteredCustomer } = useApp();
+  const { notifications, markNotificationRead, markAllNotificationsRead, user, registeredCustomers, updateRegisteredCustomer } = useApp();
+  const markedRef = useRef(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const visibleNotifications = filterNotificationsForUser(notifications, user);
 
-  const handleNotifPress = (notifId: string, actionType?: string, actionUserId?: string) => {
-    markNotificationRead(notifId);
+  useEffect(() => {
+    if (!markedRef.current && visibleNotifications.some((n) => !n.read)) {
+      markedRef.current = true;
+      markAllNotificationsRead();
+    }
+  }, []);
 
-    if (actionType === "upgrade_request" && actionUserId && (user?.role === "admin" || user?.role === "supervisor")) {
-      const targetUser = registeredCustomers.find((c) => c.id === actionUserId);
+  const handleNotifPress = (notif: any) => {
+    if (notif.actionType === "upgrade_request" && notif.actionUserId && (user?.role === "admin" || user?.role === "supervisor")) {
+      const targetUser = registeredCustomers.find((c) => c.id === notif.actionUserId);
       const userName = targetUser?.name ?? "المستخدم";
 
-      // Already actioned — don't show dialog again
       if (targetUser?.upgradeStatus === "approved" || targetUser?.role === "merchant") {
         Alert.alert("تم", `تمت ترقية ${userName} إلى تاجر مسبقاً`);
         return;
@@ -48,11 +53,18 @@ export default function NotificationsScreen() {
           }},
         ]
       );
+      return;
+    }
+
+    if (notif.linkedOrderId) {
+      router.push(`/order/${notif.linkedOrderId}`);
     }
   };
 
   const getNotifIcon = (notif: any) => {
     if (notif.actionType === "upgrade_request") return "user-plus";
+    if (notif.linkedReturnId) return "rotate-ccw";
+    if (notif.linkedOrderId) return "package";
     if (notif.targetRole === "employee" || notif.targetRole === "supervisor") return "package";
     if (notif.targetUserId) return "bell";
     return "bell";
@@ -76,18 +88,19 @@ export default function NotificationsScreen() {
         ) : (
           visibleNotifications.map((notif) => {
             const isAction = notif.actionType === "upgrade_request";
+            const isReturn = !!notif.linkedReturnId;
             const iconName = getNotifIcon(notif);
-            const activeColor = isAction ? colors.gold : (notif.read ? colors.mutedForeground : colors.gold);
+            const activeColor = isReturn ? "#C0392B" : isAction ? colors.gold : colors.gold;
 
             return (
               <Pressable
                 key={notif.id}
-                onPress={() => handleNotifPress(notif.id, notif.actionType, notif.actionUserId)}
+                onPress={() => handleNotifPress(notif)}
                 style={({ pressed }) => [
                   styles.notifCard,
                   {
-                    backgroundColor: notif.read ? colors.card : colors.gold + "11",
-                    borderColor: notif.read ? colors.border : colors.gold + "44",
+                    backgroundColor: colors.card,
+                    borderColor: isReturn ? "#C0392B44" : colors.border,
                     borderRadius: colors.radius,
                     opacity: pressed ? 0.85 : 1,
                   },
@@ -100,7 +113,7 @@ export default function NotificationsScreen() {
                   <Text
                     style={[
                       styles.notifTitle,
-                      { color: colors.foreground, fontFamily: notif.read ? "Inter_500Medium" : "Inter_700Bold" },
+                      { color: isReturn ? "#C0392B" : colors.foreground, fontFamily: "Inter_600SemiBold" },
                     ]}
                   >
                     {notif.title}
@@ -108,18 +121,20 @@ export default function NotificationsScreen() {
                   <Text style={[styles.notifBody, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                     {notif.body}
                   </Text>
-                  {isAction && !notif.read && (
+                  {isAction && (
                     <Text style={[styles.tapHint, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
                       اضغط للمراجعة والرد ←
+                    </Text>
+                  )}
+                  {notif.linkedOrderId && !isAction && (
+                    <Text style={[styles.tapHint, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+                      اضغط لعرض الطلب ←
                     </Text>
                   )}
                   <Text style={[styles.notifTime, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                     {new Date(notif.createdAt).toLocaleDateString("ar-EG")}
                   </Text>
                 </View>
-                {!notif.read && (
-                  <View style={[styles.unreadDot, { backgroundColor: colors.gold }]} />
-                )}
               </Pressable>
             );
           })
@@ -153,10 +168,4 @@ const styles = StyleSheet.create({
   notifBody: { fontSize: 13, textAlign: "right", lineHeight: 20 },
   tapHint: { fontSize: 12, textAlign: "right" },
   notifTime: { fontSize: 11 },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 6,
-  },
 });
