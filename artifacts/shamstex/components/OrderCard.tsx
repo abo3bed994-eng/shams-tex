@@ -83,6 +83,15 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onP
         </Text>
       )}
 
+      {order.edited && (
+        <View style={[styles.assignedRow, { backgroundColor: "#F39C1211", borderColor: "#F39C1233" }]}>
+          <Icon name="edit-3" size={12} color="#F39C12" />
+          <Text style={{ color: "#F39C12", fontFamily: "Inter_500Medium", fontSize: 12 }}>
+            تم تعديل الطلب من قبل العميل
+          </Text>
+        </View>
+      )}
+
       {/* Assigned employee info */}
       {showAssigned && (
         <View style={[styles.assignedRow, { backgroundColor: "#3498DB11", borderColor: "#3498DB33" }]}>

@@ -77,6 +77,8 @@ export interface Order {
   assignedTo?: string;
   assignedToName?: string;
   editable?: boolean;
+  edited?: boolean;
+  editedAt?: string;
 }
 
 export type ReturnStatus = "pending" | "returned" | "settled";
@@ -775,7 +777,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateOrderItems = useCallback(
     async (orderId: string, items: CartItem[], total: number) => {
       const updated = ordersRef.current.map((o) =>
-        o.id === orderId ? { ...o, items, total, editable: false } : o
+        o.id === orderId ? { ...o, items, total, editable: false, edited: true, editedAt: new Date().toISOString() } : o
       );
       const updatedOrder = updated.find((o) => o.id === orderId);
       setOrdersState(updated);

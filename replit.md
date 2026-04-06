@@ -54,7 +54,8 @@ Expo React Native app for Shams Tex fabric company.
 - Product catalog with fabric listings, colors, retail/wholesale pricing
 - Cart with weight-based and piece-based ordering
 - Order management with status tracking (pending → received → preparing → ready → delivered)
-- Return/refund system: 2-stage flow (pending → returned → settled) with visual progress tracker; customers can request return within 15 days of delivery
+- Return/refund system: 2-stage flow (pending → returned → settled) with visual progress tracker; returns appear as "استرجاع" filter in orders tab, clicking shows order detail with embedded return tracker; staff can advance return status from order detail
+- Order editing: `edited: boolean` and `editedAt?: string` fields; shows yellow "معدّل" badge on OrderCard and order detail for staff
 - Admin panel: products, prices, users, notifications, tabs management
 - Push notifications system
 - About/contact pages
