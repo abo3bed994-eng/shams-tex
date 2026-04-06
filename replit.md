@@ -78,8 +78,10 @@ Expo React Native app for Shams Tex fabric company.
 ### Order Editing by Customer
 - Staff can mark an order as "editable" when an item is unavailable (button in order detail)
 - Customer sees a yellow banner and "تعديل الطلب" button; opens cart pre-filled with order items
+- Cart in edit mode shows "تصفح المنتجات لإضافة بديل" button to browse products
 - On submit, `updateOrderItems` updates the order and clears editable flag
 - Customer cannot edit orders otherwise
+- Merchants see "اتصل بالجملة والتجار" call button in cart for piece orders
 
 ### Staff Order Locking
 - When a staff member receives an order, `assignedTo` and `assignedToName` are set

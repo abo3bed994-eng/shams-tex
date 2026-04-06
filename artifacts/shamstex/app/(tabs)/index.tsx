@@ -20,7 +20,7 @@ import { filterNotificationsForUser } from "@/lib/notificationFilter";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, products, notifications, cart, settings } = useApp();
+  const { user, products, notifications, cart, settings, orders } = useApp();
 
   const videos = settings.bannerVideoUris ?? [];
   const [videoIdx, setVideoIdx] = useState(0);
@@ -75,6 +75,15 @@ export default function HomeScreen() {
     settings.featuredProductIds.length > 0
       ? products.filter((p) => settings.featuredProductIds.includes(p.id))
       : products.slice(0, 4);
+
+  const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
+  const activeOrders = isStaff ? [] : orders.filter((o) => o.userId === user?.id && o.status !== "cancelled" && o.status !== "ready");
+
+  const STATUS_LABEL: Record<string, { text: string; color: string }> = {
+    pending: { text: "بانتظار الاستلام", color: "#9B59B6" },
+    received: { text: "تم الاستلام", color: "#3498DB" },
+    preparing: { text: "قيد التجهيز", color: "#F39C12" },
+  };
 
   const hasVideo = videos.length > 0;
   const hasImage = !!settings.bannerImageUri;
@@ -202,6 +211,51 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+
+        {activeOrders.length > 0 && (
+          <Pressable
+            onPress={() => router.push("/(tabs)/orders")}
+            style={[styles.activeOrdersCard, { backgroundColor: colors.card, borderColor: colors.gold + "44", borderRadius: colors.radius }]}
+          >
+            <View style={styles.activeOrdersHeader}>
+              <View style={styles.activeOrdersRight}>
+                <Icon name="package" size={18} color={colors.gold} />
+                <Text style={[styles.activeOrdersTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                  طلباتك الحالية
+                </Text>
+              </View>
+              <View style={[styles.activeOrdersBadge, { backgroundColor: colors.gold }]}>
+                <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 12 }}>
+                  {activeOrders.length}
+                </Text>
+              </View>
+            </View>
+            {activeOrders.slice(0, 3).map((order) => {
+              const statusInfo = STATUS_LABEL[order.status] ?? { text: order.status, color: colors.mutedForeground };
+              return (
+                <View key={order.id} style={[styles.activeOrderRow, { borderTopColor: colors.border }]}>
+                  <Icon name="chevron-left" size={14} color={colors.mutedForeground} />
+                  <View style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                      طلب #{order.id.slice(0, 8)}
+                    </Text>
+                    <View style={[styles.activeOrderStatusPill, { backgroundColor: statusInfo.color + "22" }]}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusInfo.color }} />
+                      <Text style={{ color: statusInfo.color, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>
+                        {statusInfo.text}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+            {activeOrders.length > 3 && (
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "center", paddingTop: 6 }}>
+                +{activeOrders.length - 3} طلبات أخرى
+              </Text>
+            )}
+          </Pressable>
+        )}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -343,6 +397,47 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  activeOrdersCard: {
+    marginHorizontal: 16,
+    borderWidth: 1,
+    padding: 14,
+    gap: 6,
+  },
+  activeOrdersHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 8,
+  },
+  activeOrdersRight: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  activeOrdersTitle: { fontSize: 16 },
+  activeOrdersBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  activeOrderRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+  },
+  activeOrderStatusPill: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   section: { gap: 14, paddingHorizontal: 16 },
   sectionHeader: {

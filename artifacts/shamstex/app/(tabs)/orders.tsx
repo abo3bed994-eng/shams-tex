@@ -21,7 +21,7 @@ type FilterType = "all" | "pending" | "received" | "preparing" | "ready";
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, orders, updateOrderStatus, deleteOrder, cancelOrder } = useApp();
+  const { user, orders, updateOrderStatus, deleteOrder, cancelOrder, cart } = useApp();
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
 
@@ -83,6 +83,13 @@ export default function OrdersScreen() {
             style={({ pressed }) => [styles.cartBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Icon name="shopping-cart" size={22} color={colors.foreground} />
+            {cart.length > 0 && (
+              <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
+                <Text style={[styles.cartBadgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
+                  {cart.length > 9 ? "9+" : cart.length}
+                </Text>
+              </View>
+            )}
           </Pressable>
         )}
       </View>
@@ -243,7 +250,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { fontSize: 22 },
-  cartBtn: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+  cartBtn: { width: 42, height: 42, alignItems: "center", justifyContent: "center", position: "relative" as const },
+  cartBadge: {
+    position: "absolute" as const,
+    top: 4,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: { fontSize: 9 },
   searchRow: {
     paddingHorizontal: 14,
     paddingVertical: 10,

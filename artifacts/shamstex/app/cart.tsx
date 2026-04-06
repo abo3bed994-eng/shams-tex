@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -21,7 +22,7 @@ import GoldButton from "@/components/GoldButton";
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart } = useApp();
+  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings } = useApp();
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams<{ editOrderId?: string }>();
@@ -228,12 +229,48 @@ export default function CartScreen() {
               />
             </View>
 
+            {editOrderId && (
+              <Pressable
+                onPress={() => router.push("/(tabs)/products")}
+                style={[styles.browseBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+              >
+                <Icon name="package-plus" size={16} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                  تصفح المنتجات لإضافة بديل
+                </Text>
+              </Pressable>
+            )}
+
             {hasPiecesOrder && (
               <View style={[styles.salesNote, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33", borderRadius: colors.radius }]}>
-                <Icon name="info" size={16} color={colors.gold} />
-                <Text style={[styles.salesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  الطلبات بالثوب يتم تسعيرها من قبل مسؤول المبيعات بعد تأكيد الطلب
-                </Text>
+                <View style={styles.salesNoteInfoRow}>
+                  <Icon name="info" size={16} color={colors.gold} />
+                  <Text style={[styles.salesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    الطلبات بالثوب يتم تسعيرها من قبل مسؤول المبيعات بعد تأكيد الطلب
+                  </Text>
+                </View>
+                {user?.role === "merchant" && (() => {
+                  const wholesaleContact = settings.contacts.find((c) => c.label.includes("الجملة") || c.label.includes("تجار"));
+                  const salesContact = settings.contacts.find((c) => c.label.includes("المبيعات"));
+                  const contactToShow = wholesaleContact ?? salesContact;
+                  if (!contactToShow) return null;
+                  return (
+                    <Pressable
+                      onPress={() => Linking.openURL(`tel:${contactToShow.number.replace(/\s/g, "")}`)}
+                      style={[styles.callSalesBtn, { backgroundColor: colors.gold, borderRadius: colors.radius - 4 }]}
+                    >
+                      <Icon name="phone" size={16} color={colors.background} />
+                      <View style={{ gap: 2, alignItems: "flex-end" }}>
+                        <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                          اتصل بـ{contactToShow.label}
+                        </Text>
+                        <Text style={{ color: colors.background + "CC", fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                          {contactToShow.number}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })()}
               </View>
             )}
           </ScrollView>
@@ -336,14 +373,34 @@ const styles = StyleSheet.create({
     minHeight: 80,
     fontSize: 14,
   },
-  salesNote: {
+  browseBtn: {
     flexDirection: "row-reverse",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+  },
+  salesNote: {
     gap: 10,
     padding: 14,
     borderWidth: 1,
   },
+  salesNoteInfoRow: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    gap: 10,
+  },
   salesNoteText: { flex: 1, fontSize: 13, textAlign: "right", lineHeight: 20 },
+  callSalesBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 4,
+  },
   footer: {
     paddingHorizontal: 16,
     paddingTop: 12,
