@@ -140,6 +140,7 @@ export default function ProductDetailScreen() {
           quantity: qty,
           unitPrice: displayPrice,
           orderType: "pieces",
+          unit: product.unit,
         };
       });
       items.forEach(addToCart);
@@ -169,6 +170,7 @@ export default function ProductDetailScreen() {
             unitPrice: displayPrice,
             orderType: "weight",
             weight: w,
+            unit: product.unit,
           };
         });
       items.forEach(addToCart);

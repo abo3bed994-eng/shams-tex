@@ -59,6 +59,7 @@ export interface CartItem {
   unitPrice: number;
   orderType: "weight" | "pieces";
   weight?: number;
+  unit?: ProductUnit;
 }
 
 export type OrderStatus = "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled";

@@ -17,7 +17,7 @@ export default function ReturnDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { returnRequests, orders, user, updateReturnStatus, deleteReturnRequest } = useApp();
+  const { returnRequests, orders, user, updateReturnStatus, deleteReturnRequest, products } = useApp();
 
   const ret = returnRequests.find((r) => r.id === id);
   const order = ret ? orders.find((o) => o.id === ret.orderId) : null;
@@ -159,7 +159,7 @@ export default function ReturnDetailScreen() {
                       {item.productName}
                     </Text>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
-                      {item.colorName} — {item.weight ? `${item.weight} كغ` : `${item.quantity} قطعة`}
+                      {item.colorName} — {item.weight ? `${item.weight} ${(item as any).unit === "meter" ? "متر" : (products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ")}` : `${item.quantity} قطعة`}
                     </Text>
                   </View>
                 </View>

@@ -29,6 +29,7 @@ export default function CartScreen() {
   const paramEditId = params.editOrderId;
   const editOrderId = paramEditId || editingOrderId;
   const editOrder = editOrderId ? orders.find((o) => o.id === editOrderId) : null;
+
   useEffect(() => {
     if (paramEditId && paramEditId !== editingOrderId) {
       setEditingOrderId(paramEditId);
@@ -38,6 +39,14 @@ export default function CartScreen() {
       }
     }
   }, [paramEditId]);
+
+  const handleBack = () => {
+    if (editingOrderId) {
+      setEditingOrderId(null);
+      clearCart();
+    }
+    router.back();
+  };
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
@@ -112,7 +121,7 @@ export default function CartScreen() {
       <GoldHeader
         title={editOrderId ? "تعديل الطلب" : "سلة الطلبات"}
         subtitle={editOrderId ? `تعديل طلب #${editOrderId.slice(0, 8)}` : `${totalPieces} قطعة`}
-        onBack={() => router.back()}
+        onBack={handleBack}
       />
 
       {cart.length === 0 ? (
@@ -191,7 +200,10 @@ export default function CartScreen() {
                     </Text>
                   )}
 
-                  {item.orderType === "weight" && (
+                  {item.orderType === "weight" && (() => {
+                    const prod = products.find((p) => p.id === item.productId);
+                    const unitLabel = prod?.unit === "meter" ? "متر" : "كغ";
+                    return (
                     <View style={styles.qtyControls}>
                       <Pressable
                         onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) - 1)}
@@ -200,7 +212,7 @@ export default function CartScreen() {
                         <Icon name="minus" size={14} color={colors.gold} />
                       </Pressable>
                       <Text style={[styles.qty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                        {item.weight ?? 1} كغ
+                        {item.weight ?? 1} {unitLabel}
                       </Text>
                       <Pressable
                         onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) + 1)}
@@ -209,7 +221,8 @@ export default function CartScreen() {
                         <Icon name="plus" size={14} color={colors.background} />
                       </Pressable>
                     </View>
-                  )}
+                    );
+                  })()}
 
                   {item.orderType === "pieces" && (
                     <View style={styles.qtyControls}>

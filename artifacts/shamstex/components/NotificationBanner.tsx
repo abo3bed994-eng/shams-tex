@@ -15,6 +15,7 @@ export default function NotificationBanner() {
   const lastShownId = useRef<string | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isVisible = useRef(false);
+  const navigating = useRef(false);
 
   const isAdmin = user?.role === "admin";
 
@@ -68,7 +69,6 @@ export default function NotificationBanner() {
 
   const topOffset = Platform.OS === "web" ? 12 : insets.top + 4;
 
-  const navigating = useRef(false);
   const handlePress = () => {
     if (navigating.current) return;
     navigating.current = true;
