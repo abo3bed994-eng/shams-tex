@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Animated, PanResponder, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, Notification } from "@/context/AppContext";
+import { filterNotificationsForUser } from "@/lib/notificationFilter";
 import { router } from "expo-router";
 
 export default function NotificationBanner() {
@@ -18,6 +19,7 @@ export default function NotificationBanner() {
   const navigating = useRef(false);
 
   const isAdmin = user?.role === "admin";
+  const myNotifications = useMemo(() => filterNotificationsForUser(notifications, user), [notifications, user]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -47,8 +49,8 @@ export default function NotificationBanner() {
   };
 
   useEffect(() => {
-    if (isAdmin || !notifications.length) return;
-    const latest = notifications[0];
+    if (isAdmin || !myNotifications.length) return;
+    const latest = myNotifications[0];
     if (!latest || latest.id === lastShownId.current) return;
     if (latest.read) return;
 
@@ -63,7 +65,7 @@ export default function NotificationBanner() {
 
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
     dismissTimer.current = setTimeout(() => dismiss(), 3000);
-  }, [notifications, isAdmin]);
+  }, [myNotifications, isAdmin]);
 
   if (!current || isAdmin) return null;
 

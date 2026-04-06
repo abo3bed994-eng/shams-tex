@@ -1,10 +1,10 @@
-import React, { useEffect, useRef } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp } from "@/context/AppContext";
+import { useApp, Notification } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import { filterNotificationsForUser } from "@/lib/notificationFilter";
 
@@ -26,7 +26,7 @@ export default function NotificationsScreen() {
   }, []);
 
   const navigatingRef = useRef(false);
-  const handleNotifPress = (notif: any) => {
+  const handleNotifPress = useCallback((notif: Notification) => {
     if (notif.actionType === "upgrade_request" && notif.actionUserId && (user?.role === "admin" || user?.role === "supervisor")) {
       const targetUser = registeredCustomers.find((c) => c.id === notif.actionUserId);
       const userName = targetUser?.name ?? "المستخدم";
@@ -65,9 +65,9 @@ export default function NotificationsScreen() {
       router.push(`/return/${notif.linkedReturnId}`);
     }
     setTimeout(() => { navigatingRef.current = false; }, 1000);
-  };
+  }, [user, registeredCustomers, updateRegisteredCustomer]);
 
-  const getNotifIcon = (notif: any) => {
+  const getNotifIcon = (notif: Notification) => {
     if (notif.actionType === "upgrade_request") return "user-plus";
     if (notif.linkedReturnId) return "rotate-ccw";
     if (notif.linkedOrderId) return "package";
@@ -76,76 +76,84 @@ export default function NotificationsScreen() {
     return "bell";
   };
 
+  const renderItem = useCallback(({ item: notif }: { item: Notification }) => {
+    const isAction = notif.actionType === "upgrade_request";
+    const isReturn = !!notif.linkedReturnId;
+    const iconName = getNotifIcon(notif);
+    const activeColor = isReturn ? "#C0392B" : colors.gold;
+
+    return (
+      <Pressable
+        onPress={() => handleNotifPress(notif)}
+        style={({ pressed }) => [
+          styles.notifCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: isReturn ? "#C0392B44" : colors.border,
+            borderRadius: colors.radius,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}
+      >
+        <View style={[styles.iconContainer, { backgroundColor: activeColor + "22" }]}>
+          <Icon name={iconName as any} size={18} color={activeColor} />
+        </View>
+        <View style={styles.notifContent}>
+          <Text
+            style={[
+              styles.notifTitle,
+              { color: isReturn ? "#C0392B" : colors.foreground, fontFamily: "Inter_600SemiBold" },
+            ]}
+          >
+            {notif.title}
+          </Text>
+          <Text style={[styles.notifBody, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            {notif.body}
+          </Text>
+          {isAction && (
+            <Text style={[styles.tapHint, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+              اضغط للمراجعة والرد ←
+            </Text>
+          )}
+          {notif.linkedOrderId && !isAction && (
+            <Text style={[styles.tapHint, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+              اضغط لعرض الطلب ←
+            </Text>
+          )}
+          <Text style={[styles.notifTime, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            {new Date(notif.createdAt).toLocaleDateString("ar-EG")}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }, [colors, handleNotifPress]);
+
+  const keyExtractor = useCallback((item: Notification) => item.id, []);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="الإشعارات" onBack={() => router.back()} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
-      >
-        {visibleNotifications.length === 0 ? (
-          <View style={styles.empty}>
-            <Icon name="bell-off" size={48} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              لا توجد إشعارات
-            </Text>
-          </View>
-        ) : (
-          visibleNotifications.map((notif) => {
-            const isAction = notif.actionType === "upgrade_request";
-            const isReturn = !!notif.linkedReturnId;
-            const iconName = getNotifIcon(notif);
-            const activeColor = isReturn ? "#C0392B" : isAction ? colors.gold : colors.gold;
-
-            return (
-              <Pressable
-                key={notif.id}
-                onPress={() => handleNotifPress(notif)}
-                style={({ pressed }) => [
-                  styles.notifCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: isReturn ? "#C0392B44" : colors.border,
-                    borderRadius: colors.radius,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: activeColor + "22" }]}>
-                  <Icon name={iconName as any} size={18} color={activeColor} />
-                </View>
-                <View style={styles.notifContent}>
-                  <Text
-                    style={[
-                      styles.notifTitle,
-                      { color: isReturn ? "#C0392B" : colors.foreground, fontFamily: "Inter_600SemiBold" },
-                    ]}
-                  >
-                    {notif.title}
-                  </Text>
-                  <Text style={[styles.notifBody, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                    {notif.body}
-                  </Text>
-                  {isAction && (
-                    <Text style={[styles.tapHint, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-                      اضغط للمراجعة والرد ←
-                    </Text>
-                  )}
-                  {notif.linkedOrderId && !isAction && (
-                    <Text style={[styles.tapHint, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-                      اضغط لعرض الطلب ←
-                    </Text>
-                  )}
-                  <Text style={[styles.notifTime, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                    {new Date(notif.createdAt).toLocaleDateString("ar-EG")}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })
-        )}
-      </ScrollView>
+      {visibleNotifications.length === 0 ? (
+        <View style={styles.empty}>
+          <Icon name="bell-off" size={48} color={colors.mutedForeground} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+            لا توجد إشعارات
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={visibleNotifications}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS !== "web"}
+        />
+      )}
     </View>
   );
 }
@@ -161,6 +169,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     gap: 12,
+    marginBottom: 10,
   },
   iconContainer: {
     width: 42,

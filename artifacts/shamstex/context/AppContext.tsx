@@ -550,14 +550,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateRegisteredCustomer = useCallback(async (updatedUser: User) => {
     const updated = registeredCustomers.map((c) => c.phone === updatedUser.phone ? updatedUser : c);
     setRegisteredCustomersState(updated);
-    await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
-    FS.saveCustomer(updatedUser).catch(() => {});
-    // If the updated user is the currently logged-in user, sync their session too
     if (user && user.phone === updatedUser.phone) {
       const synced = { ...user, ...updatedUser };
       setUserState(synced);
-      await AsyncStorage.setItem("user", JSON.stringify(synced));
+      AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
     }
+    AsyncStorage.setItem("registered_customers", JSON.stringify(updated)).catch(() => {});
+    FS.saveCustomer(updatedUser).catch(() => {});
   }, [registeredCustomers, user]);
 
   const setProducts = useCallback(async (prods: Product[]) => {

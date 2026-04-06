@@ -207,7 +207,7 @@ export default function OrderDetailScreen() {
                   </Text>
                 </View>
               </View>
-              <View style={styles.orderItemLeft}>
+              <View style={[styles.orderItemLeft, { gap: 10 }]}>
                 {item.orderType === "weight" ? (
                   <Text style={[styles.orderItemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                     {item.unitPrice * (item.weight ?? 1)} ج.م
@@ -216,6 +216,28 @@ export default function OrderDetailScreen() {
                   <Text style={[styles.orderItemQty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
                     x{item.quantity}
                   </Text>
+                )}
+                {isStaff && order.editable && order.items.length > 1 && (
+                  <Pressable
+                    onPress={() => {
+                      Alert.alert(
+                        "حذف الصنف",
+                        `هل تريد حذف "${item.productName} — ${item.colorName}" من الطلب؟`,
+                        [
+                          { text: "إلغاء", style: "cancel" },
+                          { text: "حذف", style: "destructive", onPress: () => {
+                            const newItems = order.items.filter((_, i) => i !== index);
+                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            updateOrderItems(order.id, newItems, newTotal);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          }},
+                        ]
+                      );
+                    }}
+                    hitSlop={8}
+                  >
+                    <Icon name="trash-2" size={14} color={colors.destructive} />
+                  </Pressable>
                 )}
               </View>
             </View>
@@ -326,7 +348,16 @@ export default function OrderDetailScreen() {
             <View style={styles.actionRow}>
               {(isAdmin || user?.role === "supervisor") && prevAction && (
                 <Pressable
-                  onPress={() => updateOrderStatus(order.id, prevAction.prev)}
+                  onPress={() => {
+                    Alert.alert(
+                      "تأكيد",
+                      `هل تريد ${prevAction.label}؟`,
+                      [
+                        { text: "إلغاء", style: "cancel" },
+                        { text: "نعم", onPress: () => updateOrderStatus(order.id, prevAction.prev) },
+                      ]
+                    );
+                  }}
                   style={[styles.prevBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
                 >
                   <Icon name="chevron-right" size={14} color={colors.mutedForeground} />
@@ -339,11 +370,20 @@ export default function OrderDetailScreen() {
                 <GoldButton
                   label={nextAction.label}
                   onPress={() => {
-                    if (nextAction.next === "received" && user?.role !== "admin") {
-                      updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
-                    } else {
-                      updateOrderStatus(order.id, nextAction.next);
-                    }
+                    Alert.alert(
+                      "تأكيد",
+                      `هل تريد "${nextAction.label}"؟`,
+                      [
+                        { text: "إلغاء", style: "cancel" },
+                        { text: "نعم", onPress: () => {
+                          if (nextAction.next === "received" && user?.role !== "admin") {
+                            updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
+                          } else {
+                            updateOrderStatus(order.id, nextAction.next);
+                          }
+                        }},
+                      ]
+                    );
                   }}
                   style={{ flex: 1 }}
                 />
