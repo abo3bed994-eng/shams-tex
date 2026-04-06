@@ -63,16 +63,9 @@ export default function CartScreen() {
     if (cart.length === 0) return;
 
     const weightItems = cart.filter((i) => i.orderType === "weight");
-    const piecesItems = cart.filter((i) => i.orderType === "pieces");
     for (const item of weightItems) {
       if ((item.weight ?? 0) < 20) {
-        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب بالكيلو هو 20 كغ\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} كغ)`);
-        return;
-      }
-    }
-    for (const item of piecesItems) {
-      if (item.quantity < 50) {
-        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب بالمتر/الثوب هو 50 قطعة\n(${item.productName} — ${item.colorName}: ${item.quantity} قطعة)`);
+        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب بالكيلو/المتر هو 20 كغ\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} كغ)`);
         return;
       }
     }
@@ -244,11 +237,6 @@ export default function CartScreen() {
                 {item.orderType === "weight" && (item.weight ?? 0) < 20 && (
                   <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
                     الحد الأدنى 20 كغ
-                  </Text>
-                )}
-                {item.orderType === "pieces" && item.quantity < 50 && (
-                  <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                    الحد الأدنى 50 قطعة
                   </Text>
                 )}
               </View>
