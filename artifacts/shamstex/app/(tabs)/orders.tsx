@@ -21,7 +21,7 @@ type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "deli
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, orders, updateOrderStatus, deleteOrder, cancelOrder, cart } = useApp();
+  const { user, orders, updateOrderStatus, deleteOrder, cancelOrder, cart, returnRequests } = useApp();
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
 
@@ -116,6 +116,31 @@ export default function OrdersScreen() {
           </View>
         </View>
       )}
+
+      {(() => {
+        const myReturns = isStaff ? returnRequests : returnRequests.filter((r) => r.userId === user?.id);
+        if (myReturns.length === 0) return null;
+        const pendingCount = myReturns.filter((r) => r.status === "pending").length;
+        return (
+          <Pressable
+            onPress={() => router.push("/returns")}
+            style={[styles.returnsBar, { backgroundColor: "#C0392B11", borderBottomColor: "#C0392B33" }]}
+          >
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, flex: 1 }}>
+              <Icon name="rotate-ccw" size={16} color="#C0392B" />
+              <Text style={{ color: "#C0392B", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                طلبات الاسترجاع ({myReturns.length})
+              </Text>
+              {pendingCount > 0 && (
+                <View style={{ backgroundColor: "#C0392B", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                  <Text style={{ color: "#FFF", fontFamily: "Inter_700Bold", fontSize: 10 }}>{pendingCount} جديد</Text>
+                </View>
+              )}
+            </View>
+            <Icon name="chevron-left" size={16} color="#C0392B" />
+          </Pressable>
+        );
+      })()}
 
       <View style={[styles.filterRow, { borderBottomColor: colors.border }]}>
         {FILTERS.map(({ key, label }) => (
@@ -298,5 +323,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
+  },
+  returnsBar: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
 });

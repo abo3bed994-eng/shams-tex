@@ -455,108 +455,30 @@ export default function OrderDetailScreen() {
           const daysSinceDelivery = deliveredAt ? Math.floor((Date.now() - deliveredAt.getTime()) / (1000 * 60 * 60 * 24)) : 999;
           const withinReturnWindow = daysSinceDelivery <= 15;
 
-          const RETURN_STEPS = [
-            { key: "pending", label: "طلب استرجاع", icon: "rotate-ccw" },
-            { key: "returned", label: "تم الاسترجاع", icon: "package" },
-            { key: "settled", label: "تمت المخالصة", icon: "check-circle" },
-          ];
-          const returnStep = orderReturn ? RETURN_STEPS.findIndex((s) => s.key === orderReturn.status) : -1;
-
           return (
             <>
               {orderReturn && (
-                <View style={[styles.returnStatusCard, {
-                  backgroundColor: "#C0392B11",
-                  borderColor: "#C0392B44",
-                  borderRadius: colors.radius,
-                }]}>
-                  <View style={{ alignItems: "center", gap: 8 }}>
-                    <Icon name="rotate-ccw" size={22} color="#C0392B" />
-                    <Text style={{ color: "#C0392B", fontFamily: "Inter_700Bold", fontSize: 16, textAlign: "center" }}>
-                      طلب استرجاع
-                    </Text>
-                  </View>
-
-                  <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", paddingHorizontal: 8, marginTop: 12 }}>
-                    {RETURN_STEPS.map((step, index) => {
-                      const isCompleted = index <= returnStep;
-                      const stepColor = isCompleted ? "#C0392B" : colors.border;
-                      return (
-                        <React.Fragment key={step.key}>
-                          <View style={{ alignItems: "center", gap: 6, flex: 1 }}>
-                            <View style={{
-                              width: 24, height: 24, borderRadius: 12, borderWidth: 2,
-                              backgroundColor: isCompleted ? stepColor : colors.surface,
-                              borderColor: stepColor,
-                              alignItems: "center", justifyContent: "center",
-                            }}>
-                              {isCompleted && <Icon name="check" size={10} color="#fff" />}
-                            </View>
-                            <Text style={{
-                              fontSize: 10, textAlign: "center", lineHeight: 14,
-                              color: isCompleted ? "#C0392B" : colors.mutedForeground,
-                              fontFamily: isCompleted ? "Inter_600SemiBold" : "Inter_400Regular",
-                            }} numberOfLines={2}>
-                              {step.label}
-                            </Text>
-                          </View>
-                          {index < RETURN_STEPS.length - 1 && (
-                            <View style={{ height: 2, flex: 1, marginTop: 11, marginHorizontal: -4, backgroundColor: index < returnStep ? "#C0392B" : colors.border }} />
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </View>
-
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 10 }}>
-                    السبب: {orderReturn.reason}
-                  </Text>
-
-                  {orderReturn.items && orderReturn.items.length > 0 && (
-                    <View style={{ marginTop: 8, gap: 4 }}>
-                      {orderReturn.items.map((item, idx) => (
-                        <View key={idx} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                          <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: item.colorHex, borderWidth: 1, borderColor: colors.border }} />
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, flex: 1, textAlign: "right" }}>
-                            {item.productName} — {item.colorName}
-                          </Text>
-                        </View>
-                      ))}
+                <Pressable
+                  onPress={() => router.push("/returns")}
+                  style={[styles.returnStatusCard, {
+                    backgroundColor: "#C0392B11",
+                    borderColor: "#C0392B44",
+                    borderRadius: colors.radius,
+                  }]}
+                >
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                    <Icon name="rotate-ccw" size={18} color="#C0392B" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#C0392B", fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                        يوجد طلب استرجاع لهذا الطلب
+                      </Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
+                        {orderReturn.status === "settled" ? "تمت المخالصة" : orderReturn.status === "returned" ? "تم الاسترجاع — بانتظار المخالصة" : "قيد المراجعة"}
+                      </Text>
                     </View>
-                  )}
-                </View>
-              )}
-
-              {isStaff && orderReturn && orderReturn.status !== "settled" && (
-                <View style={[styles.returnStaffActions, { backgroundColor: colors.card, borderColor: "#C0392B44", borderRadius: colors.radius }]}>
-                  <Text style={{ color: "#C0392B", fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right", marginBottom: 8 }}>
-                    إدارة طلب الاسترجاع
-                  </Text>
-                  {orderReturn.status === "pending" && (
-                    <GoldButton
-                      label="تأكيد الاسترجاع"
-                      onPress={() => {
-                        Alert.alert("تأكيد", "هل تم استرجاع البضاعة؟", [
-                          { text: "إلغاء", style: "cancel" },
-                          { text: "تأكيد", onPress: () => updateReturnStatus(orderReturn.id, "returned") },
-                        ]);
-                      }}
-                      style={{ width: "100%" }}
-                    />
-                  )}
-                  {orderReturn.status === "returned" && (
-                    <GoldButton
-                      label="تأكيد المخالصة"
-                      onPress={() => {
-                        Alert.alert("تأكيد", "هل تمت المخالصة المالية؟", [
-                          { text: "إلغاء", style: "cancel" },
-                          { text: "تأكيد", onPress: () => updateReturnStatus(orderReturn.id, "settled") },
-                        ]);
-                      }}
-                      style={{ width: "100%" }}
-                    />
-                  )}
-                </View>
+                    <Icon name="chevron-left" size={16} color="#C0392B" />
+                  </View>
+                </Pressable>
               )}
 
               {canReturn && withinReturnWindow && !showReturnForm && (
@@ -869,10 +791,6 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "flex-start",
     gap: 12,
-    padding: 16,
-    borderWidth: 1,
-  },
-  returnStaffActions: {
     padding: 16,
     borderWidth: 1,
   },

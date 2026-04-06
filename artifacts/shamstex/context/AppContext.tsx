@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert } from "react-native";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
@@ -631,27 +630,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const isWithinWorkingHours = useCallback(() => {
-    const wh = settingsRef.current.workingHours;
-    if (!wh || wh.length === 0) return true;
-    const now = new Date();
-    const arabicDays = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-    const todayAr = arabicDays[now.getDay()];
-    const todayEntry = wh.find((d) => d.day === todayAr);
-    if (!todayEntry || !todayEntry.enabled) return false;
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const [fh, fm] = todayEntry.from.split(":").map(Number);
-    const [th, tm] = todayEntry.to.split(":").map(Number);
-    return nowMins >= (fh * 60 + fm) && nowMins < (th * 60 + tm);
-  }, []);
-
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => {
-      const currentOrder = ordersRef.current.find((o) => o.id === orderId);
-      if (currentOrder?.status === "pending" && status === "received" && !isWithinWorkingHours()) {
-        Alert.alert("خارج ساعات العمل", "لا يمكن معالجة الطلبات خارج ساعات الدوام الرسمي");
-        return;
-      }
       const patch: Partial<Order> = { status };
       if (status === "received" && assignedToId) {
         patch.assignedTo = assignedToId;
