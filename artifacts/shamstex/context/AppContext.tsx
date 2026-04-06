@@ -235,6 +235,7 @@ interface AppContextType {
   returnRequests: ReturnRequest[];
   addReturnRequest: (req: ReturnRequest) => Promise<void>;
   updateReturnStatus: (reqId: string, status: ReturnStatus) => Promise<void>;
+  deleteReturnRequest: (reqId: string) => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
@@ -854,6 +855,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [returnRequests]
   );
 
+  const deleteReturnRequest = useCallback(
+    async (reqId: string) => {
+      const updated = returnRequests.filter((r) => r.id !== reqId);
+      setReturnRequests(updated);
+      await AsyncStorage.setItem("returnRequests", JSON.stringify(updated));
+    },
+    [returnRequests]
+  );
+
   const setTabs = useCallback(async (t: Tab[]) => {
     setTabsState(t);
     await AsyncStorage.setItem("tabs", JSON.stringify(t));
@@ -952,6 +962,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         returnRequests,
         addReturnRequest,
         updateReturnStatus,
+        deleteReturnRequest,
         tabs,
         setTabs,
         notifications,

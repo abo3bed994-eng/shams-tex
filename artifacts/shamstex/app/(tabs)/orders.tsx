@@ -13,7 +13,7 @@ import { router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, Order, OrderStatus, ReturnRequest } from "@/context/AppContext";
+import { useApp, Order, OrderStatus } from "@/context/AppContext";
 import OrderCard from "@/components/OrderCard";
 
 type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "delivered" | "returns";
@@ -21,7 +21,7 @@ type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "deli
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, orders, updateOrderStatus, deleteOrder, cancelOrder, cart, returnRequests, updateReturnStatus } = useApp();
+  const { user, orders, updateOrderStatus, deleteOrder, cancelOrder, cart, returnRequests, updateReturnStatus, deleteReturnRequest } = useApp();
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
 
@@ -187,7 +187,7 @@ export default function OrdersScreen() {
               return (
                 <Pressable
                   key={ret.id}
-                  onPress={() => router.push(`/order/${ret.orderId}`)}
+                  onPress={() => router.push(`/return/${ret.id}`)}
                   style={({ pressed }) => [
                     styles.returnCard,
                     {
@@ -277,40 +277,9 @@ export default function OrdersScreen() {
                     </View>
                   )}
 
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                      {new Date(ret.createdAt).toLocaleDateString("ar-EG")}
-                    </Text>
-
-                    {isStaff && ret.status !== "settled" && (
-                      <Pressable
-                        onPress={() => {
-                          if (ret.status === "pending") {
-                            Alert.alert("تأكيد", "هل تم استرجاع البضاعة؟", [
-                              { text: "إلغاء", style: "cancel" },
-                              { text: "تأكيد", onPress: () => updateReturnStatus(ret.id, "returned") },
-                            ]);
-                          } else if (ret.status === "returned") {
-                            Alert.alert("تأكيد", "هل تمت المخالصة المالية؟", [
-                              { text: "إلغاء", style: "cancel" },
-                              { text: "تأكيد", onPress: () => updateReturnStatus(ret.id, "settled") },
-                            ]);
-                          }
-                        }}
-                        style={({ pressed }) => [{
-                          backgroundColor: colors.gold,
-                          paddingHorizontal: 14,
-                          paddingVertical: 6,
-                          borderRadius: colors.radius - 4,
-                          opacity: pressed ? 0.8 : 1,
-                        }]}
-                      >
-                        <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-                          {ret.status === "pending" ? "تأكيد الاسترجاع" : "تأكيد المخالصة"}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10, textAlign: "right", marginTop: 6 }}>
+                    {new Date(ret.createdAt).toLocaleDateString("ar-EG")}
+                  </Text>
                 </Pressable>
               );
             })
