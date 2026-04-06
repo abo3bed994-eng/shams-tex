@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import SplashScreenComponent from "@/components/SplashScreenComponent";
 import Toast from "@/components/Toast";
+import NotificationBanner from "@/components/NotificationBanner";
 import { registerForPushNotifications } from "@/lib/pushService";
 
 SplashScreen.preventAutoHideAsync();
@@ -111,6 +112,7 @@ function RootLayoutNav() {
         <Stack.Screen name="admin/edit-product/[id]" options={{ headerShown: false }} />
       </Stack>
       <Toast />
+      <NotificationBanner />
     </>
   );
 }

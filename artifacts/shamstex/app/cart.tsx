@@ -40,7 +40,9 @@ export default function CartScreen() {
   useEffect(() => {
     if (editOrder && !loaded.current) {
       loaded.current = true;
-      setCart([...editOrder.items]);
+      if (cart.length === 0) {
+        setCart([...editOrder.items]);
+      }
     }
   }, [editOrder]);
 

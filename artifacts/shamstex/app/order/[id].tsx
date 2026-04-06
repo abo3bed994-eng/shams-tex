@@ -51,6 +51,7 @@ export default function OrderDetailScreen() {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [submittingReturn, setSubmittingReturn] = useState(false);
+  const [returnSelectedItems, setReturnSelectedItems] = useState<Record<number, boolean>>({});
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -528,8 +529,67 @@ export default function OrderDetailScreen() {
                     طلب استرجاع
                   </Text>
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 4 }}>
-                    اكتب سبب الاسترجاع وسيتم مراجعة طلبك
+                    اختر الأصناف التي تريد استرجاعها واكتب السبب
                   </Text>
+
+                  <View style={{ gap: 6, marginTop: 8 }}>
+                    <Pressable
+                      onPress={() => {
+                        const allSelected = order.items.every((_, i) => returnSelectedItems[i]);
+                        const newState: Record<number, boolean> = {};
+                        order.items.forEach((_, i) => { newState[i] = !allSelected; });
+                        setReturnSelectedItems(newState);
+                      }}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingVertical: 6 }}
+                    >
+                      <View style={{
+                        width: 20, height: 20, borderRadius: 4, borderWidth: 2,
+                        borderColor: order.items.every((_, i) => returnSelectedItems[i]) ? "#C0392B" : colors.border,
+                        backgroundColor: order.items.every((_, i) => returnSelectedItems[i]) ? "#C0392B" : "transparent",
+                        alignItems: "center", justifyContent: "center",
+                      }}>
+                        {order.items.every((_, i) => returnSelectedItems[i]) && <Icon name="check" size={12} color="#fff" />}
+                      </View>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>تحديد الكل</Text>
+                    </Pressable>
+
+                    {order.items.map((item, index) => (
+                      <Pressable
+                        key={index}
+                        onPress={() => setReturnSelectedItems((prev) => ({ ...prev, [index]: !prev[index] }))}
+                        style={[{
+                          flexDirection: "row-reverse",
+                          alignItems: "center",
+                          gap: 10,
+                          paddingVertical: 8,
+                          paddingHorizontal: 8,
+                          borderRadius: 8,
+                          backgroundColor: returnSelectedItems[index] ? "#C0392B11" : colors.surface,
+                          borderWidth: 1,
+                          borderColor: returnSelectedItems[index] ? "#C0392B44" : colors.border,
+                        }]}
+                      >
+                        <View style={{
+                          width: 20, height: 20, borderRadius: 4, borderWidth: 2,
+                          borderColor: returnSelectedItems[index] ? "#C0392B" : colors.border,
+                          backgroundColor: returnSelectedItems[index] ? "#C0392B" : "transparent",
+                          alignItems: "center", justifyContent: "center",
+                        }}>
+                          {returnSelectedItems[index] && <Icon name="check" size={12} color="#fff" />}
+                        </View>
+                        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: item.colorHex, borderWidth: 1, borderColor: colors.border }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right" }}>
+                            {item.productName}
+                          </Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                            {item.colorName} — {item.weight ? `${item.weight} كغ` : `${item.quantity} قطعة`}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+
                   <TextInput
                     style={[styles.returnInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, fontFamily: "Inter_400Regular", borderRadius: colors.radius - 4 }]}
                     placeholder="سبب الاسترجاع..."
@@ -543,6 +603,11 @@ export default function OrderDetailScreen() {
                     <GoldButton
                       label={submittingReturn ? "جاري الإرسال..." : "إرسال طلب الاسترجاع"}
                       onPress={async () => {
+                        const selectedItems = order.items.filter((_, i) => returnSelectedItems[i]);
+                        if (selectedItems.length === 0) {
+                          Alert.alert("خطأ", "يرجى اختيار صنف واحد على الأقل");
+                          return;
+                        }
                         if (!returnReason.trim()) {
                           Alert.alert("خطأ", "يرجى كتابة سبب الاسترجاع");
                           return;
@@ -555,7 +620,7 @@ export default function OrderDetailScreen() {
                           userId: user?.id ?? "",
                           userName: user?.name ?? "",
                           userPhone: user?.phone ?? "",
-                          items: order.items,
+                          items: selectedItems,
                           reason: returnReason.trim(),
                           status: "pending",
                           createdAt: new Date().toISOString(),
@@ -563,13 +628,14 @@ export default function OrderDetailScreen() {
                         setSubmittingReturn(false);
                         setShowReturnForm(false);
                         setReturnReason("");
+                        setReturnSelectedItems({});
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         Alert.alert("تم", "تم إرسال طلب الاسترجاع وسيتم مراجعته");
                       }}
                       style={{ flex: 1 }}
                     />
                     <Pressable
-                      onPress={() => { setShowReturnForm(false); setReturnReason(""); }}
+                      onPress={() => { setShowReturnForm(false); setReturnReason(""); setReturnSelectedItems({}); }}
                       style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
                     >
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
