@@ -22,7 +22,7 @@ import GoldButton from "@/components/GoldButton";
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId, updateCartWeight } = useApp();
+  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId, updateCartWeight, products } = useApp();
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams<{ editOrderId?: string }>();
@@ -64,8 +64,11 @@ export default function CartScreen() {
 
     const weightItems = cart.filter((i) => i.orderType === "weight");
     for (const item of weightItems) {
-      if ((item.weight ?? 0) < 20) {
-        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب بالكيلو/المتر هو 20 كغ\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} كغ)`);
+      const prod = products.find((p) => p.id === item.productId);
+      const minW = prod?.unit === "meter" ? 50 : 20;
+      const unitName = prod?.unit === "meter" ? "متر" : "كغ";
+      if ((item.weight ?? 0) < minW) {
+        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب هو ${minW} ${unitName}\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} ${unitName})`);
         return;
       }
     }
@@ -234,11 +237,16 @@ export default function CartScreen() {
                   )}
                 </View>
 
-                {item.orderType === "weight" && (item.weight ?? 0) < 20 && (
-                  <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                    الحد الأدنى 20 كغ
-                  </Text>
-                )}
+                {item.orderType === "weight" && (() => {
+                  const prod = products.find((p) => p.id === item.productId);
+                  const minW = prod?.unit === "meter" ? 50 : 20;
+                  const unitName = prod?.unit === "meter" ? "متر" : "كغ";
+                  return (item.weight ?? 0) < minW ? (
+                    <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                      الحد الأدنى {minW} {unitName}
+                    </Text>
+                  ) : null;
+                })()}
               </View>
             ))}
 

@@ -148,6 +148,14 @@ export default function ProductDetailScreen() {
         Alert.alert("تنبيه", "الرجاء تحديد الوزن لكل لون");
         return;
       }
+      const minWeight = product.unit === "meter" ? 50 : 20;
+      const unitName = product.unit === "meter" ? "متر" : "كغ";
+      const belowMin = Object.entries(colorWeights).filter(([_, w]) => w > 0 && w < minWeight);
+      if (belowMin.length > 0) {
+        const names = belowMin.map(([c, w]) => `${c}: ${w} ${unitName}`).join("\n");
+        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب هو ${minWeight} ${unitName} لكل لون\n\n${names}`);
+        return;
+      }
       const items: CartItem[] = Object.entries(colorWeights)
         .filter(([_, w]) => w > 0)
         .map(([colorName, w]) => {
