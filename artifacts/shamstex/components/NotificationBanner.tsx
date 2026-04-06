@@ -68,7 +68,10 @@ export default function NotificationBanner() {
 
   const topOffset = Platform.OS === "web" ? 12 : insets.top + 4;
 
+  const navigating = useRef(false);
   const handlePress = () => {
+    if (navigating.current) return;
+    navigating.current = true;
     dismiss();
     if (current.linkedOrderId) {
       router.push(`/order/${current.linkedOrderId}` as any);
@@ -77,6 +80,7 @@ export default function NotificationBanner() {
     } else {
       router.push("/notifications" as any);
     }
+    setTimeout(() => { navigating.current = false; }, 1000);
   };
 
   return (

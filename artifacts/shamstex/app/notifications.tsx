@@ -25,6 +25,7 @@ export default function NotificationsScreen() {
     }
   }, []);
 
+  const navigatingRef = useRef(false);
   const handleNotifPress = (notif: any) => {
     if (notif.actionType === "upgrade_request" && notif.actionUserId && (user?.role === "admin" || user?.role === "supervisor")) {
       const targetUser = registeredCustomers.find((c) => c.id === notif.actionUserId);
@@ -56,9 +57,14 @@ export default function NotificationsScreen() {
       return;
     }
 
+    if (navigatingRef.current) return;
+    navigatingRef.current = true;
     if (notif.linkedOrderId) {
       router.push(`/order/${notif.linkedOrderId}`);
+    } else if (notif.linkedReturnId) {
+      router.push(`/return/${notif.linkedReturnId}`);
     }
+    setTimeout(() => { navigatingRef.current = false; }, 1000);
   };
 
   const getNotifIcon = (notif: any) => {

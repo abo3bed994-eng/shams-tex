@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Linking,
@@ -29,22 +29,15 @@ export default function CartScreen() {
   const paramEditId = params.editOrderId;
   const editOrderId = paramEditId || editingOrderId;
   const editOrder = editOrderId ? orders.find((o) => o.id === editOrderId) : null;
-  const loaded = useRef(false);
-
   useEffect(() => {
     if (paramEditId && paramEditId !== editingOrderId) {
       setEditingOrderId(paramEditId);
-    }
-  }, [paramEditId]);
-
-  useEffect(() => {
-    if (editOrder && !loaded.current) {
-      loaded.current = true;
-      if (cart.length === 0) {
-        setCart([...editOrder.items]);
+      const order = orders.find((o) => o.id === paramEditId);
+      if (order) {
+        setCart([...order.items]);
       }
     }
-  }, [editOrder]);
+  }, [paramEditId]);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
