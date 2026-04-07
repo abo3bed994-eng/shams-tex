@@ -326,15 +326,12 @@ export default function OrderDetailScreen() {
                 const url = `tel:${contactPhone}`;
                 import("expo-linking").then((Linking) => Linking.openURL(url)).catch(() => {});
               }}
-              style={[styles.contactCard, { backgroundColor: colors.card, borderColor: colors.gold + "33", borderRadius: colors.radius }]}
+              style={[styles.contactCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
             >
-              <Icon name="phone" size={16} color={colors.gold} />
+              <Icon name="phone" size={14} color={colors.mutedForeground} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
-                  {contactLabel}
-                </Text>
-                <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 14, textAlign: "right" }}>
-                  {contactPhone}
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
+                  {contactLabel} · {contactPhone}
                 </Text>
               </View>
             </Pressable>
@@ -493,15 +490,20 @@ export default function OrderDetailScreen() {
               </Text>
             </View>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
-              تم إعلامك بأن أحد الأصناف غير متوفر. يمكنك الآن تعديل الطلب واختيار بديل.
+              تم إعلامك بأن أحد الأصناف غير متوفر. يمكنك الآن تعديل الطلب واختيار بديل أو تعديل الكميات.
             </Text>
-            <GoldButton
-              label="تعديل الطلب"
+            <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                 router.push({ pathname: "/cart", params: { editOrderId: order.id } } as any);
               }}
-            />
+              style={[styles.browseAlternativeBtn, { backgroundColor: colors.gold, borderRadius: colors.radius }]}
+            >
+              <Icon name="refresh-cw" size={20} color={colors.background} />
+              <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                اختيار منتجات بديلة
+              </Text>
+            </Pressable>
           </View>
         )}
 
@@ -848,6 +850,14 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 8,
+  },
+  browseAlternativeBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
   actionRow: {
     flexDirection: "row-reverse",

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import Icon from "@/components/Icon";
@@ -16,7 +16,7 @@ export default function NotificationsScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const visibleNotifications = filterNotificationsForUser(notifications, user);
+  const visibleNotifications = useMemo(() => filterNotificationsForUser(notifications, user), [notifications, user]);
 
   useEffect(() => {
     if (!markedRef.current && visibleNotifications.some((n) => !n.read)) {
@@ -64,7 +64,7 @@ export default function NotificationsScreen() {
     } else if (notif.linkedReturnId) {
       router.push(`/return/${notif.linkedReturnId}`);
     }
-    setTimeout(() => { navigatingRef.current = false; }, 1000);
+    setTimeout(() => { navigatingRef.current = false; }, 500);
   }, [user, registeredCustomers, updateRegisteredCustomer]);
 
   const getNotifIcon = (notif: Notification) => {

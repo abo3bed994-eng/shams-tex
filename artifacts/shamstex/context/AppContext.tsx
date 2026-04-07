@@ -213,7 +213,7 @@ interface AppContextType {
   registeredCustomers: User[];
   findCustomerByPhone: (phone: string) => User | undefined;
   registerCustomer: (user: User) => Promise<void>;
-  updateRegisteredCustomer: (user: User) => Promise<void>;
+  updateRegisteredCustomer: (user: User) => void;
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
   cart: CartItem[];
@@ -547,17 +547,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     FS.saveCustomer(userToSave).catch(() => {});
   }, [registeredCustomers]);
 
-  const updateRegisteredCustomer = useCallback(async (updatedUser: User) => {
-    const updated = registeredCustomers.map((c) => c.phone === updatedUser.phone ? updatedUser : c);
-    setRegisteredCustomersState(updated);
-    if (user && user.phone === updatedUser.phone) {
-      const synced = { ...user, ...updatedUser };
+  const updateRegisteredCustomer = useCallback((updatedUser: User) => {
+    setRegisteredCustomersState((prev) => {
+      const updated = prev.map((c) => c.phone === updatedUser.phone ? updatedUser : c);
+      AsyncStorage.setItem("registered_customers", JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+    const currentUser = userRef.current;
+    if (currentUser && currentUser.phone === updatedUser.phone) {
+      const synced = { ...currentUser, ...updatedUser };
       setUserState(synced);
       AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
     }
-    AsyncStorage.setItem("registered_customers", JSON.stringify(updated)).catch(() => {});
     FS.saveCustomer(updatedUser).catch(() => {});
-  }, [registeredCustomers, user]);
+  }, []);
 
   const setProducts = useCallback(async (prods: Product[]) => {
     setProductsState(prods);

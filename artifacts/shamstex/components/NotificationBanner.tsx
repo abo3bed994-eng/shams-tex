@@ -82,7 +82,7 @@ export default function NotificationBanner() {
     } else {
       router.push("/notifications" as any);
     }
-    setTimeout(() => { navigating.current = false; }, 1000);
+    setTimeout(() => { navigating.current = false; }, 500);
   };
 
   return (
