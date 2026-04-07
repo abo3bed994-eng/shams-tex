@@ -103,7 +103,7 @@ export default function AdminUsersScreen() {
   useAdminGuard("view_users");
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, registeredCustomers, updateRegisteredCustomer, registerCustomer, addNotification, orders } = useApp();
+  const { user, registeredCustomers, updateRegisteredCustomer, deleteRegisteredCustomer, registerCustomer, addNotification, orders } = useApp();
   const [activeTab, setActiveTab] = useState<TabKey>("customers");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -111,11 +111,22 @@ export default function AdminUsersScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [confirmAction, setConfirmAction] = useState<{ userId: string; action: string; newRole?: UserRole } | null>(null);
+  const [deletedStaffPhones, setDeletedStaffPhones] = useState<string[]>([]);
 
-  const staffList: User[] = DEMO_STAFF.map((demo) => {
-    const fromRegistry = registeredCustomers.find((c) => c.phone === demo.phone);
-    return fromRegistry ? { ...demo, ...fromRegistry } : demo;
-  });
+  const staffList: User[] = DEMO_STAFF
+    .filter((demo) => !deletedStaffPhones.includes(demo.phone))
+    .map((demo) => {
+      const fromRegistry = registeredCustomers.find((c) => c.phone === demo.phone);
+      return fromRegistry ? { ...demo, ...fromRegistry } : demo;
+    })
+    .concat(
+      registeredCustomers.filter(
+        (c) =>
+          (c.role === "admin" || c.role === "employee" || c.role === "supervisor") &&
+          !DEMO_STAFF.some((d) => d.phone === c.phone) &&
+          !deletedStaffPhones.includes(c.phone)
+      )
+    );
 
   const saveStaffMember = (updatedUser: User) => {
     const exists = registeredCustomers.find((c) => c.phone === updatedUser.phone);
@@ -276,6 +287,79 @@ export default function AdminUsersScreen() {
     if (target) saveCustomerChange({ ...target, name: trimmed });
     setEditingNameId(null);
     setEditingNameValue("");
+  };
+
+  const PRIMARY_ADMIN_PHONE = "0000000001";
+
+  const handleDeleteCustomer = (u: User) => {
+    Alert.alert(
+      "حذف المستخدم",
+      `هل أنت متأكد من حذف "${u.name}" (${u.phone})؟\n\nسيتم حذف بياناته نهائياً.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف",
+          style: "destructive",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            deleteRegisteredCustomer(u.phone);
+            setExpandedUser(null);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteStaff = (u: User) => {
+    if (u.phone === PRIMARY_ADMIN_PHONE) return;
+    Alert.alert(
+      "حذف عضو الفريق",
+      `هل أنت متأكد من حذف "${u.name}" من الفريق؟\n\nسيتم حذف بياناته نهائياً.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف",
+          style: "destructive",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            setDeletedStaffPhones((prev) => [...prev, u.phone]);
+            deleteRegisteredCustomer(u.phone);
+            setExpandedUser(null);
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePromoteToAdmin = (u: User) => {
+    Alert.alert(
+      "ترقية إلى مدير",
+      `هل أنت متأكد من ترقية "${u.name}" إلى مدير؟\n\nسيحصل على كامل الصلاحيات.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "ترقية",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            saveStaffMember({ ...u, role: "admin", permissions: [] });
+            addNotification({
+              id: `role_admin_${u.id}_${Date.now()}`,
+              title: "ترقية إلى مدير 🎉",
+              body: "تم ترقيتك إلى مدير. لديك الآن صلاحيات كاملة. سيتم التحديث تلقائياً.",
+              createdAt: new Date().toISOString(),
+              read: false,
+              targetUserId: u.id,
+            });
+            notifyUserByPhone(
+              u.phone,
+              "🎉 ترقية إلى مدير!",
+              "تم ترقيتك إلى مدير. لديك الآن صلاحيات كاملة.",
+              { type: "role_change", newRole: "admin" }
+            ).catch(() => {});
+          },
+        },
+      ]
+    );
   };
 
   const tabs: { key: TabKey; label: string; count: number; icon: string }[] = [
@@ -553,6 +637,16 @@ export default function AdminUsersScreen() {
                 </Text>
               </Pressable>
             </View>
+
+            <Pressable
+              onPress={() => handleDeleteCustomer(u)}
+              style={[styles.deleteUserBtn, { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11", borderRadius: colors.radius - 4 }]}
+            >
+              <Icon name="trash-2" size={14} color="#E74C3C" />
+              <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                حذف المستخدم نهائياً
+              </Text>
+            </Pressable>
           </View>
         )}
       </View>
@@ -603,7 +697,15 @@ export default function AdminUsersScreen() {
 
         {isExpanded && user?.role === "admin" && u.id !== user.id && (
           <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
-            {renderNameEdit(u, handleSaveStaffName)}
+            {u.phone === PRIMARY_ADMIN_PHONE && (
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, padding: 10, backgroundColor: colors.gold + "11", borderRadius: colors.radius - 4, borderWidth: 1, borderColor: colors.gold + "33" }}>
+                <Icon name="lock" size={14} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, textAlign: "right" }}>
+                  المدير الأساسي — محمي من التعديل والحذف
+                </Text>
+              </View>
+            )}
+            {u.phone !== PRIMARY_ADMIN_PHONE && renderNameEdit(u, handleSaveStaffName)}
             {(u.role === "employee" || u.role === "supervisor") && (
               <View style={{ gap: 8 }}>
                 <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
@@ -640,9 +742,38 @@ export default function AdminUsersScreen() {
                     </Pressable>
                   ))}
                 </View>
+
+                <Pressable
+                  onPress={() => handlePromoteToAdmin(u)}
+                  style={[
+                    styles.roleBtn,
+                    {
+                      backgroundColor: colors.gold + "11",
+                      borderColor: colors.gold + "44",
+                      justifyContent: "center",
+                    },
+                  ]}
+                >
+                  <Icon name="award" size={14} color={colors.gold} />
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                    ترقية إلى مدير
+                  </Text>
+                </Pressable>
               </View>
             )}
             {showPermissions && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
+
+            {u.phone !== PRIMARY_ADMIN_PHONE && (
+              <Pressable
+                onPress={() => handleDeleteStaff(u)}
+                style={[styles.deleteUserBtn, { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11", borderRadius: colors.radius - 4 }]}
+              >
+                <Icon name="trash-2" size={14} color="#E74C3C" />
+                <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                  حذف من الفريق نهائياً
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
       </View>
@@ -1031,6 +1162,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+  },
+  deleteUserBtn: {
+    flexDirection: "row-reverse" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    gap: 6,
+    paddingVertical: 10,
+    borderWidth: 1,
+    marginTop: 4,
   },
   emptyState: {
     alignItems: "center",

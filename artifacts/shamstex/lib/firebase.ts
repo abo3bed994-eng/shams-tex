@@ -31,6 +31,10 @@ export const FS = {
     await setDoc(doc(db, "customers", customer.phone), withTimestamp);
   },
 
+  async deleteCustomer(phone: string) {
+    await deleteDoc(doc(db, "customers", phone));
+  },
+
   async getAllCustomers(): Promise<any[]> {
     const snap = await getDocs(collection(db, "customers"));
     return snap.docs.map((d) => d.data());

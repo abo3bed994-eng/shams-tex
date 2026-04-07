@@ -216,6 +216,7 @@ interface AppContextType {
   findCustomerByPhone: (phone: string) => User | undefined;
   registerCustomer: (user: User) => Promise<void>;
   updateRegisteredCustomer: (user: User) => void;
+  deleteRegisteredCustomer: (phone: string) => void;
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
   cart: CartItem[];
@@ -577,6 +578,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
     }
     FS.saveCustomer(updatedUser).catch(() => {});
+  }, []);
+
+  const deleteRegisteredCustomer = useCallback((phone: string) => {
+    setRegisteredCustomersState((prev) => {
+      const updated = prev.filter((c) => c.phone !== phone);
+      AsyncStorage.setItem("registered_customers", JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+    FS.deleteCustomer(phone).catch(() => {});
   }, []);
 
   const setProducts = useCallback(async (prods: Product[]) => {
@@ -1009,6 +1019,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         findCustomerByPhone,
         registerCustomer,
         updateRegisteredCustomer,
+        deleteRegisteredCustomer,
         products,
         setProducts,
         cart,
