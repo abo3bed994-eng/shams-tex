@@ -234,18 +234,10 @@ export default function ProductDetailScreen() {
                 >
                   <View style={styles.colorRowLeft}>
                     <Pressable
-                      onPress={() => removeColorWeight(color.name)}
-                      disabled={w === 0}
-                      style={[
-                        styles.qtyBtn,
-                        {
-                          backgroundColor: w > 0 ? colors.surface : colors.surface + "55",
-                          borderColor: colors.border,
-                          opacity: w > 0 ? 1 : 0.4,
-                        },
-                      ]}
+                      onPress={() => addColorWeight(color.name)}
+                      style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
                     >
-                      <Icon name="minus" size={14} color={colors.gold} />
+                      <Icon name="plus" size={14} color={colors.background} />
                     </Pressable>
                     <TextInput
                       style={[styles.weightInput, {
@@ -275,10 +267,18 @@ export default function ProductDetailScreen() {
                       }}
                     />
                     <Pressable
-                      onPress={() => addColorWeight(color.name)}
-                      style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                      onPress={() => removeColorWeight(color.name)}
+                      disabled={w === 0}
+                      style={[
+                        styles.qtyBtn,
+                        {
+                          backgroundColor: w > 0 ? colors.surface : colors.surface + "55",
+                          borderColor: colors.border,
+                          opacity: w > 0 ? 1 : 0.4,
+                        },
+                      ]}
                     >
-                      <Icon name="plus" size={14} color={colors.background} />
+                      <Icon name="minus" size={14} color={colors.gold} />
                     </Pressable>
                   </View>
                   <View style={styles.colorRowRight}>
@@ -310,25 +310,25 @@ export default function ProductDetailScreen() {
                 ]}
               >
                 <View style={styles.colorRowLeft}>
-                  {qty > 0 ? (
-                    <>
-                      <Pressable
-                        onPress={() => removeColorPiece(color.name)}
-                        style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                      >
-                        <Icon name="minus" size={14} color={colors.gold} />
-                      </Pressable>
-                      <Text style={[styles.qtyText, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                        {qty}
-                      </Text>
-                    </>
-                  ) : null}
                   <Pressable
                     onPress={() => addColorPiece(color.name)}
                     style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
                   >
                     <Icon name="plus" size={14} color={colors.background} />
                   </Pressable>
+                  {qty > 0 ? (
+                    <>
+                      <Text style={[styles.qtyText, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                        {qty}
+                      </Text>
+                      <Pressable
+                        onPress={() => removeColorPiece(color.name)}
+                        style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                      >
+                        <Icon name="minus" size={14} color={colors.gold} />
+                      </Pressable>
+                    </>
+                  ) : null}
                 </View>
                 <View style={styles.colorRowRight}>
                   <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>

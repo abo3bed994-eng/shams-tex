@@ -19,12 +19,15 @@ export function filterNotificationsForUser(notifications: Notification[], user: 
 
     if (user.role === "employee") {
       if (n.targetUserId) return n.targetUserId === user.id;
-      return n.targetRole === "employee" || n.targetRole === "staff";
+      if (n.targetRole === "employee" || n.targetRole === "staff") return true;
+      if (!n.targetRole && !n.targetUserId) return true;
+      return false;
     }
 
     if (user.role === "customer" || user.role === "merchant") {
       if (n.targetUserId) return n.targetUserId === user.id;
       if (n.targetRole) return n.targetRole === user.role;
+      if (!n.targetRole && !n.targetUserId) return true;
       return false;
     }
 

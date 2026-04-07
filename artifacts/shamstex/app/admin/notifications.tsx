@@ -88,10 +88,16 @@ export default function AdminNotificationsScreen() {
     ? TYPE_OPTIONS.filter((o) => o.key === "private")
     : TYPE_OPTIONS;
 
-  const allPickableUsers = useMemo(() => [
-    ...STAFF_USERS,
-    ...registeredCustomers,
-  ], [registeredCustomers]);
+  const allPickableUsers = useMemo(() => {
+    const merged = [...STAFF_USERS, ...registeredCustomers];
+    const seen = new Set<string>();
+    return merged.filter((u) => {
+      const key = u.phone || u.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [registeredCustomers]);
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return allPickableUsers;
@@ -381,14 +387,12 @@ export default function AdminNotificationsScreen() {
                       </Text>
                     </View>
                   ) : (
-                    <FlatList
-                      data={filteredUsers}
-                      keyExtractor={(item) => item.id}
-                      style={{ maxHeight: 250 }}
-                      renderItem={({ item: c }) => {
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                      {filteredUsers.map((c) => {
                         const roleColor = ROLE_COLOR[c.role] ?? "#888";
                         return (
                           <Pressable
+                            key={c.phone || c.id}
                             onPress={() => {
                               setSelectedUserId(c.id);
                               setShowUserPicker(false);
@@ -419,8 +423,8 @@ export default function AdminNotificationsScreen() {
                             </View>
                           </Pressable>
                         );
-                      }}
-                    />
+                      })}
+                    </ScrollView>
                   )}
                 </View>
               )}

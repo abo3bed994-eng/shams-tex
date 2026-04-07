@@ -128,6 +128,14 @@ Expo React Native app for Shams Tex fabric company.
 - Piece orders: minimum 50 pieces per item
 - Enforced at checkout with inline warnings in cart UI
 
+### Notification Filtering
+- `filterNotificationsForUser` (lib/notificationFilter.ts) controls visibility per role
+- Untargeted notifications (no targetRole, no targetUserId) show to ALL roles
+- Customer/merchant see: their own targeted + their role-targeted + untargeted ("all")
+- Employee sees: own targeted + employee/staff targeted + untargeted
+- Supervisor sees: own targeted + supervisor/staff + upgrade requests + untargeted
+- Admin sees all (except other users' private notifications)
+
 ### Notification Linking
 - All notifications include `linkedOrderId` (and `linkedReturnId` for returns)
 - Tapping an order/return notification navigates directly to `/order/${linkedOrderId}`
@@ -135,9 +143,18 @@ Expo React Native app for Shams Tex fabric company.
 - All notifications auto-marked as read on page open
 
 ### Contact Info in Order Detail
+- Contact card placed BELOW the editable/alternative products section
+- Subtle muted text (11px, low opacity) — de-emphasized vs main action buttons
 - Customer/pieces orders show sales phone (from settings contacts matching "مبيعات")
 - Merchant orders show wholesale phone (matching "جملة" or "تاجر")
-- Tappable phone link to call directly
+
+### Admin Users Page
+- Search by name or phone number
+- Sort by: date, name, order count
+- Per-user stats: total orders, pending orders, total spent, last order date
+- Inline confirmation dialog for role changes (customer ↔ merchant)
+- VIP toggle, name editing, registration date display
+- Staff tab: role switching (employee ↔ supervisor), permissions grid
 
 ### Pricing Logic
 - Weight orders: price = weight × unit price (shown immediately); cart has +/- weight controls

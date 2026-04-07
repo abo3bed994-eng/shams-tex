@@ -311,33 +311,6 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {(() => {
-          const contactPhone = (isCustomer || order.orderType === "pieces")
-            ? settings.contacts?.find((c) => c.label.includes("مبيعات") || c.label.includes("عملاء"))?.number
-            : (user?.role === "merchant")
-              ? settings.contacts?.find((c) => c.label.includes("جملة") || c.label.includes("تاجر"))?.number
-              : null;
-          const contactLabel = (isCustomer || order.orderType === "pieces") ? "مسؤول المبيعات" : "مسؤول الجملة";
-
-          if (!contactPhone || isStaff) return null;
-          return (
-            <Pressable
-              onPress={() => {
-                const url = `tel:${contactPhone}`;
-                import("expo-linking").then((Linking) => Linking.openURL(url)).catch(() => {});
-              }}
-              style={[styles.contactCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
-            >
-              <Icon name="phone" size={14} color={colors.mutedForeground} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
-                  {contactLabel} · {contactPhone}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })()}
-
         {isStaff && order.status !== "cancelled" && (() => {
           const nextAction = NEXT_ACTION[order.status];
           const prevAction = PREV_ACTION[order.status];
@@ -506,6 +479,31 @@ export default function OrderDetailScreen() {
             </Pressable>
           </View>
         )}
+
+        {(() => {
+          const contactPhone = (isCustomer || order.orderType === "pieces")
+            ? settings.contacts?.find((c) => c.label.includes("مبيعات") || c.label.includes("عملاء"))?.number
+            : (user?.role === "merchant")
+              ? settings.contacts?.find((c) => c.label.includes("جملة") || c.label.includes("تاجر"))?.number
+              : null;
+          const contactLabel = (isCustomer || order.orderType === "pieces") ? "مسؤول المبيعات" : "مسؤول الجملة";
+
+          if (!contactPhone || isStaff) return null;
+          return (
+            <Pressable
+              onPress={() => {
+                const url = `tel:${contactPhone}`;
+                import("expo-linking").then((Linking) => Linking.openURL(url)).catch(() => {});
+              }}
+              style={[styles.contactCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+            >
+              <Icon name="phone" size={13} color={colors.mutedForeground + "99"} />
+              <Text style={{ color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                {contactLabel} · {contactPhone}
+              </Text>
+            </Pressable>
+          );
+        })()}
 
         {(() => {
           const orderReturn = returnRequests.find((r) => r.orderId === order.id);

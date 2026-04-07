@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -35,6 +35,14 @@ const ROLE_COLORS: Record<UserRole, string> = {
   admin: "#C0392B",
 };
 
+const ROLE_ICONS: Record<UserRole, string> = {
+  customer: "user",
+  merchant: "briefcase",
+  employee: "tool",
+  supervisor: "shield",
+  admin: "star",
+};
+
 const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   view_orders: "عرض الطلبات",
   edit_orders: "تعديل الطلبات",
@@ -68,7 +76,6 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "delete_orders",
 ];
 
-// Static demo staff (not in registeredCustomers)
 const DEMO_STAFF: User[] = [
   { id: "u1", phone: "0000000001", name: "مدير النظام", role: "admin" },
   {
@@ -88,24 +95,26 @@ const DEMO_STAFF: User[] = [
 ];
 
 type TabKey = "customers" | "staff";
+type SortKey = "name" | "date" | "orders";
 
 export default function AdminUsersScreen() {
   useAdminGuard("view_users");
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, registeredCustomers, updateRegisteredCustomer, registerCustomer, addNotification } = useApp();
+  const { user, registeredCustomers, updateRegisteredCustomer, registerCustomer, addNotification, orders } = useApp();
   const [activeTab, setActiveTab] = useState<TabKey>("customers");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("date");
+  const [confirmAction, setConfirmAction] = useState<{ userId: string; action: string; newRole?: UserRole } | null>(null);
 
-  // Merge DEMO_STAFF with Firestore data — Firestore data always wins (has real permissions)
   const staffList: User[] = DEMO_STAFF.map((demo) => {
     const fromRegistry = registeredCustomers.find((c) => c.phone === demo.phone);
     return fromRegistry ? { ...demo, ...fromRegistry } : demo;
   });
 
-  // Save staff member to Firestore & registered list
   const saveStaffMember = (updatedUser: User) => {
     const exists = registeredCustomers.find((c) => c.phone === updatedUser.phone);
     if (exists) {
@@ -117,7 +126,6 @@ export default function AdminUsersScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // Customers & merchants from registeredCustomers — deduplicate by phone as safety net
   const customerList = [
     ...new Map(
       registeredCustomers
@@ -128,22 +136,59 @@ export default function AdminUsersScreen() {
   const pendingUpgrades = customerList.filter((u) => u.upgradeStatus === "pending");
   const activeCustomers = customerList.filter((u) => u.upgradeStatus !== "pending");
 
+  const orderCountsByUser = useMemo(() => {
+    const counts: Record<string, { total: number; pending: number; totalSpent: number; lastOrderDate: string | null }> = {};
+    for (const o of orders) {
+      const uid = o.userId;
+      if (!counts[uid]) counts[uid] = { total: 0, pending: 0, totalSpent: 0, lastOrderDate: null };
+      counts[uid].total++;
+      if (o.status === "pending" || o.status === "received" || o.status === "preparing") counts[uid].pending++;
+      counts[uid].totalSpent += o.total ?? 0;
+      if (!counts[uid].lastOrderDate || o.createdAt > counts[uid].lastOrderDate!) {
+        counts[uid].lastOrderDate = o.createdAt;
+      }
+    }
+    return counts;
+  }, [orders]);
+
+  const filteredCustomers = useMemo(() => {
+    let list = activeCustomers;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter((u) => u.name.toLowerCase().includes(q) || u.phone.includes(q));
+    }
+    list = [...list].sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name, "ar");
+      if (sortBy === "orders") {
+        return (orderCountsByUser[b.id]?.total ?? 0) - (orderCountsByUser[a.id]?.total ?? 0);
+      }
+      const dateA = a.registeredAt ?? "";
+      const dateB = b.registeredAt ?? "";
+      return dateB.localeCompare(dateA);
+    });
+    return list;
+  }, [activeCustomers, searchQuery, sortBy, orderCountsByUser]);
+
+  const filteredStaff = useMemo(() => {
+    if (!searchQuery.trim()) return staffList;
+    const q = searchQuery.trim().toLowerCase();
+    return staffList.filter((u) => u.name.toLowerCase().includes(q) || u.phone.includes(q));
+  }, [staffList, searchQuery]);
+
   const saveCustomerChange = (updatedUser: User) => {
     updateRegisteredCustomer(updatedUser);
   };
 
   const handleChangeCustomerRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Find by id OR phone (safety fallback after deduplication)
     const updated = customerList.find((u) => u.id === userId) || customerList.find((u) => u.phone === userId);
     if (updated) {
       saveCustomerChange({ ...updated, role: newRole, upgradeStatus: undefined });
-      // Notify the user about their role change
       if (newRole === "merchant") {
         addNotification({
           id: `role_merchant_${userId}_${Date.now()}`,
           title: "🎉 تمت ترقيتك إلى تاجر!",
-          body: "تم تفعيل حسابك كتاجر. أغلق التطبيق وأعد فتحه لتحديث حسابك والاستفادة من أسعار الجملة.",
+          body: "تم تفعيل حسابك كتاجر. سيتم تحديث حسابك تلقائياً خلال لحظات للاستفادة من أسعار الجملة.",
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: userId,
@@ -151,14 +196,14 @@ export default function AdminUsersScreen() {
         notifyUserByPhone(
           updated.phone,
           "🎉 تمت ترقيتك إلى تاجر!",
-          "تم تفعيل حسابك. أغلق التطبيق وأعد فتحه لتحديث حسابك.",
+          "تم تفعيل حسابك كتاجر. سيتم التحديث تلقائياً.",
           { type: "role_change", newRole: "merchant" }
         ).catch(() => {});
       } else if (newRole === "customer") {
         addNotification({
           id: `role_customer_${updated.id}_${Date.now()}`,
           title: "تغيير الدور",
-          body: "تم تغيير دورك إلى زبون عادي. أغلق التطبيق وأعد فتحه لتحديث الحساب.",
+          body: "تم تغيير دورك إلى زبون عادي. سيتم تحديث حسابك تلقائياً خلال لحظات.",
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: updated.id,
@@ -166,11 +211,12 @@ export default function AdminUsersScreen() {
         notifyUserByPhone(
           updated.phone,
           "تغيير الدور",
-          "تم تغيير دورك إلى زبون عادي. أغلق التطبيق وأعد فتحه.",
+          "تم تغيير دورك إلى زبون عادي. سيتم التحديث تلقائياً.",
           { type: "role_change", newRole: "customer" }
         ).catch(() => {});
       }
     }
+    setConfirmAction(null);
   };
 
   const handleToggleVip = (userId: string) => {
@@ -230,10 +276,32 @@ export default function AdminUsersScreen() {
     setEditingNameValue("");
   };
 
-  const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: "customers", label: "الزبائن والتجار", count: customerList.length },
-    { key: "staff", label: "فريق العمل", count: staffList.length },
+  const tabs: { key: TabKey; label: string; count: number; icon: string }[] = [
+    { key: "customers", label: "الزبائن والتجار", count: customerList.length, icon: "users" },
+    { key: "staff", label: "فريق العمل", count: staffList.length, icon: "shield" },
   ];
+
+  const sortOptions: { key: SortKey; label: string; icon: string }[] = [
+    { key: "date", label: "الأحدث", icon: "clock" },
+    { key: "name", label: "الاسم", icon: "type" },
+    { key: "orders", label: "الطلبات", icon: "package" },
+  ];
+
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" });
+  };
+
+  const formatRelative = (dateStr: string | null) => {
+    if (!dateStr) return "لا يوجد";
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return "اليوم";
+    if (days === 1) return "أمس";
+    if (days < 7) return `منذ ${days} أيام`;
+    if (days < 30) return `منذ ${Math.floor(days / 7)} أسابيع`;
+    return formatDate(dateStr);
+  };
 
   const renderNameEdit = (u: User, onSave: (id: string) => void) => (
     <View style={styles.nameEditRow}>
@@ -301,11 +369,13 @@ export default function AdminUsersScreen() {
     </View>
   );
 
-  const renderUserCard = (u: User, section: "customer" | "staff") => {
+  const renderCustomerCard = (u: User) => {
     const isExpanded = expandedUser === u.id;
-    const isStaff = section === "staff";
-    const showPermissions = (u.role === "employee" || u.role === "supervisor") && isStaff;
-    const allowedPerms = u.role === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_PERMISSIONS;
+    const stats = orderCountsByUser[u.id];
+    const totalOrders = stats?.total ?? 0;
+    const pendingOrders = stats?.pending ?? 0;
+    const totalSpent = stats?.totalSpent ?? 0;
+    const lastOrder = stats?.lastOrderDate ?? null;
 
     return (
       <View key={u.id} style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -328,14 +398,200 @@ export default function AdminUsersScreen() {
             <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
               {u.phone}
             </Text>
-            {u.registeredAt && (
-              <Text style={[styles.userPhone, { color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }]}>
-                تسجيل: {new Date(u.registeredAt).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}
+            <View style={styles.userMetaRow}>
+              {totalOrders > 0 && (
+                <View style={styles.userMetaItem}>
+                  <Icon name="package" size={10} color={colors.mutedForeground + "AA"} />
+                  <Text style={[styles.userMetaText, { color: colors.mutedForeground + "AA" }]}>
+                    {totalOrders} طلب
+                  </Text>
+                </View>
+              )}
+              {pendingOrders > 0 && (
+                <View style={[styles.userMetaPill, { backgroundColor: "#F39C12" + "22" }]}>
+                  <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 9 }}>
+                    {pendingOrders} قيد التنفيذ
+                  </Text>
+                </View>
+              )}
+              {lastOrder && (
+                <View style={styles.userMetaItem}>
+                  <Icon name="clock" size={10} color={colors.mutedForeground + "88"} />
+                  <Text style={[styles.userMetaText, { color: colors.mutedForeground + "88" }]}>
+                    {formatRelative(lastOrder)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          <View style={{ alignItems: "flex-end", gap: 4 }}>
+            <View style={[styles.roleChip, { backgroundColor: ROLE_COLORS[u.role] + "22", borderColor: ROLE_COLORS[u.role] + "55" }]}>
+              <Icon name={ROLE_ICONS[u.role]} size={11} color={ROLE_COLORS[u.role]} />
+              <Text style={{ color: ROLE_COLORS[u.role], fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                {ROLE_LABELS[u.role]}
               </Text>
+            </View>
+            {totalSpent > 0 && (
+              <Text style={{ color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                {totalSpent.toLocaleString("ar-EG")} ج.م
+              </Text>
+            )}
+          </View>
+        </Pressable>
+
+        {isExpanded && user?.role === "admin" && u.id !== user.id && (
+          <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
+            {totalOrders > 0 && (
+              <View style={[styles.orderStatsBar, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
+                <View style={styles.orderStatItem}>
+                  <Text style={[styles.orderStatNum, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{totalOrders}</Text>
+                  <Text style={[styles.orderStatLabel, { color: colors.mutedForeground }]}>إجمالي الطلبات</Text>
+                </View>
+                <View style={[styles.orderStatDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.orderStatItem}>
+                  <Text style={[styles.orderStatNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>{totalSpent.toLocaleString("ar-EG")}</Text>
+                  <Text style={[styles.orderStatLabel, { color: colors.mutedForeground }]}>ج.م إجمالي</Text>
+                </View>
+                <View style={[styles.orderStatDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.orderStatItem}>
+                  <Text style={[styles.orderStatNum, { color: pendingOrders > 0 ? "#F39C12" : colors.mutedForeground, fontFamily: "Inter_700Bold" }]}>{pendingOrders}</Text>
+                  <Text style={[styles.orderStatLabel, { color: colors.mutedForeground }]}>قيد التنفيذ</Text>
+                </View>
+              </View>
+            )}
+
+            {u.registeredAt && (
+              <View style={styles.dateRow}>
+                <Icon name="calendar" size={12} color={colors.mutedForeground + "99"} />
+                <Text style={{ color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                  تسجيل: {formatDate(u.registeredAt)}
+                </Text>
+                {lastOrder && (
+                  <>
+                    <Text style={{ color: colors.mutedForeground + "55", fontSize: 11 }}>·</Text>
+                    <Text style={{ color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                      آخر طلب: {formatRelative(lastOrder)}
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
+
+            {renderNameEdit(u, handleSaveCustomerName)}
+
+            <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+              تغيير الدور
+            </Text>
+
+            {confirmAction?.userId === u.id ? (
+              <View style={[styles.confirmBox, { backgroundColor: "#F39C12" + "11", borderColor: "#F39C12" + "44", borderRadius: colors.radius - 4 }]}>
+                <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
+                  {confirmAction.newRole === "merchant"
+                    ? `ترقية "${u.name}" إلى تاجر؟`
+                    : `تغيير "${u.name}" إلى زبون عادي؟`}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", lineHeight: 18 }}>
+                  سيتم إشعار المستخدم وتحديث حسابه تلقائياً.
+                </Text>
+                <View style={styles.confirmActions}>
+                  <Pressable
+                    onPress={() => setConfirmAction(null)}
+                    style={[styles.confirmCancelBtn, { borderColor: colors.border, borderRadius: 8 }]}
+                  >
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleChangeCustomerRole(u.id, confirmAction.newRole!)}
+                    style={[styles.confirmOkBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}
+                  >
+                    <Icon name="check" size={14} color={colors.background} />
+                    <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 13 }}>تأكيد</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                {(["customer", "merchant"] as UserRole[]).map((role) => (
+                  <Pressable
+                    key={role}
+                    onPress={() => {
+                      if (u.role === role) return;
+                      setConfirmAction({ userId: u.id, action: "role", newRole: role });
+                    }}
+                    style={[
+                      styles.roleBtn,
+                      {
+                        flex: 1,
+                        backgroundColor: u.role === role ? ROLE_COLORS[role] + "22" : colors.surface,
+                        borderColor: u.role === role ? ROLE_COLORS[role] : colors.border,
+                      },
+                    ]}
+                  >
+                    <Icon name={ROLE_ICONS[role]} size={14} color={u.role === role ? ROLE_COLORS[role] : colors.mutedForeground} />
+                    <Text style={{
+                      color: u.role === role ? ROLE_COLORS[role] : colors.foreground,
+                      fontFamily: u.role === role ? "Inter_700Bold" : "Inter_400Regular",
+                      fontSize: 13,
+                    }}>
+                      {ROLE_LABELS[role]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.vipToggleRow}>
+              <Pressable
+                onPress={() => handleToggleVip(u.id)}
+                style={[styles.vipToggleBtn, { backgroundColor: u.vip ? colors.gold + "22" : colors.surface, borderColor: u.vip ? colors.gold : colors.border }]}
+              >
+                <Icon name="star" size={14} color={u.vip ? colors.gold : colors.mutedForeground} />
+                <Text style={{ color: u.vip ? colors.gold : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                  {u.vip ? "إلغاء العميل المميز" : "تعيين عميل مميز"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderStaffCard = (u: User) => {
+    const isExpanded = expandedUser === u.id;
+    const showPermissions = (u.role === "employee" || u.role === "supervisor");
+    const allowedPerms = u.role === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_PERMISSIONS;
+    const activePermCount = (u.permissions ?? []).length;
+
+    return (
+      <View key={u.id} style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <Pressable onPress={() => setExpandedUser(isExpanded ? null : u.id)} style={styles.userRow}>
+          <View style={styles.userExpandIcon}>
+            <Icon name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+          </View>
+          <View style={styles.userDetails}>
+            <View style={styles.userNameRow}>
+              <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                {u.name}
+              </Text>
+            </View>
+            <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              {u.phone}
+            </Text>
+            {showPermissions && (
+              <View style={styles.userMetaRow}>
+                <View style={styles.userMetaItem}>
+                  <Icon name="key" size={10} color={colors.mutedForeground + "AA"} />
+                  <Text style={[styles.userMetaText, { color: colors.mutedForeground + "AA" }]}>
+                    {activePermCount} صلاحية
+                  </Text>
+                </View>
+              </View>
             )}
           </View>
           <View style={{ alignItems: "flex-end", gap: 4 }}>
             <View style={[styles.roleChip, { backgroundColor: ROLE_COLORS[u.role] + "22", borderColor: ROLE_COLORS[u.role] + "55" }]}>
+              <Icon name={ROLE_ICONS[u.role]} size={11} color={ROLE_COLORS[u.role]} />
               <Text style={{ color: ROLE_COLORS[u.role], fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
                 {ROLE_LABELS[u.role]}
               </Text>
@@ -345,107 +601,73 @@ export default function AdminUsersScreen() {
 
         {isExpanded && user?.role === "admin" && u.id !== user.id && (
           <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
-            {isStaff ? (
-              // Staff edit: name + role change + permissions
-              <>
-                {renderNameEdit(u, handleSaveStaffName)}
-                {(u.role === "employee" || u.role === "supervisor") && (
-                  <View style={{ gap: 8 }}>
-                    <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                      الدور الوظيفي
-                    </Text>
-                    <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-                      {(["supervisor", "employee"] as ("supervisor" | "employee")[]).map((role) => (
-                        <Pressable
-                          key={role}
-                          onPress={() => handleChangeStaffRole(u.id, role)}
-                          style={[
-                            styles.roleBtn,
-                            {
-                              backgroundColor: u.role === role ? ROLE_COLORS[role] + "33" : colors.surface,
-                              borderColor: u.role === role ? ROLE_COLORS[role] : colors.border,
-                              flex: 1,
-                              flexDirection: "row-reverse",
-                              alignItems: "center",
-                              gap: 6,
-                              justifyContent: "center",
-                            },
-                          ]}
-                        >
-                          <Icon
-                            name={role === "supervisor" ? "shield-check" : "briefcase"}
-                            size={14}
-                            color={u.role === role ? ROLE_COLORS[role] : colors.mutedForeground}
-                          />
-                          <Text
-                            style={{
-                              color: u.role === role ? ROLE_COLORS[role] : colors.foreground,
-                              fontFamily: u.role === role ? "Inter_700Bold" : "Inter_400Regular",
-                              fontSize: 13,
-                            }}
-                          >
-                            {ROLE_LABELS[role]}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                )}
-                {showPermissions && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
-              </>
-            ) : (
-              // Customer edit: name + role change + VIP toggle
-              <>
-                {renderNameEdit(u, handleSaveCustomerName)}
+            {renderNameEdit(u, handleSaveStaffName)}
+            {(u.role === "employee" || u.role === "supervisor") && (
+              <View style={{ gap: 8 }}>
                 <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                  تغيير الدور
+                  الدور الوظيفي
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, flexDirection: "row-reverse" }}>
-                  {(["customer", "merchant"] as UserRole[]).map((role) => (
+                <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                  {(["supervisor", "employee"] as ("supervisor" | "employee")[]).map((role) => (
                     <Pressable
                       key={role}
-                      onPress={() => handleChangeCustomerRole(u.id, role)}
-                      style={[styles.roleBtn, { backgroundColor: u.role === role ? colors.gold : colors.surface, borderColor: u.role === role ? colors.gold : colors.border }]}
+                      onPress={() => handleChangeStaffRole(u.id, role)}
+                      style={[
+                        styles.roleBtn,
+                        {
+                          backgroundColor: u.role === role ? ROLE_COLORS[role] + "33" : colors.surface,
+                          borderColor: u.role === role ? ROLE_COLORS[role] : colors.border,
+                          flex: 1,
+                        },
+                      ]}
                     >
-                      <Text style={{ color: u.role === role ? colors.background : colors.foreground, fontFamily: u.role === role ? "Inter_600SemiBold" : "Inter_400Regular", fontSize: 12 }}>
+                      <Icon
+                        name={role === "supervisor" ? "shield" : "tool"}
+                        size={14}
+                        color={u.role === role ? ROLE_COLORS[role] : colors.mutedForeground}
+                      />
+                      <Text
+                        style={{
+                          color: u.role === role ? ROLE_COLORS[role] : colors.foreground,
+                          fontFamily: u.role === role ? "Inter_700Bold" : "Inter_400Regular",
+                          fontSize: 13,
+                        }}
+                      >
                         {ROLE_LABELS[role]}
                       </Text>
                     </Pressable>
                   ))}
-                </ScrollView>
-                <View style={styles.vipToggleRow}>
-                  <Pressable
-                    onPress={() => handleToggleVip(u.id)}
-                    style={[styles.vipToggleBtn, { backgroundColor: u.vip ? colors.gold + "22" : colors.surface, borderColor: u.vip ? colors.gold : colors.border }]}
-                  >
-                    <Icon name="star" size={14} color={u.vip ? colors.gold : colors.mutedForeground} />
-                    <Text style={{ color: u.vip ? colors.gold : colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
-                      {u.vip ? "إلغاء العميل المميز" : "تعيين عميل مميز"}
-                    </Text>
-                  </Pressable>
                 </View>
-              </>
+              </View>
             )}
+            {showPermissions && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
           </View>
         )}
       </View>
     );
   };
 
+  const customerCount = customerList.filter(c => c.role === "customer").length;
+  const merchantCount = customerList.filter(c => c.role === "merchant").length;
+  const vipCount = customerList.filter(c => c.vip).length;
+  const employeeCount = staffList.filter(s => s.role === "employee").length;
+  const supervisorCount = staffList.filter(s => s.role === "supervisor").length;
+  const adminCount = staffList.filter(s => s.role === "admin").length;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="إدارة المستخدمين" onBack={() => router.back()} />
 
-      {/* Tab switcher */}
       <View style={[styles.tabBar, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
           return (
             <Pressable
               key={tab.key}
-              onPress={() => { setActiveTab(tab.key); setExpandedUser(null); }}
+              onPress={() => { setActiveTab(tab.key); setExpandedUser(null); setSearchQuery(""); }}
               style={[styles.tab, { borderBottomColor: active ? colors.gold : "transparent" }]}
             >
+              <Icon name={tab.icon} size={16} color={active ? colors.gold : colors.mutedForeground} />
               <Text style={[styles.tabText, { color: active ? colors.gold : colors.mutedForeground, fontFamily: active ? "Inter_700Bold" : "Inter_400Regular" }]}>
                 {tab.label}
               </Text>
@@ -459,44 +681,101 @@ export default function AdminUsersScreen() {
         })}
       </View>
 
+      <View style={[styles.searchBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
+          <Icon name="search" size={16} color={colors.mutedForeground} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+            placeholder={activeTab === "customers" ? "بحث بالاسم أو رقم الهاتف..." : "بحث في فريق العمل..."}
+            placeholderTextColor={colors.mutedForeground + "88"}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            textAlign="right"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")}>
+              <Icon name="x-circle" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+        </View>
+        {activeTab === "customers" && (
+          <View style={styles.sortRow}>
+            {sortOptions.map((opt) => (
+              <Pressable
+                key={opt.key}
+                onPress={() => setSortBy(opt.key)}
+                style={[
+                  styles.sortBtn,
+                  {
+                    backgroundColor: sortBy === opt.key ? colors.gold + "22" : "transparent",
+                    borderColor: sortBy === opt.key ? colors.gold + "55" : "transparent",
+                  },
+                ]}
+              >
+                <Icon name={opt.icon} size={11} color={sortBy === opt.key ? colors.gold : colors.mutedForeground + "88"} />
+                <Text style={{
+                  color: sortBy === opt.key ? colors.gold : colors.mutedForeground + "88",
+                  fontFamily: sortBy === opt.key ? "Inter_600SemiBold" : "Inter_400Regular",
+                  fontSize: 11,
+                }}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
         {activeTab === "customers" ? (
           <>
-            {/* Stats */}
             <View style={styles.statsRow}>
               {[
-                { label: "إجمالي الزبائن", value: customerList.filter(c => c.role === "customer").length, color: colors.foreground },
-                { label: "التجار", value: customerList.filter(c => c.role === "merchant").length, color: colors.gold },
-                { label: "طلبات الترقية", value: pendingUpgrades.length, color: "#C0392B" },
+                { label: "زبائن", value: customerCount, color: colors.foreground, icon: "user" },
+                { label: "تجار", value: merchantCount, color: colors.gold, icon: "briefcase" },
+                { label: "مميزون", value: vipCount, color: "#F39C12", icon: "star" },
+                { label: "ترقيات", value: pendingUpgrades.length, color: "#C0392B", icon: "arrow-up-circle" },
               ].map((stat) => (
                 <View key={stat.label} style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Icon name={stat.icon} size={14} color={stat.color + "88"} />
                   <Text style={[styles.statNum, { color: stat.color, fontFamily: "Inter_700Bold" }]}>{stat.value}</Text>
                   <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{stat.label}</Text>
                 </View>
               ))}
             </View>
 
-            {/* Pending upgrades */}
             {pendingUpgrades.length > 0 && (
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                  طلبات الترقية ({pendingUpgrades.length})
-                </Text>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionBadge, { backgroundColor: "#C0392B" + "22" }]}>
+                    <Text style={{ color: "#C0392B", fontFamily: "Inter_700Bold", fontSize: 11 }}>{pendingUpgrades.length}</Text>
+                  </View>
+                  <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                    طلبات الترقية
+                  </Text>
+                  <Icon name="arrow-up-circle" size={18} color={colors.gold} />
+                </View>
                 {pendingUpgrades.map((u) => (
-                  <View key={u.id} style={[styles.upgradeCard, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "44", borderRadius: colors.radius }]}>
+                  <View key={u.id} style={[styles.upgradeCard, { backgroundColor: colors.gold + "08", borderColor: colors.gold + "33", borderRadius: colors.radius }]}>
                     <View style={styles.userInfo}>
-                      <Text style={[styles.userName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{u.name}</Text>
+                      <Text style={[styles.upgradeUserName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{u.name}</Text>
                       <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{u.phone}</Text>
+                      {u.registeredAt && (
+                        <Text style={{ color: colors.mutedForeground + "88", fontFamily: "Inter_400Regular", fontSize: 10, marginTop: 2 }}>
+                          مسجل منذ {formatDate(u.registeredAt)}
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.upgradeActions}>
                       <Pressable onPress={() => handleRejectUpgrade(u.id)} style={[styles.rejectBtn, { borderColor: colors.destructive + "66", borderRadius: 8 }]}>
-                        <Text style={{ color: colors.destructive, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>رفض</Text>
+                        <Icon name="x" size={14} color={colors.destructive} />
                       </Pressable>
                       <Pressable onPress={() => handleApproveUpgrade(u.id)} style={[styles.approveBtn, { backgroundColor: colors.gold, borderRadius: 8 }]}>
-                        <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>موافقة</Text>
+                        <Icon name="check" size={14} color={colors.background} />
+                        <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>قبول</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -504,41 +783,54 @@ export default function AdminUsersScreen() {
               </View>
             )}
 
-            {/* Customer list */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                الزبائن والتجار ({activeCustomers.length})
-              </Text>
-              {activeCustomers.length === 0 && (
-                <Text style={[{ color: colors.mutedForeground, textAlign: "center", fontFamily: "Inter_400Regular", paddingVertical: 20 }]}>
-                  لا يوجد زبائن مسجلون بعد
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                  {searchQuery.trim() ? `نتائج البحث (${filteredCustomers.length})` : `الزبائن والتجار (${activeCustomers.length})`}
                 </Text>
+              </View>
+              {filteredCustomers.length === 0 && (
+                <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <Icon name="search" size={28} color={colors.mutedForeground + "55"} />
+                  <Text style={{ color: colors.mutedForeground, textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 13 }}>
+                    {searchQuery.trim() ? "لا توجد نتائج للبحث" : "لا يوجد زبائن مسجلون بعد"}
+                  </Text>
+                </View>
               )}
-              {activeCustomers.map((u) => renderUserCard(u, "customer"))}
+              {filteredCustomers.map((u) => renderCustomerCard(u))}
             </View>
           </>
         ) : (
           <>
-            {/* Staff stats */}
             <View style={styles.statsRow}>
               {[
-                { label: "موظفون", value: staffList.filter(s => s.role === "employee").length, color: "#2980B9" },
-                { label: "مشرفون", value: staffList.filter(s => s.role === "supervisor").length, color: "#8E44AD" },
-                { label: "مدراء", value: staffList.filter(s => s.role === "admin").length, color: "#C0392B" },
+                { label: "موظفون", value: employeeCount, color: "#2980B9", icon: "tool" },
+                { label: "مشرفون", value: supervisorCount, color: "#8E44AD", icon: "shield" },
+                { label: "مدراء", value: adminCount, color: "#C0392B", icon: "star" },
               ].map((stat) => (
                 <View key={stat.label} style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Icon name={stat.icon} size={14} color={stat.color + "88"} />
                   <Text style={[styles.statNum, { color: stat.color, fontFamily: "Inter_700Bold" }]}>{stat.value}</Text>
                   <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{stat.label}</Text>
                 </View>
               ))}
             </View>
 
-            {/* Staff list */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                فريق العمل ({staffList.length})
-              </Text>
-              {staffList.map((u) => renderUserCard(u, "staff"))}
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                  {searchQuery.trim() ? `نتائج البحث (${filteredStaff.length})` : `فريق العمل (${staffList.length})`}
+                </Text>
+              </View>
+              {filteredStaff.length === 0 && (
+                <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                  <Icon name="search" size={28} color={colors.mutedForeground + "55"} />
+                  <Text style={{ color: colors.mutedForeground, textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 13 }}>
+                    لا توجد نتائج للبحث
+                  </Text>
+                </View>
+              )}
+              {filteredStaff.map((u) => renderStaffCard(u))}
             </View>
           </>
         )}
@@ -562,7 +854,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 2,
   },
-  tabText: { fontSize: 14 },
+  tabText: { fontSize: 13 },
   tabCount: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -570,20 +862,64 @@ const styles = StyleSheet.create({
     minWidth: 24,
     alignItems: "center",
   },
-  content: { padding: 16, gap: 20 },
+  searchBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  searchInputContainer: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    gap: 8,
+    height: 40,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    height: 38,
+  },
+  sortRow: {
+    flexDirection: "row-reverse",
+    gap: 6,
+  },
+  sortBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  content: { padding: 16, gap: 16 },
   section: { gap: 10 },
-  sectionTitle: { fontSize: 17, textAlign: "right" },
-  statsRow: { flexDirection: "row-reverse", gap: 10 },
+  sectionHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  sectionTitle: { fontSize: 16, textAlign: "right", flex: 1 },
+  statsRow: { flexDirection: "row-reverse", gap: 8 },
   statBox: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    gap: 4,
+    gap: 2,
   },
-  statNum: { fontSize: 22 },
-  statLabel: { fontSize: 10, textAlign: "center" },
+  statNum: { fontSize: 20 },
+  statLabel: { fontSize: 9, textAlign: "center" },
   upgradeCard: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -591,10 +927,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 12,
   },
+  upgradeUserName: { fontSize: 14 },
   userInfo: { flex: 1, gap: 3 },
   upgradeActions: { flexDirection: "row-reverse", gap: 8 },
-  rejectBtn: { paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1 },
-  approveBtn: { paddingHorizontal: 14, paddingVertical: 8 },
+  rejectBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  approveBtn: { flexDirection: "row-reverse", alignItems: "center", gap: 4, paddingHorizontal: 14, height: 36 },
   userCard: { borderWidth: 1, overflow: "hidden" },
   userRow: { flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 12 },
   userExpandIcon: { padding: 2 },
@@ -602,7 +939,19 @@ const styles = StyleSheet.create({
   userNameRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
   userName: { fontSize: 14 },
   userPhone: { fontSize: 12 },
-  roleChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
+  userMetaRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginTop: 3 },
+  userMetaItem: { flexDirection: "row-reverse", alignItems: "center", gap: 3 },
+  userMetaText: { fontFamily: "Inter_400Regular", fontSize: 10 },
+  userMetaPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 },
+  roleChip: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
   vipBadge: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -612,8 +961,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   expandedSection: { borderTopWidth: 1, padding: 14, gap: 12 },
+  orderStatsBar: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    padding: 10,
+    borderWidth: 1,
+  },
+  orderStatItem: { flex: 1, alignItems: "center", gap: 2 },
+  orderStatNum: { fontSize: 16 },
+  orderStatLabel: { fontSize: 9, fontFamily: "Inter_400Regular" },
+  orderStatDivider: { width: 1, height: 28 },
+  dateRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
   expandLabel: { fontSize: 12, textAlign: "right" },
-  roleBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14, borderWidth: 1 },
+  roleBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  confirmBox: {
+    padding: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  confirmActions: { flexDirection: "row-reverse", gap: 8 },
+  confirmCancelBtn: { flex: 1, alignItems: "center", paddingVertical: 10, borderWidth: 1 },
+  confirmOkBtn: { flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10 },
   vipToggleRow: { alignItems: "flex-end" },
   vipToggleBtn: {
     flexDirection: "row-reverse",
@@ -652,5 +1029,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    borderWidth: 1,
+    gap: 8,
   },
 });
