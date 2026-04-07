@@ -66,6 +66,22 @@ export interface CartItem {
 
 export type OrderStatus = "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled";
 
+export type PaymentMethod = "cash" | "bank_transfer" | "ewallet" | "instapay";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: "كاش (الدفع عند الاستلام)",
+  bank_transfer: "تحويل بنكي",
+  ewallet: "محفظة إلكترونية",
+  instapay: "انستاباي",
+};
+
+export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, string> = {
+  cash: "banknote",
+  bank_transfer: "credit-card",
+  ewallet: "smartphone",
+  instapay: "zap",
+};
+
 export interface Order {
   id: string;
   userId: string;
@@ -82,6 +98,10 @@ export interface Order {
   editable?: boolean;
   edited?: boolean;
   editedAt?: string;
+  paymentMethod?: PaymentMethod;
+  paymentFee?: number;
+  totalWithFee?: number;
+  paymentConfirmed?: boolean;
 }
 
 export type ReturnStatus = "pending" | "returned" | "settled" | "cancelled";
@@ -146,6 +166,18 @@ export interface SocialEntry {
 
 export type AppTheme = "dark" | "light";
 
+export interface PaymentSettings {
+  ewalletNumber: string;
+  ewalletName: string;
+  instapayNumber: string;
+  instapayName: string;
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankIBAN: string;
+  ewalletFeePercent: number;
+}
+
 export interface AppSettings {
   contacts: ContactEntry[];
   social: SocialEntry[];
@@ -159,6 +191,7 @@ export interface AppSettings {
   globalColors: ColorOption[];
   stats: { clients: string; products: string; years: string };
   workingHours?: WorkingDay[];
+  payment?: PaymentSettings;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -193,6 +226,17 @@ const DEFAULT_SETTINGS: AppSettings = {
     { day: "الخميس", enabled: true, from: "09:00", to: "14:00" },
     { day: "الجمعة", enabled: false, from: "00:00", to: "00:00" },
   ],
+  payment: {
+    ewalletNumber: "01000000001",
+    ewalletName: "شمس تكس",
+    instapayNumber: "01000000001",
+    instapayName: "شمس تكس",
+    bankName: "البنك الأهلي المصري",
+    bankAccountName: "شمس تكس للأقمشة",
+    bankAccountNumber: "1234567890123",
+    bankIBAN: "EG000012345678901234567890",
+    ewalletFeePercent: 1,
+  },
   globalColors: [
     { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
     { name: "أسود", hex: "#0A0A0A", quantity: 50 },

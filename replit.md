@@ -52,11 +52,13 @@ Expo React Native app for Shams Tex fabric company.
 - Luxury black + gold design
 - OTP phone login with user roles (customer, merchant, employee, admin)
 - Product catalog with fabric listings, colors, retail/wholesale pricing
-- Cart with weight-based and piece-based ordering
+- Cart with weight-based and piece-based ordering, payment method selection (cash, bank transfer, e-wallet, InstaPay)
 - Order management with status tracking (pending → received → preparing → ready → delivered)
 - Return/refund system: 3-stage flow (pending → returned → settled) with visual progress tracker; returns can be cancelled by admin or supervisor (with `cancel_returns` permission); customers can delete their own pending returns; cancelled returns allow re-submitting; returns appear as "استرجاع" filter in orders tab with cancelled state display
 - Order editing: `edited: boolean` and `editedAt?: string` fields; shows yellow "معدّل" badge on OrderCard and order detail for staff
-- Admin panel: products, prices, users, notifications, tabs management
+- Payment system: 4 methods (cash/bank transfer/e-wallet/InstaPay); e-wallet adds configurable fee %; modal shows payment details with copy-to-clipboard; admin configures payment numbers/accounts in settings
+- Admin panel: products, prices, users, notifications, tabs management, payment settings
+- Admin user management: delete customers/staff, promote to admin, primary admin (0000000001) protected from editing/deletion
 - Push notifications system
 - About/contact pages
 

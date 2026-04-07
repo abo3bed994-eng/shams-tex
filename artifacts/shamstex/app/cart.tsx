@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,11 +14,19 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, Order, CartItem } from "@/context/AppContext";
+import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+
+const PAYMENT_METHODS: { key: PaymentMethod; short: string; desc: string }[] = [
+  { key: "cash", short: "كاش", desc: "الدفع عند استلام البضاعة" },
+  { key: "bank_transfer", short: "تحويل بنكي", desc: "تحويل على الحساب البنكي" },
+  { key: "ewallet", short: "محفظة", desc: "فودافون كاش / أورنج / اتصالات" },
+  { key: "instapay", short: "انستاباي", desc: "تحويل فوري بدون رسوم" },
+];
 
 export default function CartScreen() {
   const colors = useColors();
@@ -25,6 +34,9 @@ export default function CartScreen() {
   const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId, updateCartWeight, products } = useApp();
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const params = useLocalSearchParams<{ editOrderId?: string }>();
   const paramEditId = params.editOrderId;
   const editOrderId = paramEditId || editingOrderId;
@@ -57,7 +69,19 @@ export default function CartScreen() {
 
   const hasPiecesOrder = cart.some((i) => i.orderType === "pieces");
 
+  const paymentSettings = settings.payment;
+  const ewalletFee = paymentSettings?.ewalletFeePercent ?? 1;
+  const feeAmount = selectedPayment === "ewallet" ? Math.ceil(totalPrice * ewalletFee / 100) : 0;
+  const totalWithFee = totalPrice + feeAmount;
+
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
+
+  const copyToClipboard = async (text: string, label: string) => {
+    await Clipboard.setStringAsync(text);
+    setCopiedField(label);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const handleCheckout = async () => {
     if (isStaff) {
@@ -65,6 +89,11 @@ export default function CartScreen() {
       return;
     }
     if (cart.length === 0) return;
+
+    if (!editOrderId && !selectedPayment) {
+      Alert.alert("طريقة الدفع", "يرجى اختيار طريقة الدفع قبل إتمام الطلب.");
+      return;
+    }
 
     const weightItems = cart.filter((i) => i.orderType === "weight");
     for (const item of weightItems) {
@@ -77,8 +106,18 @@ export default function CartScreen() {
       }
     }
 
+    if (selectedPayment && selectedPayment !== "cash" && totalPrice > 0) {
+      setShowPaymentModal(true);
+      return;
+    }
+
+    await placeOrder();
+  };
+
+  const placeOrder = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
+    setShowPaymentModal(false);
     await new Promise((r) => setTimeout(r, 800));
 
     try {
@@ -102,9 +141,13 @@ export default function CartScreen() {
           status: "pending",
           createdAt: new Date().toISOString(),
           notes,
+          paymentMethod: selectedPayment ?? "cash",
+          paymentFee: feeAmount,
+          totalWithFee: totalWithFee,
         };
         await addOrder(order);
         clearCart();
+        setSelectedPayment(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
           { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
@@ -115,6 +158,150 @@ export default function CartScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderCopyRow = (label: string, value: string, fieldKey: string) => (
+    <Pressable
+      key={fieldKey}
+      onPress={() => copyToClipboard(value, fieldKey)}
+      style={[styles.copyRow, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+    >
+      <View style={styles.copyRowContent}>
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
+          {label}
+        </Text>
+        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 15, textAlign: "right", letterSpacing: 0.5 }}>
+          {value}
+        </Text>
+      </View>
+      <View style={[styles.copyBtn, { backgroundColor: copiedField === fieldKey ? "#27AE60" + "22" : colors.gold + "11" }]}>
+        <Icon
+          name={copiedField === fieldKey ? "check" : "copy"}
+          size={16}
+          color={copiedField === fieldKey ? "#27AE60" : colors.gold}
+        />
+      </View>
+    </Pressable>
+  );
+
+  const renderPaymentModal = () => {
+    if (!selectedPayment || selectedPayment === "cash") return null;
+
+    const pm = paymentSettings;
+
+    return (
+      <Modal visible={showPaymentModal} transparent animationType="slide">
+        <View style={[styles.modalOverlay]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: colors.radius + 4 }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Pressable onPress={() => setShowPaymentModal(false)} style={styles.modalCloseBtn}>
+                <Icon name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 18, flex: 1, textAlign: "right" }}>
+                {selectedPayment === "bank_transfer" && "بيانات التحويل البنكي"}
+                {selectedPayment === "ewallet" && "بيانات المحفظة الإلكترونية"}
+                {selectedPayment === "instapay" && "بيانات الانستاباي"}
+              </Text>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {selectedPayment === "bank_transfer" && pm && (
+                <View style={styles.paymentInfoSection}>
+                  <View style={[styles.paymentInfoBanner, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33", borderRadius: colors.radius - 4 }]}>
+                    <Icon name="credit-card" size={20} color={colors.gold} />
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1, textAlign: "right" }}>
+                      قم بالتحويل ثم اضغط "تأكيد الطلب"
+                    </Text>
+                  </View>
+                  {renderCopyRow("اسم البنك", pm.bankName, "bank")}
+                  {renderCopyRow("اسم الحساب", pm.bankAccountName, "accName")}
+                  {renderCopyRow("رقم الحساب", pm.bankAccountNumber, "accNum")}
+                  {renderCopyRow("IBAN", pm.bankIBAN, "iban")}
+
+                  <View style={[styles.amountBox, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "44", borderRadius: colors.radius - 4 }]}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>المبلغ المطلوب</Text>
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 24 }}>{totalPrice.toLocaleString("ar-EG")} ج.م</Text>
+                  </View>
+                </View>
+              )}
+
+              {selectedPayment === "ewallet" && pm && (
+                <View style={styles.paymentInfoSection}>
+                  <View style={[styles.paymentInfoBanner, { backgroundColor: "#9B59B6" + "15", borderColor: "#9B59B6" + "33", borderRadius: colors.radius - 4 }]}>
+                    <Icon name="smartphone" size={20} color="#9B59B6" />
+                    <Text style={{ color: "#9B59B6", fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1, textAlign: "right" }}>
+                      حوّل على الرقم التالي ثم اضغط "تأكيد الطلب"
+                    </Text>
+                  </View>
+                  {renderCopyRow("رقم المحفظة", pm.ewalletNumber, "wallet")}
+                  {renderCopyRow("الاسم", pm.ewalletName, "walletName")}
+
+                  <View style={[styles.amountBox, { backgroundColor: "#9B59B6" + "11", borderColor: "#9B59B6" + "33", borderRadius: colors.radius - 4 }]}>
+                    <View style={styles.feeBreakdown}>
+                      <View style={styles.feeRow}>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>{totalPrice.toLocaleString("ar-EG")} ج.م</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>سعر الطلب</Text>
+                      </View>
+                      <View style={styles.feeRow}>
+                        <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>+{feeAmount.toLocaleString("ar-EG")} ج.م</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>رسوم المحفظة ({ewalletFee}%)</Text>
+                      </View>
+                      <View style={[styles.feeDivider, { backgroundColor: colors.border }]} />
+                      <View style={styles.feeRow}>
+                        <Text style={{ color: "#9B59B6", fontFamily: "Inter_700Bold", fontSize: 22 }}>{totalWithFee.toLocaleString("ar-EG")} ج.م</Text>
+                        <Text style={{ color: "#9B59B6", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>الإجمالي</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {selectedPayment === "instapay" && pm && (
+                <View style={styles.paymentInfoSection}>
+                  <View style={[styles.paymentInfoBanner, { backgroundColor: "#2ECC71" + "15", borderColor: "#2ECC71" + "33", borderRadius: colors.radius - 4 }]}>
+                    <Icon name="zap" size={20} color="#2ECC71" />
+                    <Text style={{ color: "#2ECC71", fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1, textAlign: "right" }}>
+                      حوّل عبر انستاباي ثم اضغط "تأكيد الطلب"
+                    </Text>
+                  </View>
+                  {renderCopyRow("رقم الانستاباي", pm.instapayNumber, "instapay")}
+                  {renderCopyRow("الاسم", pm.instapayName, "instapayName")}
+
+                  <View style={[styles.amountBox, { backgroundColor: "#2ECC71" + "11", borderColor: "#2ECC71" + "33", borderRadius: colors.radius - 4 }]}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>المبلغ المطلوب</Text>
+                    <Text style={{ color: "#2ECC71", fontFamily: "Inter_700Bold", fontSize: 24 }}>{totalPrice.toLocaleString("ar-EG")} ج.م</Text>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                      <Icon name="check-circle" size={14} color="#2ECC71" />
+                      <Text style={{ color: "#2ECC71", fontFamily: "Inter_500Medium", fontSize: 12 }}>بدون رسوم إضافية</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <GoldButton
+                label="تأكيد الطلب"
+                onPress={placeOrder}
+                loading={loading}
+                style={{ width: "100%" }}
+                size="lg"
+              />
+              <Pressable onPress={() => setShowPaymentModal(false)} style={styles.modalCancelBtn}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>رجوع</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const PAYMENT_COLORS: Record<PaymentMethod, string> = {
+    cash: "#27AE60",
+    bank_transfer: colors.gold,
+    ewallet: "#9B59B6",
+    instapay: "#2ECC71",
   };
 
   return (
@@ -141,7 +328,7 @@ export default function CartScreen() {
         <>
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 180 }]}
+            contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 220 }]}
           >
             {cart.map((item, index) => (
               <View
@@ -329,6 +516,77 @@ export default function CartScreen() {
                 })()}
               </View>
             )}
+
+            {!editOrderId && (
+              <View style={[styles.paymentSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                <View style={styles.paymentHeader}>
+                  <Icon name="wallet" size={18} color={colors.gold} />
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, flex: 1, textAlign: "right" }}>
+                    طريقة الدفع
+                  </Text>
+                </View>
+
+                <View style={styles.paymentGrid}>
+                  {PAYMENT_METHODS.map((pm) => {
+                    const isSelected = selectedPayment === pm.key;
+                    const pmColor = PAYMENT_COLORS[pm.key];
+                    return (
+                      <Pressable
+                        key={pm.key}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedPayment(pm.key);
+                        }}
+                        style={[
+                          styles.paymentOption,
+                          {
+                            backgroundColor: isSelected ? pmColor + "15" : colors.surface,
+                            borderColor: isSelected ? pmColor : colors.border,
+                            borderRadius: colors.radius - 4,
+                            borderWidth: isSelected ? 1.5 : 1,
+                          },
+                        ]}
+                      >
+                        <View style={[styles.paymentOptionIcon, { backgroundColor: isSelected ? pmColor + "22" : colors.border + "44" }]}>
+                          <Icon name={PAYMENT_METHOD_ICONS[pm.key]} size={18} color={isSelected ? pmColor : colors.mutedForeground} />
+                        </View>
+                        <Text style={{
+                          color: isSelected ? pmColor : colors.foreground,
+                          fontFamily: isSelected ? "Inter_700Bold" : "Inter_500Medium",
+                          fontSize: 13,
+                        }}>
+                          {pm.short}
+                        </Text>
+                        <Text style={{
+                          color: colors.mutedForeground + (isSelected ? "" : "99"),
+                          fontFamily: "Inter_400Regular",
+                          fontSize: 10,
+                        }}>
+                          {pm.desc}
+                        </Text>
+                        {isSelected && (
+                          <View style={[styles.paymentCheck, { backgroundColor: pmColor }]}>
+                            <Icon name="check" size={10} color="#FFF" />
+                          </View>
+                        )}
+                        {pm.key === "ewallet" && isSelected && totalPrice > 0 && (
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3, marginTop: 2 }}>
+                            <Icon name="alert-circle" size={10} color="#E74C3C" />
+                            <Text style={{ color: "#E74C3C", fontFamily: "Inter_400Regular", fontSize: 9 }}>+{ewalletFee}% رسوم</Text>
+                          </View>
+                        )}
+                        {pm.key === "instapay" && isSelected && (
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3, marginTop: 2 }}>
+                            <Icon name="check-circle" size={10} color="#2ECC71" />
+                            <Text style={{ color: "#2ECC71", fontFamily: "Inter_400Regular", fontSize: 9 }}>بدون رسوم</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
           </ScrollView>
 
           <View
@@ -350,8 +608,29 @@ export default function CartScreen() {
                 <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                   {hasPiecesOrder ? "مجموع الكيلو" : "المجموع الكلي"}
                 </Text>
-                <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                  {totalPrice} ج.م
+                <View style={{ alignItems: "flex-start" }}>
+                  {selectedPayment === "ewallet" && feeAmount > 0 ? (
+                    <>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textDecorationLine: "line-through" }}>
+                        {totalPrice.toLocaleString("ar-EG")} ج.م
+                      </Text>
+                      <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                        {totalWithFee.toLocaleString("ar-EG")} ج.م
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                      {totalPrice.toLocaleString("ar-EG")} ج.م
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+            {selectedPayment && !editOrderId && (
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingVertical: 2 }}>
+                <Icon name={PAYMENT_METHOD_ICONS[selectedPayment]} size={14} color={PAYMENT_COLORS[selectedPayment]} />
+                <Text style={{ color: PAYMENT_COLORS[selectedPayment], fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                  {PAYMENT_METHODS.find(p => p.key === selectedPayment)?.short}
                 </Text>
               </View>
             )}
@@ -363,6 +642,8 @@ export default function CartScreen() {
               size="lg"
             />
           </View>
+
+          {renderPaymentModal()}
         </>
       )}
     </View>
@@ -457,11 +738,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 4,
   },
+  paymentSection: {
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  paymentHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  paymentGrid: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  paymentOption: {
+    width: "48%" as any,
+    flexBasis: "47%",
+    flexGrow: 1,
+    padding: 12,
+    alignItems: "center",
+    gap: 6,
+    position: "relative",
+  },
+  paymentOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentCheck: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   footer: {
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    gap: 12,
+    gap: 8,
   },
   totalRow: {
     flexDirection: "row-reverse",
@@ -470,4 +792,91 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 14 },
   totalPrice: { fontSize: 20 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    maxHeight: "85%",
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  modalHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBody: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    gap: 10,
+    alignItems: "center",
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+  },
+  paymentInfoSection: {
+    gap: 12,
+  },
+  paymentInfoBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+  },
+  copyRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    padding: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  copyRowContent: {
+    flex: 1,
+    gap: 3,
+  },
+  copyBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  amountBox: {
+    padding: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  feeBreakdown: {
+    width: "100%",
+    gap: 8,
+  },
+  feeRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  feeDivider: {
+    height: 1,
+    width: "100%",
+    marginVertical: 4,
+  },
 });

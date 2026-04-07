@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, OrderStatus } from "@/context/AppContext";
+import { useApp, OrderStatus, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import * as Haptics from "expo-haptics";
@@ -301,6 +301,50 @@ export default function OrderDetailScreen() {
             );
           })()}
         </View>
+
+        {order.paymentMethod && (() => {
+          const pm = order.paymentMethod as PaymentMethod;
+          const pmColors: Record<PaymentMethod, string> = {
+            cash: "#27AE60",
+            bank_transfer: colors.gold,
+            ewallet: "#9B59B6",
+            instapay: "#2ECC71",
+          };
+          const pmShort: Record<PaymentMethod, string> = {
+            cash: "كاش (الدفع عند الاستلام)",
+            bank_transfer: "تحويل بنكي",
+            ewallet: "محفظة إلكترونية",
+            instapay: "انستاباي",
+          };
+          const pmColor = pmColors[pm] ?? colors.gold;
+          return (
+            <View style={[styles.paymentMethodCard, { backgroundColor: pmColor + "11", borderColor: pmColor + "33", borderRadius: colors.radius }]}>
+              <View style={styles.paymentMethodRow}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: pmColor + "22" }]}>
+                  <Icon name={PAYMENT_METHOD_ICONS[pm] ?? "credit-card"} size={18} color={pmColor} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>طريقة الدفع</Text>
+                  <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                    {pmShort[pm] ?? pm}
+                  </Text>
+                </View>
+              </View>
+              {pm === "ewallet" && (order.paymentFee ?? 0) > 0 && (
+                <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: pmColor + "22", paddingTop: 8, marginTop: 4 }}>
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>رسوم المحفظة</Text>
+                    <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>+{order.paymentFee} ج.م</Text>
+                  </View>
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                    <Text style={{ color: pmColor, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>الإجمالي مع الرسوم</Text>
+                    <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 15 }}>{order.totalWithFee} ج.م</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {isStaff && !!order.assignedToName && (
           <View style={[styles.assignedCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -813,6 +857,23 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     marginBottom: 4,
+  },
+  paymentMethodCard: {
+    padding: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  paymentMethodRow: {
+    flexDirection: "row-reverse" as const,
+    alignItems: "center" as const,
+    gap: 10,
+  },
+  paymentMethodIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
   assignedCard: {
     flexDirection: "row-reverse",

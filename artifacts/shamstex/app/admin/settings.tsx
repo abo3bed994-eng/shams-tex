@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, AppSettings, ContactEntry, SocialEntry, WorkingDay } from "@/context/AppContext";
+import { useApp, AppSettings, ContactEntry, SocialEntry, WorkingDay, PaymentSettings } from "@/context/AppContext";
 import { persistImageUri } from "@/utils/persistImage";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
@@ -691,6 +691,94 @@ export default function AdminSettingsScreen() {
             size="sm"
             style={{ width: "100%" }}
           />
+        </Card>
+
+        <Card title="إعدادات الدفع">
+          <View style={{ gap: 14 }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: colors.gold + "11", borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "33" }}>
+              <Icon name="wallet" size={18} color={colors.gold} />
+              <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, textAlign: "right" }}>
+                أرقام الدفع التي تظهر للعميل عند الشراء
+              </Text>
+            </View>
+
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
+              المحفظة الإلكترونية
+            </Text>
+            <Field
+              label="رقم المحفظة"
+              value={draft.payment?.ewalletNumber ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewalletNumber: v } }))}
+              placeholder="01000000001"
+              keyboardType="phone-pad"
+            />
+            <Field
+              label="اسم صاحب المحفظة"
+              value={draft.payment?.ewalletName ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewalletName: v } }))}
+              placeholder="شمس تكس"
+            />
+            <Field
+              label="نسبة الرسوم (%)"
+              value={String(draft.payment?.ewalletFeePercent ?? 1)}
+              onChange={(v) => {
+                const num = Math.max(0, Math.min(100, Number(v) || 0));
+                setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewalletFeePercent: num } }));
+              }}
+              placeholder="1"
+              keyboardType="numeric"
+            />
+
+            <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
+              انستاباي
+            </Text>
+            <Field
+              label="رقم الانستاباي"
+              value={draft.payment?.instapayNumber ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapayNumber: v } }))}
+              placeholder="01000000001"
+              keyboardType="phone-pad"
+            />
+            <Field
+              label="اسم الحساب"
+              value={draft.payment?.instapayName ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapayName: v } }))}
+              placeholder="شمس تكس"
+            />
+
+            <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
+              التحويل البنكي
+            </Text>
+            <Field
+              label="اسم البنك"
+              value={draft.payment?.bankName ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), bankName: v } }))}
+              placeholder="البنك الأهلي المصري"
+            />
+            <Field
+              label="اسم صاحب الحساب"
+              value={draft.payment?.bankAccountName ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), bankAccountName: v } }))}
+              placeholder="شمس تكس للأقمشة"
+            />
+            <Field
+              label="رقم الحساب"
+              value={draft.payment?.bankAccountNumber ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), bankAccountNumber: v } }))}
+              placeholder="1234567890123"
+              keyboardType="numeric"
+            />
+            <Field
+              label="IBAN"
+              value={draft.payment?.bankIBAN ?? ""}
+              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), bankIBAN: v } }))}
+              placeholder="EG000012345678901234567890"
+            />
+          </View>
         </Card>
       </ScrollView>
 

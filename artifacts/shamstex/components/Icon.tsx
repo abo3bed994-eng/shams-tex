@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  Banknote,
   Bell,
   BellOff,
   Briefcase,
@@ -17,6 +18,8 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
+  Copy,
+  CreditCard,
   DollarSign,
   Droplet,
   ExternalLink,
@@ -59,8 +62,10 @@ import {
   User,
   UserPlus,
   Users,
+  Wallet,
   X,
   XCircle,
+  Zap,
 } from "lucide-react-native";
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -68,6 +73,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
   award: Award,
+  banknote: Banknote,
   bell: Bell,
   "bell-off": BellOff,
   briefcase: Briefcase,
@@ -81,6 +87,8 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   "chevron-right": ChevronRight,
   "chevron-up": ChevronUp,
   clock: Clock,
+  copy: Copy,
+  "credit-card": CreditCard,
   "dollar-sign": DollarSign,
   droplet: Droplet,
   "edit-2": Pencil,
@@ -124,8 +132,10 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   user: User,
   "user-plus": UserPlus,
   users: Users,
+  wallet: Wallet,
   x: X,
   "x-circle": XCircle,
+  zap: Zap,
 };
 
 interface IconProps {
