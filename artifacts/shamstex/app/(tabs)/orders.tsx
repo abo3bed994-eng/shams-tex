@@ -174,7 +174,7 @@ export default function OrdersScreen() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterRow, { borderBottomColor: colors.border }]} contentContainerStyle={{ paddingHorizontal: 4 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]} contentContainerStyle={{ paddingHorizontal: 4 }}>
         {FILTERS.map(({ key, label, count }) => {
           const isReturns = key === "returns";
           const isActive = filter === key;
@@ -192,7 +192,7 @@ export default function OrdersScreen() {
                 },
               ]}
             >
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
                 <Text
                   style={[
                     styles.filterText,
@@ -207,16 +207,16 @@ export default function OrdersScreen() {
                 {hasCount && (
                   <View style={{
                     backgroundColor: isActive ? activeColor + "22" : colors.surface,
-                    paddingHorizontal: 4,
-                    paddingVertical: 0,
-                    borderRadius: 7,
-                    minWidth: 16,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 8,
+                    minWidth: 18,
                     alignItems: "center",
                   }}>
                     <Text style={{
                       color: isActive ? activeColor : colors.mutedForeground,
                       fontFamily: "Inter_600SemiBold",
-                      fontSize: 9,
+                      fontSize: 10,
                     }}>
                       {count}
                     </Text>
@@ -514,9 +514,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
-  filterRow: { borderBottomWidth: 1, minHeight: 44, maxHeight: 48 },
-  filterBtn: { alignItems: "center" as const, paddingVertical: 10, paddingHorizontal: 8, position: "relative" as const },
-  filterText: { fontSize: 11 },
+  filterRow: { borderBottomWidth: 1, zIndex: 10 },
+  filterBtn: { alignItems: "center" as const, paddingVertical: 12, paddingHorizontal: 14, position: "relative" as const },
+  filterText: { fontSize: 13 },
   list: { padding: 16, gap: 4 },
   empty: { alignItems: "center" as const, paddingTop: 80, gap: 16 },
   emptyIcon: {
