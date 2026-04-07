@@ -87,7 +87,8 @@ export default function CartScreen() {
         clearCart();
         setEditingOrderId(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("تم تعديل الطلب!", "تم تحديث طلبك بنجاح.", [
+        Alert.alert("تم تعديل الطلب!", "تم تحديث طلبك بنجاح وسيتم إشعار مسؤول الطلب.", [
+          { text: "استمرار التسوق", style: "cancel", onPress: () => router.replace("/(tabs)/products") },
           { text: "عرض الطلب", onPress: () => router.replace(`/order/${editOrderId}`) },
         ]);
       } else {
@@ -296,7 +297,7 @@ export default function CartScreen() {
               </Pressable>
             )}
 
-            {hasPiecesOrder && (
+            {hasPiecesOrder && !editOrderId && (
               <View style={[styles.salesNote, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33", borderRadius: colors.radius }]}>
                 <View style={styles.salesNoteInfoRow}>
                   <Icon name="info" size={16} color={colors.gold} />

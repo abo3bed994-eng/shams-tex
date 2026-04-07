@@ -360,6 +360,8 @@ const DEFAULT_TABS: Tab[] = [
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const [registeredCustomers, setRegisteredCustomersState] = useState<User[]>([]);
+  const registeredCustomersRef = React.useRef<User[]>([]);
+  registeredCustomersRef.current = registeredCustomers;
   const [products, setProductsState] = useState<Product[]>(SAMPLE_PRODUCTS);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrdersState] = useState<Order[]>([]);
@@ -789,19 +791,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (updatedOrder) {
         FS.saveOrder(updatedOrder).catch(() => {});
+        const assignedStaffId = updatedOrder.assignedTo;
         const staffNotif: Notification = {
           id: `notif_edited_${orderId}_${Date.now()}`,
-          title: "تم تعديل الطلب من قبل العميل",
-          body: `العميل عدّل طلبه #${orderId.slice(0, 8)} — يرجى المراجعة`,
+          title: "تم تعديل الطلب من قبل العميل ✏️",
+          body: `العميل ${updatedOrder.userName} عدّل طلبه #${orderId.slice(0, 8)} — يرجى مراجعة التعديلات ومتابعة التجهيز`,
           createdAt: new Date().toISOString(),
           read: false,
-          targetRole: "employee" as any,
+          ...(assignedStaffId ? { targetUserId: assignedStaffId } : { targetRole: "employee" as any }),
           linkedOrderId: orderId,
         };
         const updatedNotifs = [staffNotif, ...notificationsRef.current];
         setNotifications(updatedNotifs);
         await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
         FS.saveNotification(staffNotif).catch(() => {});
+        if (assignedStaffId) {
+          const staffRecord = registeredCustomersRef.current.find((c) => c.id === assignedStaffId);
+          if (staffRecord?.phone) {
+            notifyUserByPhone(
+              staffRecord.phone,
+              "تم تعديل الطلب ✏️",
+              `العميل ${updatedOrder.userName} عدّل طلبه #${orderId.slice(0, 8)} — راجع التعديلات`,
+              { type: "order_edited", orderId }
+            ).catch(() => {});
+          }
+        }
       }
     },
     []
