@@ -54,7 +54,7 @@ Expo React Native app for Shams Tex fabric company.
 - Product catalog with fabric listings, colors, retail/wholesale pricing
 - Cart with weight-based and piece-based ordering
 - Order management with status tracking (pending → received → preparing → ready → delivered)
-- Return/refund system: 2-stage flow (pending → returned → settled) with visual progress tracker; returns appear as "استرجاع" filter in orders tab, clicking shows order detail with embedded return tracker; staff can advance return status from order detail
+- Return/refund system: 3-stage flow (pending → returned → settled) with visual progress tracker; returns can be cancelled by admin or supervisor (with `cancel_returns` permission); customers can delete their own pending returns; cancelled returns allow re-submitting; returns appear as "استرجاع" filter in orders tab with cancelled state display
 - Order editing: `edited: boolean` and `editedAt?: string` fields; shows yellow "معدّل" badge on OrderCard and order detail for staff
 - Admin panel: products, prices, users, notifications, tabs management
 - Push notifications system
@@ -69,7 +69,7 @@ Expo React Native app for Shams Tex fabric company.
 
 ### Permissions System
 - Employee/Supervisor permissions stored in Firestore `customers` collection
-- Permissions: `view_orders`, `edit_orders`, `view_products`, `edit_products`, `view_users`, `send_notifications`, `manage_staff`, `approve_upgrades`, `delete_orders`
+- Permissions: `view_orders`, `edit_orders`, `view_products`, `edit_products`, `view_users`, `send_notifications`, `manage_staff`, `approve_upgrades`, `delete_orders`, `cancel_returns`
 - Admin screens guarded by `useAdminGuard(permission)` hook — unauthorized access redirects back
 - Permission changes sync in real-time to logged-in staff sessions
 

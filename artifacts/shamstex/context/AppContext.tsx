@@ -14,7 +14,8 @@ export type EmployeePermission =
   | "send_notifications"
   | "manage_staff"
   | "approve_upgrades"
-  | "delete_orders";
+  | "delete_orders"
+  | "cancel_returns";
 
 export interface User {
   id: string;
@@ -82,7 +83,7 @@ export interface Order {
   editedAt?: string;
 }
 
-export type ReturnStatus = "pending" | "returned" | "settled";
+export type ReturnStatus = "pending" | "returned" | "settled" | "cancelled";
 
 export interface ReturnRequest {
   id: string;
@@ -236,6 +237,7 @@ interface AppContextType {
   returnRequests: ReturnRequest[];
   addReturnRequest: (req: ReturnRequest) => Promise<void>;
   updateReturnStatus: (reqId: string, status: ReturnStatus) => Promise<void>;
+  cancelReturnRequest: (reqId: string, reason?: string) => Promise<void>;
   deleteReturnRequest: (reqId: string) => Promise<void>;
   tabs: Tab[];
   setTabs: (tabs: Tab[]) => Promise<void>;
@@ -872,6 +874,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [returnRequests]
   );
 
+  const cancelReturnRequest = useCallback(
+    async (reqId: string, reason?: string) => {
+      const updated = returnRequests.map((r) => (r.id === reqId ? { ...r, status: "cancelled" as ReturnStatus } : r));
+      setReturnRequests(updated);
+      await AsyncStorage.setItem("returnRequests", JSON.stringify(updated));
+      const req = updated.find((r) => r.id === reqId);
+      if (req) {
+        FS.saveReturnRequest(req).catch(() => {});
+        const custNotif: Notification = {
+          id: `notif_return_cancel_${reqId}_${Date.now()}`,
+          title: "تم إلغاء طلب الاسترجاع",
+          body: reason
+            ? `تم إلغاء طلب الاسترجاع للطلب #${req.orderId.slice(0, 8)} — السبب: ${reason}`
+            : `تم إلغاء طلب الاسترجاع للطلب #${req.orderId.slice(0, 8)}`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: req.userId,
+          linkedOrderId: req.orderId,
+          linkedReturnId: req.id,
+        };
+        const updatedNotifs = [custNotif, ...notificationsRef.current];
+        setNotifications(updatedNotifs);
+        await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
+        FS.saveNotification(custNotif).catch(() => {});
+        notifyUserByPhone(
+          req.userPhone,
+          "تم إلغاء طلب الاسترجاع ❌",
+          reason
+            ? `تم إلغاء طلب استرجاعك للطلب #${req.orderId.slice(0, 8)} — السبب: ${reason}`
+            : `تم إلغاء طلب استرجاعك للطلب #${req.orderId.slice(0, 8)}`,
+          { type: "return_cancelled", orderId: req.orderId }
+        ).catch(() => {});
+      }
+    },
+    [returnRequests]
+  );
+
   const deleteReturnRequest = useCallback(
     async (reqId: string) => {
       const updated = returnRequests.filter((r) => r.id !== reqId);
@@ -979,6 +1018,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         returnRequests,
         addReturnRequest,
         updateReturnStatus,
+        cancelReturnRequest,
         deleteReturnRequest,
         tabs,
         setTabs,

@@ -53,6 +53,7 @@ const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   manage_staff: "إدارة الموظفين",
   approve_upgrades: "الموافقة على الترقيات",
   delete_orders: "حذف الطلبات",
+  cancel_returns: "إلغاء الاسترجاعات",
 };
 
 const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
@@ -74,6 +75,7 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "manage_staff",
   "approve_upgrades",
   "delete_orders",
+  "cancel_returns",
 ];
 
 const DEMO_STAFF: User[] = [

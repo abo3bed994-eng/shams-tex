@@ -506,7 +506,7 @@ export default function OrderDetailScreen() {
         })()}
 
         {(() => {
-          const orderReturn = returnRequests.find((r) => r.orderId === order.id);
+          const orderReturn = returnRequests.find((r) => r.orderId === order.id && r.status !== "cancelled");
           const canReturn = isCustomer && order.status === "delivered" && order.deliveredAt && !orderReturn;
           const deliveredAt = order.deliveredAt ? new Date(order.deliveredAt) : null;
           const daysSinceDelivery = deliveredAt ? Math.floor((Date.now() - deliveredAt.getTime()) / (1000 * 60 * 60 * 24)) : 999;

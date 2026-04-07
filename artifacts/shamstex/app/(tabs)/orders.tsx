@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -16,7 +16,18 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Order, OrderStatus } from "@/context/AppContext";
 import OrderCard from "@/components/OrderCard";
 
-type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "delivered" | "returns";
+type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled" | "returns";
+
+const STATUS_ICONS: Record<string, string> = {
+  all: "layers",
+  pending: "clock",
+  received: "inbox",
+  preparing: "package",
+  ready: "check-circle",
+  delivered: "truck",
+  cancelled: "x-circle",
+  returns: "rotate-ccw",
+};
 
 export default function OrdersScreen() {
   const colors = useColors();
@@ -33,6 +44,14 @@ export default function OrdersScreen() {
 
   const myOrders = isStaff ? orders : orders.filter((o) => o.userId === user?.id);
   const myReturns = isStaff ? returnRequests : returnRequests.filter((r) => r.userId === user?.id);
+
+  const stats = useMemo(() => {
+    const pending = myOrders.filter((o) => o.status === "pending").length;
+    const preparing = myOrders.filter((o) => o.status === "preparing" || o.status === "received").length;
+    const delivered = myOrders.filter((o) => o.status === "delivered").length;
+    const totalRevenue = myOrders.filter((o) => o.status !== "cancelled").reduce((s, o) => s + (o.total || 0), 0);
+    return { pending, preparing, delivered, totalRevenue };
+  }, [myOrders]);
 
   const statusFiltered = filter === "all" ? myOrders : filter === "returns" ? [] : myOrders.filter((o) => o.status === filter);
 
@@ -62,12 +81,13 @@ export default function OrdersScreen() {
   const pendingReturnsCount = myReturns.filter((r) => r.status === "pending").length;
 
   const FILTERS: { key: FilterType; label: string; count?: number }[] = [
-    { key: "all", label: "الكل" },
-    { key: "pending", label: "جديد" },
-    { key: "received", label: "مستلم" },
-    { key: "preparing", label: "تجهيز" },
-    { key: "ready", label: "جاهز" },
-    { key: "delivered", label: "تم التسليم" },
+    { key: "all", label: "الكل", count: myOrders.length },
+    { key: "pending", label: "جديد", count: myOrders.filter((o) => o.status === "pending").length },
+    { key: "received", label: "مستلم", count: myOrders.filter((o) => o.status === "received").length },
+    { key: "preparing", label: "تجهيز", count: myOrders.filter((o) => o.status === "preparing").length },
+    { key: "ready", label: "جاهز", count: myOrders.filter((o) => o.status === "ready").length },
+    { key: "delivered", label: "تم التسليم", count: myOrders.filter((o) => o.status === "delivered").length },
+    { key: "cancelled", label: "ملغي", count: myOrders.filter((o) => o.status === "cancelled").length },
     { key: "returns", label: "استرجاع", count: pendingReturnsCount },
   ];
 
@@ -95,9 +115,16 @@ export default function OrdersScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-          {isStaff ? "إدارة الطلبات" : "طلباتي"}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+            {isStaff ? "إدارة الطلبات" : "طلباتي"}
+          </Text>
+          {!isStaff && myOrders.length > 0 && (
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
+              {myOrders.length} طلب
+            </Text>
+          )}
+        </View>
         {!isStaff && (
           <Pressable
             onPress={() => router.push("/cart")}
@@ -114,6 +141,27 @@ export default function OrdersScreen() {
           </Pressable>
         )}
       </View>
+
+      {isStaff && myOrders.length > 0 && (
+        <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
+          <View style={[styles.statBox, { backgroundColor: "#9B59B611", borderColor: "#9B59B633" }]}>
+            <Text style={{ color: "#9B59B6", fontFamily: "Inter_700Bold", fontSize: 18 }}>{stats.pending}</Text>
+            <Text style={{ color: "#9B59B6", fontFamily: "Inter_500Medium", fontSize: 10 }}>جديد</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: "#F39C1211", borderColor: "#F39C1233" }]}>
+            <Text style={{ color: "#F39C12", fontFamily: "Inter_700Bold", fontSize: 18 }}>{stats.preparing}</Text>
+            <Text style={{ color: "#F39C12", fontFamily: "Inter_500Medium", fontSize: 10 }}>قيد التجهيز</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: "#27AE6011", borderColor: "#27AE6033" }]}>
+            <Text style={{ color: "#27AE60", fontFamily: "Inter_700Bold", fontSize: 18 }}>{stats.delivered}</Text>
+            <Text style={{ color: "#27AE60", fontFamily: "Inter_500Medium", fontSize: 10 }}>تم التسليم</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33" }]}>
+            <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>{stats.totalRevenue > 0 ? `${(stats.totalRevenue / 1000).toFixed(1)}k` : "0"}</Text>
+            <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 10 }}>الإيرادات</Text>
+          </View>
+        </View>
+      )}
 
       {isStaff && (
         <View style={[styles.searchRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
@@ -137,36 +185,61 @@ export default function OrdersScreen() {
       )}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterRow, { borderBottomColor: colors.border }]} contentContainerStyle={{ paddingHorizontal: 4 }}>
-        {FILTERS.map(({ key, label, count }) => (
-          <Pressable
-            key={key}
-            onPress={() => setFilter(key)}
-            style={[
-              styles.filterBtn,
-              {
-                borderBottomWidth: filter === key ? 2 : 0,
-                borderBottomColor: key === "returns" ? "#C0392B" : colors.gold,
-              },
-            ]}
-          >
-            <Text
+        {FILTERS.map(({ key, label, count }) => {
+          const isReturns = key === "returns";
+          const isActive = filter === key;
+          const activeColor = isReturns ? "#C0392B" : colors.gold;
+          const hasCount = (count ?? 0) > 0;
+          return (
+            <Pressable
+              key={key}
+              onPress={() => setFilter(key)}
               style={[
-                styles.filterText,
+                styles.filterBtn,
                 {
-                  color: filter === key
-                    ? (key === "returns" ? "#C0392B" : colors.gold)
-                    : colors.mutedForeground,
-                  fontFamily: filter === key ? "Inter_600SemiBold" : "Inter_400Regular",
+                  borderBottomWidth: isActive ? 2.5 : 0,
+                  borderBottomColor: activeColor,
                 },
               ]}
             >
-              {label}
-            </Text>
-            {key === "returns" && (count ?? 0) > 0 && (
-              <View style={{ backgroundColor: "#C0392B", width: 8, height: 8, borderRadius: 4, position: "absolute", top: 8, left: 4 }} />
-            )}
-          </Pressable>
-        ))}
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                <Icon name={STATUS_ICONS[key] as any} size={13} color={isActive ? activeColor : colors.mutedForeground} />
+                <Text
+                  style={[
+                    styles.filterText,
+                    {
+                      color: isActive ? activeColor : colors.mutedForeground,
+                      fontFamily: isActive ? "Inter_600SemiBold" : "Inter_400Regular",
+                    },
+                  ]}
+                >
+                  {label}
+                </Text>
+                {hasCount && (
+                  <View style={{
+                    backgroundColor: isActive ? activeColor + "22" : colors.surface,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 8,
+                    minWidth: 18,
+                    alignItems: "center",
+                  }}>
+                    <Text style={{
+                      color: isActive ? activeColor : colors.mutedForeground,
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 10,
+                    }}>
+                      {count}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {isReturns && pendingReturnsCount > 0 && !isActive && (
+                <View style={{ backgroundColor: "#C0392B", width: 6, height: 6, borderRadius: 3, position: "absolute", top: 8, left: 4 }} />
+              )}
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       <ScrollView
@@ -176,14 +249,17 @@ export default function OrdersScreen() {
         {filter === "returns" ? (
           filteredReturns.length === 0 ? (
             <View style={styles.empty}>
-              <Icon name="rotate-ccw" size={48} color={colors.mutedForeground} />
+              <View style={[styles.emptyIcon, { backgroundColor: "#C0392B11" }]}>
+                <Icon name="rotate-ccw" size={32} color="#C0392B44" />
+              </View>
               <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
                 لا توجد طلبات استرجاع
               </Text>
             </View>
           ) : (
             [...filteredReturns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((ret) => {
-              const returnStep = RETURN_STEPS.findIndex((s) => s.key === ret.status);
+              const isCancelled = ret.status === "cancelled";
+              const returnStep = isCancelled ? -1 : RETURN_STEPS.findIndex((s) => s.key === ret.status);
               return (
                 <Pressable
                   key={ret.id}
@@ -192,7 +268,7 @@ export default function OrdersScreen() {
                     styles.returnCard,
                     {
                       backgroundColor: colors.card,
-                      borderColor: "#C0392B33",
+                      borderColor: isCancelled ? "#E74C3C33" : "#C0392B33",
                       borderRadius: colors.radius,
                       opacity: pressed ? 0.85 : 1,
                     },
@@ -200,8 +276,8 @@ export default function OrdersScreen() {
                 >
                   <View style={styles.returnCardHeader}>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, flex: 1 }}>
-                      <View style={[styles.returnIcon, { backgroundColor: "#C0392B22" }]}>
-                        <Icon name="rotate-ccw" size={16} color="#C0392B" />
+                      <View style={[styles.returnIcon, { backgroundColor: isCancelled ? "#E74C3C22" : "#C0392B22" }]}>
+                        <Icon name={isCancelled ? "x-circle" : "rotate-ccw"} size={16} color={isCancelled ? "#E74C3C" : "#C0392B"} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
@@ -218,47 +294,58 @@ export default function OrdersScreen() {
                       </View>
                     </View>
                     <View style={[styles.returnStatusBadge, {
-                      backgroundColor: ret.status === "settled" ? "#27AE6022" : ret.status === "returned" ? "#F39C1222" : "#C0392B22",
+                      backgroundColor: isCancelled ? "#E74C3C22" : ret.status === "settled" ? "#27AE6022" : ret.status === "returned" ? "#F39C1222" : "#C0392B22",
                     }]}>
                       <Text style={{
-                        color: ret.status === "settled" ? "#27AE60" : ret.status === "returned" ? "#F39C12" : "#C0392B",
+                        color: isCancelled ? "#E74C3C" : ret.status === "settled" ? "#27AE60" : ret.status === "returned" ? "#F39C12" : "#C0392B",
                         fontFamily: "Inter_600SemiBold", fontSize: 10,
                       }}>
-                        {ret.status === "settled" ? "مخالصة" : ret.status === "returned" ? "مسترجع" : "قيد المراجعة"}
+                        {isCancelled ? "ملغي" : ret.status === "settled" ? "مخالصة" : ret.status === "returned" ? "مسترجع" : "قيد المراجعة"}
                       </Text>
                     </View>
                   </View>
 
-                  <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", paddingHorizontal: 4, marginTop: 8 }}>
-                    {RETURN_STEPS.map((step, index) => {
-                      const isCompleted = index <= returnStep;
-                      const stepColor = isCompleted ? "#C0392B" : colors.border;
-                      return (
-                        <React.Fragment key={step.key}>
-                          <View style={{ alignItems: "center", gap: 3, flex: 1 }}>
-                            <View style={{
-                              width: 18, height: 18, borderRadius: 9, borderWidth: 2,
-                              backgroundColor: isCompleted ? stepColor : colors.surface,
-                              borderColor: stepColor,
-                              alignItems: "center", justifyContent: "center",
-                            }}>
-                              {isCompleted && <Icon name="check" size={8} color="#fff" />}
+                  {!isCancelled && (
+                    <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", paddingHorizontal: 4, marginTop: 8 }}>
+                      {RETURN_STEPS.map((step, index) => {
+                        const isCompleted = index <= returnStep;
+                        const sColor = isCompleted ? "#C0392B" : colors.border;
+                        return (
+                          <React.Fragment key={step.key}>
+                            <View style={{ alignItems: "center", gap: 3, flex: 1 }}>
+                              <View style={{
+                                width: 18, height: 18, borderRadius: 9, borderWidth: 2,
+                                backgroundColor: isCompleted ? sColor : colors.surface,
+                                borderColor: sColor,
+                                alignItems: "center", justifyContent: "center",
+                              }}>
+                                {isCompleted && <Icon name="check" size={8} color="#fff" />}
+                              </View>
+                              <Text style={{
+                                fontSize: 9, textAlign: "center", lineHeight: 12,
+                                color: isCompleted ? "#C0392B" : colors.mutedForeground,
+                                fontFamily: isCompleted ? "Inter_600SemiBold" : "Inter_400Regular",
+                              }} numberOfLines={2}>
+                                {step.label}
+                              </Text>
                             </View>
-                            <Text style={{
-                              fontSize: 9, textAlign: "center", lineHeight: 12,
-                              color: isCompleted ? "#C0392B" : colors.mutedForeground,
-                              fontFamily: isCompleted ? "Inter_600SemiBold" : "Inter_400Regular",
-                            }} numberOfLines={2}>
-                              {step.label}
-                            </Text>
-                          </View>
-                          {index < RETURN_STEPS.length - 1 && (
-                            <View style={{ height: 2, flex: 1, marginTop: 8, marginHorizontal: -2, backgroundColor: index < returnStep ? "#C0392B" : colors.border }} />
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </View>
+                            {index < RETURN_STEPS.length - 1 && (
+                              <View style={{ height: 2, flex: 1, marginTop: 8, marginHorizontal: -2, backgroundColor: index < returnStep ? "#C0392B" : colors.border }} />
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {isCancelled && (
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 6, backgroundColor: "#E74C3C11", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+                      <Icon name="info" size={12} color="#E74C3C" />
+                      <Text style={{ color: "#E74C3C", fontFamily: "Inter_400Regular", fontSize: 11, flex: 1, textAlign: "right" }}>
+                        تم إلغاء هذا الطلب
+                      </Text>
+                    </View>
+                  )}
 
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 6 }}>
                     السبب: {ret.reason}
@@ -277,20 +364,28 @@ export default function OrdersScreen() {
                     </View>
                   )}
 
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10, textAlign: "right", marginTop: 6 }}>
-                    {new Date(ret.createdAt).toLocaleDateString("ar-EG")}
-                  </Text>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                      {new Date(ret.createdAt).toLocaleDateString("ar-EG")}
+                    </Text>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 11 }}>التفاصيل</Text>
+                      <Icon name="chevron-left" size={12} color={colors.gold} />
+                    </View>
+                  </View>
                 </Pressable>
               );
             })
           )
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Icon name="package" size={48} color={colors.mutedForeground} />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.gold + "11" }]}>
+              <Icon name="package" size={32} color={colors.gold + "44"} />
+            </View>
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
               {search.trim() ? "لا توجد طلبات مطابقة للبحث" : isStaff ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
             </Text>
-            {!isStaff && (
+            {!isStaff && !search.trim() && (
               <Pressable
                 onPress={() => router.push("/(tabs)/products")}
                 style={({ pressed }) => [
@@ -298,6 +393,7 @@ export default function OrdersScreen() {
                   { backgroundColor: colors.gold, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
                 ]}
               >
+                <Icon name="shopping-bag" size={16} color={colors.background} />
                 <Text style={[styles.shopBtnText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
                   تصفح المنتجات
                 </Text>
@@ -400,14 +496,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   cartBadgeText: { fontSize: 9 },
+  statsRow: {
+    flexDirection: "row-reverse" as const,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center" as const,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 2,
+  },
   searchRow: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
   searchBox: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
+    flexDirection: "row-reverse" as const,
+    alignItems: "center" as const,
     paddingHorizontal: 12,
     height: 42,
     borderWidth: 1,
@@ -415,17 +526,31 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
   filterRow: { borderBottomWidth: 1, maxHeight: 48 },
-  filterBtn: { alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, position: "relative" as const },
-  filterText: { fontSize: 13 },
+  filterBtn: { alignItems: "center" as const, paddingVertical: 12, paddingHorizontal: 12, position: "relative" as const },
+  filterText: { fontSize: 12 },
   list: { padding: 16, gap: 4 },
-  empty: { alignItems: "center", paddingTop: 80, gap: 16 },
+  empty: { alignItems: "center" as const, paddingTop: 80, gap: 16 },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
   emptyText: { fontSize: 16 },
-  shopBtn: { paddingHorizontal: 24, paddingVertical: 12, marginTop: 8 },
+  shopBtn: {
+    flexDirection: "row-reverse" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
   shopBtnText: { fontSize: 15 },
   deleteOrderBtn: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: "row-reverse" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     gap: 6,
     marginTop: -8,
     marginBottom: 16,
@@ -442,17 +567,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   returnCardHeader: {
-    flexDirection: "row-reverse",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    flexDirection: "row-reverse" as const,
+    alignItems: "flex-start" as const,
+    justifyContent: "space-between" as const,
     gap: 8,
   },
   returnIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
   returnStatusBadge: {
     paddingHorizontal: 8,
