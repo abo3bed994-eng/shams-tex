@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
+import { playNotificationAlert } from "@/lib/notificationSound";
 
 export type UserRole = "customer" | "merchant" | "employee" | "supervisor" | "admin";
 export type ProductUnit = "meter" | "kilo";
@@ -413,10 +414,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    let isFirstNotifLoad = true;
     const unsubNotifications = FS.subscribeNotifications((freshNotifs) => {
       if (freshNotifs.length > 0) {
+        const prevCount = notificationsRef.current.length;
+        const prevIds = new Set(notificationsRef.current.map((n) => n.id));
         setNotifications(freshNotifs);
         AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
+        if (!isFirstNotifLoad && freshNotifs.length > prevCount) {
+          const hasNewFromOthers = freshNotifs.some(
+            (n) => !prevIds.has(n.id) && n.targetUserId !== "self"
+          );
+          if (hasNewFromOthers) {
+            playNotificationAlert();
+          }
+        }
+        isFirstNotifLoad = false;
       }
     });
 
