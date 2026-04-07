@@ -18,16 +18,6 @@ import OrderCard from "@/components/OrderCard";
 
 type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled" | "returns";
 
-const STATUS_ICONS: Record<string, string> = {
-  all: "layers",
-  pending: "clock",
-  received: "inbox",
-  preparing: "package",
-  ready: "check-circle",
-  delivered: "truck",
-  cancelled: "x-circle",
-  returns: "rotate-ccw",
-};
 
 export default function OrdersScreen() {
   const colors = useColors();
@@ -202,8 +192,7 @@ export default function OrdersScreen() {
                 },
               ]}
             >
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                <Icon name={STATUS_ICONS[key] as any} size={13} color={isActive ? activeColor : colors.mutedForeground} />
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3 }}>
                 <Text
                   style={[
                     styles.filterText,
@@ -218,16 +207,16 @@ export default function OrdersScreen() {
                 {hasCount && (
                   <View style={{
                     backgroundColor: isActive ? activeColor + "22" : colors.surface,
-                    paddingHorizontal: 5,
-                    paddingVertical: 1,
-                    borderRadius: 8,
-                    minWidth: 18,
+                    paddingHorizontal: 4,
+                    paddingVertical: 0,
+                    borderRadius: 7,
+                    minWidth: 16,
                     alignItems: "center",
                   }}>
                     <Text style={{
                       color: isActive ? activeColor : colors.mutedForeground,
                       fontFamily: "Inter_600SemiBold",
-                      fontSize: 10,
+                      fontSize: 9,
                     }}>
                       {count}
                     </Text>
@@ -525,9 +514,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
-  filterRow: { borderBottomWidth: 1, maxHeight: 48 },
-  filterBtn: { alignItems: "center" as const, paddingVertical: 12, paddingHorizontal: 12, position: "relative" as const },
-  filterText: { fontSize: 12 },
+  filterRow: { borderBottomWidth: 1, minHeight: 44, maxHeight: 48 },
+  filterBtn: { alignItems: "center" as const, paddingVertical: 10, paddingHorizontal: 8, position: "relative" as const },
+  filterText: { fontSize: 11 },
   list: { padding: 16, gap: 4 },
   empty: { alignItems: "center" as const, paddingTop: 80, gap: 16 },
   emptyIcon: {

@@ -8,14 +8,17 @@ import { useApp } from "@/context/AppContext";
 
 export default function TabLayout() {
   const colors = useColors();
-  const { theme, orders, user } = useApp();
+  const { theme, orders, user, returnRequests } = useApp();
   const isDark = theme === "dark";
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
-  // Count new (pending) orders for staff badge
   const pendingOrdersCount = isStaff
     ? orders.filter((o) => o.status === "pending").length
     : 0;
+  const pendingReturnsCount = isStaff
+    ? returnRequests.filter((r) => r.status === "pending").length
+    : 0;
+  const badgeCount = pendingOrdersCount + pendingReturnsCount;
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
@@ -75,7 +78,7 @@ export default function TabLayout() {
         options={{
           title: "الطلبات",
           tabBarIcon: ({ color }) => <Icon name="package" size={20} color={color} />,
-          tabBarBadge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined,
+          tabBarBadge: badgeCount > 0 ? badgeCount : undefined,
           tabBarBadgeStyle: { backgroundColor: "#C0392B", fontSize: 10, minWidth: 16, height: 16 },
         }}
       />
