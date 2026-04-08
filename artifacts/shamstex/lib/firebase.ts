@@ -11,8 +11,10 @@ import {
   onSnapshot,
   query,
   orderBy,
+  limit,
   Unsubscribe,
   memoryLocalCache,
+  writeBatch,
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -122,12 +124,11 @@ export const FS = {
 
   subscribeNotifications(callback: (notifs: any[]) => void): Unsubscribe {
     let unsub = onSnapshot(
-      query(collection(db, "notifications"), orderBy("createdAt", "desc")),
+      query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(200)),
       (snap) => callback(snap.docs.map((d) => d.data())),
       (_err) => {
-        // Fallback: subscribe without ordering
         unsub = onSnapshot(
-          collection(db, "notifications"),
+          query(collection(db, "notifications"), limit(200)),
           (snap) => callback(snap.docs.map((d) => d.data())),
           () => {}
         );
@@ -138,6 +139,18 @@ export const FS = {
 
   async saveNotification(notification: object & { id: string }) {
     await setDoc(doc(db, "notifications", notification.id), notification);
+  },
+
+  async batchMarkRead(ids: string[]) {
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const chunk = ids.slice(i, i + BATCH_SIZE);
+      for (const id of chunk) {
+        batch.set(doc(db, "notifications", id), { read: true }, { merge: true });
+      }
+      await batch.commit();
+    }
   },
 
   async saveReturnRequest(req: object & { id: string }) {

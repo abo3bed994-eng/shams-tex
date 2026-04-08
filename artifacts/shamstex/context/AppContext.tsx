@@ -1078,10 +1078,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const markAllNotificationsRead = useCallback(
     async () => {
+      const unreadIds = notificationsRef.current.filter((n) => !n.read).map((n) => n.id);
+      if (unreadIds.length === 0) return;
       const updated = notificationsRef.current.map((n) => ({ ...n, read: true }));
       setNotifications(updated);
       AsyncStorage.setItem("notifications", JSON.stringify(updated)).catch(() => {});
-      Promise.all(updated.map((n) => FS.saveNotification(n).catch(() => {}))).catch(() => {});
+      FS.batchMarkRead(unreadIds).catch(() => {});
     },
     []
   );
