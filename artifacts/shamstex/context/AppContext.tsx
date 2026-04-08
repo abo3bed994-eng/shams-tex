@@ -61,6 +61,7 @@ export interface CartItem {
   unitPrice: number;
   orderType: "weight" | "pieces";
   weight?: number;
+  actualWeight?: number;
   unit?: ProductUnit;
 }
 
@@ -102,6 +103,7 @@ export interface Order {
   paymentFee?: number;
   totalWithFee?: number;
   paymentConfirmed?: boolean;
+  invoiceImage?: string;
 }
 
 export type ReturnStatus = "pending" | "returned" | "settled" | "cancelled";
@@ -277,6 +279,7 @@ interface AppContextType {
   cancelOrder: (orderId: string) => Promise<void>;
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
+  setOrderInvoiceImage: (orderId: string, imageUri: string) => Promise<void>;
   updateOrderItems: (orderId: string, items: CartItem[], total: number, staffEdit?: boolean) => Promise<void>;
   editingOrderId: string | null;
   setEditingOrderId: (id: string | null) => void;
@@ -849,6 +852,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const setOrderInvoiceImage = useCallback(
+    async (orderId: string, imageUri: string) => {
+      const updated = ordersRef.current.map((o) =>
+        o.id === orderId ? { ...o, invoiceImage: imageUri } : o
+      );
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) {
+        FS.saveOrder(updatedOrder).catch(() => {});
+        const notif: Notification = {
+          id: `notif_invoice_${orderId}_${Date.now()}`,
+          title: "تم رفع فاتورة طلبك 🧾",
+          body: `تم إرفاق فاتورة طلبك #${orderId.slice(0, 8)} — يمكنك عرضها من صفحة الطلب`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: updatedOrder.userId,
+          linkedOrderId: orderId,
+        };
+        const updatedNotifs = [notif, ...notificationsRef.current];
+        setNotifications(updatedNotifs);
+        AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs)).catch(() => {});
+        FS.saveNotification(notif).catch(() => {});
+        if (updatedOrder.userPhone) {
+          notifyUserByPhone(
+            updatedOrder.userPhone,
+            notif.title,
+            notif.body,
+            { type: "invoice_uploaded", orderId }
+          ).catch(() => {});
+        }
+      }
+    },
+    []
+  );
+
   const updateOrderItems = useCallback(
     async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean) => {
       const updated = ordersRef.current.map((o) =>
@@ -1085,6 +1125,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cancelOrder,
         sendOrderMessage,
         setOrderEditable,
+        setOrderInvoiceImage,
         updateOrderItems,
         editingOrderId,
         setEditingOrderId,

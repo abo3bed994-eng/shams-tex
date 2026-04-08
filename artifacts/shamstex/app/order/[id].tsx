@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import { useApp, OrderStatus, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METH
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
@@ -43,7 +44,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, setOrderInvoiceImage, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products } = useApp();
   const [showMsgInput, setShowMsgInput] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -52,6 +53,8 @@ export default function OrderDetailScreen() {
   const [returnReason, setReturnReason] = useState("");
   const [submittingReturn, setSubmittingReturn] = useState(false);
   const [returnSelectedItems, setReturnSelectedItems] = useState<Record<number, boolean>>({});
+  const [showInvoiceImage, setShowInvoiceImage] = useState(false);
+  const [uploadingInvoice, setUploadingInvoice] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -281,43 +284,59 @@ export default function OrderDetailScreen() {
                   </View>
                 ) : (
                   <View style={{ alignItems: "flex-start", gap: 4 }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                      <Text style={[styles.orderItemQty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                        x{item.quantity}
-                      </Text>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                        ≈ {item.quantity * 20 * item.unitPrice} ج.م
-                      </Text>
-                    </View>
-                    {isStaff && order.status === "preparing" && !isLockedByOther && (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Pressable
-                          onPress={() => {
-                            const newQty = Math.max(1, item.quantity - 1);
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQty } : it);
-                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            updateOrderItems(order.id, newItems, newTotal, true);
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          }}
-                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-                        >
-                          <Icon name="minus" size={12} color={colors.gold} />
-                        </Pressable>
-                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 24, textAlign: "center" }}>
-                          {item.quantity}
+                    <Text style={[styles.orderItemQty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                      x{item.quantity} ثوب
+                    </Text>
+                    {item.actualWeight ? (
+                      <View style={{ gap: 2 }}>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                          {item.actualWeight} كغ
                         </Text>
-                        <Pressable
-                          onPress={() => {
-                            const newQty = item.quantity + 1;
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQty } : it);
-                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            updateOrderItems(order.id, newItems, newTotal, true);
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          }}
-                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
-                        >
-                          <Icon name="plus" size={12} color={colors.background} />
-                        </Pressable>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 12 }}>
+                          {item.actualWeight * item.unitPrice} ج.م
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                        ≈ {item.quantity * 20 * item.unitPrice} ج.م (تقديري)
+                      </Text>
+                    )}
+                    {isStaff && order.status === "preparing" && !isLockedByOther && (
+                      <View style={{ gap: 4, marginTop: 2 }}>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
+                          الوزن الفعلي (كغ):
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Pressable
+                            onPress={() => {
+                              const curW = item.actualWeight ?? (item.quantity * 20);
+                              const newW = Math.max(1, curW - 1);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
+                              const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              updateOrderItems(order.id, newItems, newTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="minus" size={12} color={colors.gold} />
+                          </Pressable>
+                          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 30, textAlign: "center" }}>
+                            {item.actualWeight ?? (item.quantity * 20)}
+                          </Text>
+                          <Pressable
+                            onPress={() => {
+                              const curW = item.actualWeight ?? (item.quantity * 20);
+                              const newW = curW + 1;
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
+                              const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              updateOrderItems(order.id, newItems, newTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="plus" size={12} color={colors.background} />
+                          </Pressable>
+                        </View>
                       </View>
                     )}
                   </View>
@@ -366,13 +385,14 @@ export default function OrderDetailScreen() {
               .filter((i) => i.orderType === "weight")
               .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
             const hasPieces = order.items.some((i) => i.orderType === "pieces");
-            const piecesCount = order.items
-              .filter((i) => i.orderType === "pieces")
-              .reduce((a, b) => a + b.quantity, 0);
 
+            const piecesActualTotal = order.items
+              .filter((i) => i.orderType === "pieces" && i.actualWeight)
+              .reduce((a, b) => a + (b.actualWeight! * b.unitPrice), 0);
             const piecesEstimate = order.items
-              .filter((i) => i.orderType === "pieces")
+              .filter((i) => i.orderType === "pieces" && !i.actualWeight)
               .reduce((a, b) => a + b.quantity * 20 * b.unitPrice, 0);
+            const allPiecesWeighed = hasPieces && order.items.filter((i) => i.orderType === "pieces").every((i) => i.actualWeight);
 
             if (weightTotal > 0 && hasPieces) {
               return (
@@ -385,20 +405,32 @@ export default function OrderDetailScreen() {
                       مجموع الكيلو
                     </Text>
                   </View>
-                  <View style={styles.totalRow}>
-                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }]}>
-                      ≈ {piecesEstimate} ج.م
-                    </Text>
-                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                      تقديري الأثواب ({piecesCount} × 20كغ)
-                    </Text>
-                  </View>
+                  {piecesActualTotal > 0 && (
+                    <View style={styles.totalRow}>
+                      <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }]}>
+                        {piecesActualTotal} ج.م
+                      </Text>
+                      <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                        مجموع الأثواب (وزن فعلي)
+                      </Text>
+                    </View>
+                  )}
+                  {piecesEstimate > 0 && (
+                    <View style={styles.totalRow}>
+                      <Text style={[styles.totalPrice, { color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }]}>
+                        ≈ {piecesEstimate} ج.م
+                      </Text>
+                      <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
+                        تقديري (لم يوزن بعد)
+                      </Text>
+                    </View>
+                  )}
                   <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }]}>
                     <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                      ≈ {weightTotal + piecesEstimate} ج.م
+                      {allPiecesWeighed ? "" : "≈ "}{weightTotal + piecesActualTotal + piecesEstimate} ج.م
                     </Text>
                     <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                      الإجمالي التقديري
+                      {allPiecesWeighed ? "الإجمالي النهائي" : "الإجمالي التقديري"}
                     </Text>
                   </View>
                 </View>
@@ -418,21 +450,97 @@ export default function OrderDetailScreen() {
             }
             return (
               <View style={{ gap: 6 }}>
-                <View style={styles.totalRow}>
-                  <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                    ≈ {piecesEstimate} ج.م
+                {piecesActualTotal > 0 && (
+                  <View style={styles.totalRow}>
+                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                      {piecesActualTotal} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                      {allPiecesWeighed ? "الإجمالي النهائي" : "مجموع الموزون"}
+                    </Text>
+                  </View>
+                )}
+                {piecesEstimate > 0 && (
+                  <View style={styles.totalRow}>
+                    <Text style={[styles.totalPrice, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                      ≈ {piecesEstimate} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
+                      تقديري (لم يوزن بعد)
+                    </Text>
+                  </View>
+                )}
+                {!allPiecesWeighed && (
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
+                    تقدير بناءً على 20كغ لكل ثوب — الوزن الفعلي يحدده الطاقم
                   </Text>
-                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                    الإجمالي التقديري
-                  </Text>
-                </View>
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
-                  تقدير بناءً على 20كغ لكل ثوب — السعر النهائي يحدده مسؤول المبيعات
-                </Text>
+                )}
               </View>
             );
           })()}
         </View>
+
+        {order.invoiceImage && (
+          <View style={[styles.invoiceCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <Icon name="file-text" size={18} color={colors.gold} />
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, textAlign: "right" }}>
+                الفاتورة
+              </Text>
+            </View>
+            <Pressable onPress={() => setShowInvoiceImage(true)} style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}>
+              <Image
+                source={{ uri: order.invoiceImage }}
+                style={{ width: "100%", height: 200, borderRadius: colors.radius - 4, backgroundColor: colors.surface }}
+                resizeMode="cover"
+              />
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center", marginTop: 6 }}>
+                اضغط لعرض الفاتورة بالحجم الكامل
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {isStaff && (order.status === "ready" || order.status === "preparing") && !isLockedByOther && (
+          <Pressable
+            onPress={async () => {
+              try {
+                setUploadingInvoice(true);
+                const result = await ImagePicker.launchImageLibraryAsync({
+                  mediaTypes: ['images'],
+                  quality: 0.7,
+                  allowsEditing: true,
+                });
+                if (!result.canceled && result.assets[0]) {
+                  await setOrderInvoiceImage(order.id, result.assets[0].uri);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Alert.alert("تم", "تم رفع صورة الفاتورة وإشعار العميل");
+                }
+              } catch {
+                Alert.alert("خطأ", "تعذّر رفع الصورة");
+              } finally {
+                setUploadingInvoice(false);
+              }
+            }}
+            style={({ pressed }) => [{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 12,
+              backgroundColor: order.invoiceImage ? colors.surface : colors.gold + "15",
+              borderColor: order.invoiceImage ? colors.border : colors.gold + "44",
+              borderWidth: 1,
+              borderRadius: colors.radius - 4,
+              opacity: pressed ? 0.7 : 1,
+            }]}
+          >
+            <Icon name={order.invoiceImage ? "refresh-cw" : "camera"} size={16} color={order.invoiceImage ? colors.mutedForeground : colors.gold} />
+            <Text style={{ color: order.invoiceImage ? colors.mutedForeground : colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+              {uploadingInvoice ? "جاري الرفع..." : order.invoiceImage ? "تغيير صورة الفاتورة" : "رفع صورة الفاتورة"}
+            </Text>
+          </Pressable>
+        )}
 
         {order.paymentMethod && (() => {
           const pm = order.paymentMethod as PaymentMethod;
@@ -891,6 +999,24 @@ export default function OrderDetailScreen() {
           </Pressable>
         )}
       </ScrollView>
+
+      {order.invoiceImage && (
+        <Modal visible={showInvoiceImage} transparent animationType="fade" onRequestClose={() => setShowInvoiceImage(false)}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" }}>
+            <Pressable
+              onPress={() => setShowInvoiceImage(false)}
+              style={{ position: "absolute", top: insets.top + 16, right: 16, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}
+            >
+              <Icon name="x" size={22} color="#fff" />
+            </Pressable>
+            <Image
+              source={{ uri: order.invoiceImage }}
+              style={{ width: "92%", height: "70%", borderRadius: 12 }}
+              resizeMode="contain"
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -974,6 +1100,7 @@ const styles = StyleSheet.create({
   notesCard: { borderWidth: 1, padding: 16, gap: 8 },
   notesText: { fontSize: 13, textAlign: "right", lineHeight: 20 },
   totalCard: { borderWidth: 1, padding: 16 },
+  invoiceCard: { borderWidth: 1, padding: 16, gap: 4 },
   totalRow: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
