@@ -167,7 +167,7 @@ export default function OrderDetailScreen() {
           })}
         </View>
 
-        {isAdmin && (
+        {isStaff && (
           <View style={[styles.customerInfo, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               معلومات العميل
@@ -184,6 +184,40 @@ export default function OrderDetailScreen() {
                 {order.userPhone}
               </Text>
             </View>
+            {order.userPhone && (
+              <Pressable
+                onPress={() => {
+                  Alert.alert(
+                    "اتصال بالعميل",
+                    `هل تريد الاتصال بـ ${order.userName}؟\n${order.userPhone}`,
+                    [
+                      { text: "إلغاء", style: "cancel" },
+                      { text: "اتصال", onPress: () => {
+                        import("expo-linking").then((Linking) => Linking.openURL(`tel:${order.userPhone.replace(/\s/g, "")}`)).catch(() => {});
+                      }},
+                    ]
+                  );
+                }}
+                style={({ pressed }) => [{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingVertical: 10,
+                  marginTop: 8,
+                  backgroundColor: colors.gold + "15",
+                  borderColor: colors.gold + "44",
+                  borderWidth: 1,
+                  borderRadius: colors.radius - 4,
+                  opacity: pressed ? 0.7 : 1,
+                }]}
+              >
+                <Icon name="phone" size={16} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                  اتصال بالعميل
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -246,13 +280,46 @@ export default function OrderDetailScreen() {
                     )}
                   </View>
                 ) : (
-                  <View style={{ alignItems: "flex-start", gap: 2 }}>
-                    <Text style={[styles.orderItemQty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                      x{item.quantity}
-                    </Text>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                      ≈ {item.quantity * 20 * item.unitPrice} ج.م
-                    </Text>
+                  <View style={{ alignItems: "flex-start", gap: 4 }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                      <Text style={[styles.orderItemQty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                        x{item.quantity}
+                      </Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                        ≈ {item.quantity * 20 * item.unitPrice} ج.م
+                      </Text>
+                    </View>
+                    {isStaff && order.status === "preparing" && !isLockedByOther && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Pressable
+                          onPress={() => {
+                            const newQty = Math.max(1, item.quantity - 1);
+                            const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQty } : it);
+                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            updateOrderItems(order.id, newItems, newTotal, true);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }}
+                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Icon name="minus" size={12} color={colors.gold} />
+                        </Pressable>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 24, textAlign: "center" }}>
+                          {item.quantity}
+                        </Text>
+                        <Pressable
+                          onPress={() => {
+                            const newQty = item.quantity + 1;
+                            const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQty } : it);
+                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            updateOrderItems(order.id, newItems, newTotal, true);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }}
+                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Icon name="plus" size={12} color={colors.background} />
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
                 )}
                 {isStaff && order.editable && order.items.length > 1 && (

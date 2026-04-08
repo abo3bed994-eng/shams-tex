@@ -106,11 +106,6 @@ export default function CartScreen() {
       }
     }
 
-    if (selectedPayment && selectedPayment !== "cash" && totalPrice > 0) {
-      setShowPaymentModal(true);
-      return;
-    }
-
     await placeOrder();
   };
 
