@@ -256,8 +256,9 @@ export default function OrderDetailScreen() {
                           onPress={() => {
                             const newWeight = Math.max(1, (item.weight ?? 1) - 1);
                             const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
-                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            updateOrderItems(order.id, newItems, newTotal, true);
+                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                           }}
                           style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
@@ -271,8 +272,9 @@ export default function OrderDetailScreen() {
                           onPress={() => {
                             const newWeight = (item.weight ?? 1) + 1;
                             const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
-                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            updateOrderItems(order.id, newItems, newTotal, true);
+                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                           }}
                           style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
@@ -312,8 +314,9 @@ export default function OrderDetailScreen() {
                               const curW = item.actualWeight ?? (item.quantity * 20);
                               const newW = Math.max(1, curW - 1);
                               const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
-                              const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              updateOrderItems(order.id, newItems, newTotal, true);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             }}
                             style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
@@ -328,8 +331,9 @@ export default function OrderDetailScreen() {
                               const curW = item.actualWeight ?? (item.quantity * 20);
                               const newW = curW + 1;
                               const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
-                              const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              updateOrderItems(order.id, newItems, newTotal, true);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             }}
                             style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
@@ -351,8 +355,9 @@ export default function OrderDetailScreen() {
                           { text: "إلغاء", style: "cancel" },
                           { text: "حذف", style: "destructive", onPress: () => {
                             const newItems = order.items.filter((_, i) => i !== index);
-                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            updateOrderItems(order.id, newItems, newTotal);
+                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                           }},
                         ]

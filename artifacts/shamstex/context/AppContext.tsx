@@ -891,14 +891,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrderItems = useCallback(
     async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean) => {
-      const updated = ordersRef.current.map((o) =>
-        o.id === orderId ? {
+      const updated = ordersRef.current.map((o) => {
+        if (o.id !== orderId) return o;
+        const ewalletPct = settings.payment?.ewalletFeePercent ?? 1;
+        const fee = o.paymentMethod === "ewallet" ? Math.ceil(total * ewalletPct / 100) : 0;
+        return {
           ...o,
           items,
           total,
+          paymentFee: fee,
+          totalWithFee: total + fee,
           ...(staffEdit ? {} : { editable: false, edited: true, editedAt: new Date().toISOString() }),
-        } : o
-      );
+        };
+      });
       const updatedOrder = updated.find((o) => o.id === orderId);
       setOrdersState(updated);
       ordersRef.current = updated;
@@ -934,7 +939,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    []
+    [settings]
   );
 
   const addReturnRequest = useCallback(

@@ -117,7 +117,8 @@ export default function CartScreen() {
 
     try {
       if (editOrderId) {
-        await updateOrderItems(editOrderId, [...cart], totalPrice);
+        const piecesEstimate = cart.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+        await updateOrderItems(editOrderId, [...cart], totalPrice + piecesEstimate);
         clearCart();
         setEditingOrderId(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
