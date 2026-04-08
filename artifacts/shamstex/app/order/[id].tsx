@@ -53,6 +53,7 @@ export default function OrderDetailScreen() {
   const [returnReason, setReturnReason] = useState("");
   const [submittingReturn, setSubmittingReturn] = useState(false);
   const [returnSelectedItems, setReturnSelectedItems] = useState<Record<number, boolean>>({});
+  const [returnItemWeights, setReturnItemWeights] = useState<Record<number, number>>({});
   const [showInvoiceImage, setShowInvoiceImage] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
 
@@ -265,9 +266,19 @@ export default function OrderDetailScreen() {
                         >
                           <Icon name="minus" size={12} color={colors.gold} />
                         </Pressable>
-                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 30, textAlign: "center" }}>
-                          {item.weight ?? 1}
-                        </Text>
+                        <TextInput
+                          style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
+                          value={String(item.weight ?? 1)}
+                          keyboardType="numeric"
+                          onChangeText={(txt) => {
+                            const val = parseFloat(txt) || 0;
+                            if (val <= 0) return;
+                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: val } : it);
+                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                          }}
+                        />
                         <Pressable
                           onPress={() => {
                             const newWeight = (item.weight ?? 1) + 1;
@@ -323,9 +334,19 @@ export default function OrderDetailScreen() {
                           >
                             <Icon name="minus" size={12} color={colors.gold} />
                           </Pressable>
-                          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 30, textAlign: "center" }}>
-                            {item.actualWeight ?? (item.quantity * 20)}
-                          </Text>
+                          <TextInput
+                            style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
+                            value={String(item.actualWeight ?? (item.quantity * 20))}
+                            keyboardType="numeric"
+                            onChangeText={(txt) => {
+                              const val = parseFloat(txt) || 0;
+                              if (val <= 0) return;
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: val } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                            }}
+                          />
                           <Pressable
                             onPress={() => {
                               const curW = item.actualWeight ?? (item.quantity * 20);
@@ -796,8 +817,9 @@ export default function OrderDetailScreen() {
 
         {(() => {
           const orderReturn = returnRequests.find((r) => r.orderId === order.id && r.status !== "cancelled");
-          const canReturn = isCustomer && order.status === "delivered" && order.deliveredAt && !orderReturn;
           const deliveredAt = order.deliveredAt ? new Date(order.deliveredAt) : null;
+          const hoursSinceDelivery = deliveredAt ? (Date.now() - deliveredAt.getTime()) / (1000 * 60 * 60) : 0;
+          const canReturn = isCustomer && order.status === "delivered" && order.deliveredAt && !orderReturn && hoursSinceDelivery >= 1;
           const daysSinceDelivery = deliveredAt ? Math.floor((Date.now() - deliveredAt.getTime()) / (1000 * 60 * 60 * 24)) : 999;
           const withinReturnWindow = daysSinceDelivery <= 15;
 
@@ -882,41 +904,93 @@ export default function OrderDetailScreen() {
                       <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>تحديد الكل</Text>
                     </Pressable>
 
-                    {order.items.map((item, index) => (
-                      <Pressable
-                        key={index}
-                        onPress={() => setReturnSelectedItems((prev) => ({ ...prev, [index]: !prev[index] }))}
-                        style={[{
-                          flexDirection: "row-reverse",
-                          alignItems: "center",
-                          gap: 10,
-                          paddingVertical: 8,
-                          paddingHorizontal: 8,
-                          borderRadius: 8,
-                          backgroundColor: returnSelectedItems[index] ? "#C0392B11" : colors.surface,
-                          borderWidth: 1,
-                          borderColor: returnSelectedItems[index] ? "#C0392B44" : colors.border,
-                        }]}
-                      >
-                        <View style={{
-                          width: 20, height: 20, borderRadius: 4, borderWidth: 2,
-                          borderColor: returnSelectedItems[index] ? "#C0392B" : colors.border,
-                          backgroundColor: returnSelectedItems[index] ? "#C0392B" : "transparent",
-                          alignItems: "center", justifyContent: "center",
-                        }}>
-                          {returnSelectedItems[index] && <Icon name="check" size={12} color="#fff" />}
+                    {order.items.map((item, index) => {
+                      const isWeight = item.orderType === "weight";
+                      const maxVal = isWeight ? (item.weight ?? 1) : item.quantity;
+                      const curVal = returnItemWeights[index] ?? maxVal;
+                      const unitLabel = isWeight
+                        ? ((item as any).unit === "meter" || products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ")
+                        : "ثوب";
+                      return (
+                        <View key={index} style={{ gap: 4 }}>
+                          <Pressable
+                            onPress={() => {
+                              setReturnSelectedItems((prev) => ({ ...prev, [index]: !prev[index] }));
+                              if (!returnItemWeights[index]) {
+                                setReturnItemWeights((prev) => ({ ...prev, [index]: maxVal }));
+                              }
+                            }}
+                            style={[{
+                              flexDirection: "row-reverse",
+                              alignItems: "center",
+                              gap: 10,
+                              paddingVertical: 8,
+                              paddingHorizontal: 8,
+                              borderRadius: 8,
+                              backgroundColor: returnSelectedItems[index] ? "#C0392B11" : colors.surface,
+                              borderWidth: 1,
+                              borderColor: returnSelectedItems[index] ? "#C0392B44" : colors.border,
+                            }]}
+                          >
+                            <View style={{
+                              width: 20, height: 20, borderRadius: 4, borderWidth: 2,
+                              borderColor: returnSelectedItems[index] ? "#C0392B" : colors.border,
+                              backgroundColor: returnSelectedItems[index] ? "#C0392B" : "transparent",
+                              alignItems: "center", justifyContent: "center",
+                            }}>
+                              {returnSelectedItems[index] && <Icon name="check" size={12} color="#fff" />}
+                            </View>
+                            <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: item.colorHex, borderWidth: 1, borderColor: colors.border }} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right" }}>
+                                {item.productName}
+                              </Text>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                                {item.colorName} — {isWeight ? `${item.weight ?? 1} ${unitLabel}` : `${item.quantity} ${unitLabel}`}
+                              </Text>
+                            </View>
+                          </Pressable>
+                          {returnSelectedItems[index] && (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8 }}>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11 }}>
+                                الكمية للاسترجاع:
+                              </Text>
+                              <Pressable
+                                onPress={() => {
+                                  const nv = Math.max(1, curVal - 1);
+                                  setReturnItemWeights((prev) => ({ ...prev, [index]: nv }));
+                                }}
+                                style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                              >
+                                <Icon name="minus" size={10} color="#C0392B" />
+                              </Pressable>
+                              <TextInput
+                                style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 12, minWidth: 36, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 1 }}
+                                value={String(curVal)}
+                                keyboardType="numeric"
+                                onChangeText={(txt) => {
+                                  const val = parseFloat(txt) || 0;
+                                  if (val <= 0 || val > maxVal) return;
+                                  setReturnItemWeights((prev) => ({ ...prev, [index]: val }));
+                                }}
+                              />
+                              <Pressable
+                                onPress={() => {
+                                  const nv = Math.min(maxVal, curVal + 1);
+                                  setReturnItemWeights((prev) => ({ ...prev, [index]: nv }));
+                                }}
+                                style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#C0392B", alignItems: "center", justifyContent: "center" }}
+                              >
+                                <Icon name="plus" size={10} color="#fff" />
+                              </Pressable>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                                {unitLabel} (من {maxVal})
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: item.colorHex, borderWidth: 1, borderColor: colors.border }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right" }}>
-                            {item.productName}
-                          </Text>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                            {item.colorName} — {item.weight ? `${item.weight} ${(item as any).unit === "meter" ? "متر" : (products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ")}` : `${item.quantity} قطعة`}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    ))}
+                      );
+                    })}
                   </View>
 
                   <TextInput
@@ -932,7 +1006,17 @@ export default function OrderDetailScreen() {
                     <GoldButton
                       label={submittingReturn ? "جاري الإرسال..." : "إرسال طلب الاسترجاع"}
                       onPress={async () => {
-                        const selectedItems = order.items.filter((_, i) => returnSelectedItems[i]);
+                        const selectedItems = order.items
+                          .map((item, i) => {
+                            if (!returnSelectedItems[i]) return null;
+                            const isW = item.orderType === "weight";
+                            const retQty = returnItemWeights[i] ?? (isW ? (item.weight ?? 1) : item.quantity);
+                            return {
+                              ...item,
+                              ...(isW ? { weight: retQty } : { quantity: retQty }),
+                            };
+                          })
+                          .filter(Boolean) as typeof order.items;
                         if (selectedItems.length === 0) {
                           Alert.alert("خطأ", "يرجى اختيار صنف واحد على الأقل");
                           return;
@@ -958,13 +1042,14 @@ export default function OrderDetailScreen() {
                         setShowReturnForm(false);
                         setReturnReason("");
                         setReturnSelectedItems({});
+                        setReturnItemWeights({});
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         Alert.alert("تم", "تم إرسال طلب الاسترجاع وسيتم مراجعته");
                       }}
                       style={{ flex: 1 }}
                     />
                     <Pressable
-                      onPress={() => { setShowReturnForm(false); setReturnReason(""); setReturnSelectedItems({}); }}
+                      onPress={() => { setShowReturnForm(false); setReturnReason(""); setReturnSelectedItems({}); setReturnItemWeights({}); }}
                       style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
                     >
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
