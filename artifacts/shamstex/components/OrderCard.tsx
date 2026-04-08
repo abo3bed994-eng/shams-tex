@@ -119,7 +119,7 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onP
 
       <View style={styles.footer}>
         <Text style={[styles.total, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-          {order.total > 0 ? `${order.total} ج.م` : "يرجى التواصل مع المبيعات"}
+          {order.total > 0 ? `${order.total} ج.م` : "بانتظار التسعير"}
         </Text>
 
         <View style={styles.actionGroup}>

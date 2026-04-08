@@ -557,7 +557,10 @@ export default function ProductDetailScreen() {
               <Text
                 style={[styles.piecesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
               >
-                الرجاء التواصل مع مسؤول المبيعات لتأكيد السعر
+                الوزن التقديري: {totalPieces * 20} كغ — السعر التقديري: ≈ {totalPieces * 20 * displayPrice} ج.م
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>
+                (20 كغ لكل ثوب — الوزن الفعلي يُحدد عند التجهيز)
               </Text>
             </View>
           )}

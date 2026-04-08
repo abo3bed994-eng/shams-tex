@@ -132,7 +132,7 @@ export default function OrdersScreen() {
         )}
       </View>
 
-      {isStaff && myOrders.length > 0 && (
+      {user?.role === "admin" && myOrders.length > 0 && (
         <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
           <View style={[styles.statBox, { backgroundColor: "#9B59B611", borderColor: "#9B59B633" }]}>
             <Text style={{ color: "#9B59B6", fontFamily: "Inter_700Bold", fontSize: 18 }}>{stats.pending}</Text>
@@ -412,7 +412,7 @@ export default function OrdersScreen() {
                     : undefined
                 }
                 onPrevStatus={
-                  (user?.role === "admin" || user?.role === "supervisor") && order.status !== "cancelled" && userCanControlThisOrder
+                  user?.role === "admin" && order.status !== "cancelled" && userCanControlThisOrder
                     ? (status: OrderStatus) => updateOrderStatus(order.id, status)
                     : undefined
                 }

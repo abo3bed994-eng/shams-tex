@@ -708,7 +708,7 @@ export default function OrderDetailScreen() {
           const prevAction = PREV_ACTION[order.status];
           return (
             <View style={styles.actionRow}>
-              {(isAdmin || (user?.role === "supervisor" && order.status !== "delivered")) && prevAction && (
+              {isAdmin && prevAction && (
                 <Pressable
                   onPress={() => {
                     Alert.alert(

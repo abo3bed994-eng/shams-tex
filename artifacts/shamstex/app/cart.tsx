@@ -63,9 +63,13 @@ export default function CartScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
   const totalPieces = cart.reduce((a, b) => a + b.quantity, 0);
-  const totalPrice = cart
+  const weightTotal = cart
     .filter((i) => i.orderType === "weight")
     .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+  const piecesEstTotal = cart
+    .filter((i) => i.orderType === "pieces")
+    .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+  const totalPrice = weightTotal + piecesEstTotal;
 
   const hasPiecesOrder = cart.some((i) => i.orderType === "pieces");
 
@@ -117,8 +121,7 @@ export default function CartScreen() {
 
     try {
       if (editOrderId) {
-        const piecesEstimate = cart.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
-        await updateOrderItems(editOrderId, [...cart], totalPrice + piecesEstimate);
+        await updateOrderItems(editOrderId, [...cart], totalPrice);
         clearCart();
         setEditingOrderId(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -592,47 +595,31 @@ export default function CartScreen() {
               },
             ]}
           >
-            {(() => {
-              const piecesEstTotal = cart.filter(i => i.orderType === "pieces").reduce((a, b) => a + b.quantity * 20 * b.unitPrice, 0);
-              const grandEstimate = totalPrice + piecesEstTotal;
-              return (
-                <View style={{ gap: 4 }}>
-                  {totalPrice > 0 && (
-                    <View style={styles.totalRow}>
-                      <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                        {hasPiecesOrder ? "مجموع الكيلو" : "المجموع الكلي"}
+            <View style={{ gap: 4 }}>
+              {totalPrice > 0 && (
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    {hasPiecesOrder ? "الإجمالي التقديري" : "المجموع الكلي"}
+                  </Text>
+                  <View style={{ alignItems: "flex-start" }}>
+                    {selectedPayment === "ewallet" && feeAmount > 0 ? (
+                      <>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textDecorationLine: "line-through" }}>
+                          {hasPiecesOrder ? "≈ " : ""}{totalPrice.toLocaleString("ar-EG")} ج.م
+                        </Text>
+                        <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                          {hasPiecesOrder ? "≈ " : ""}{totalWithFee.toLocaleString("ar-EG")} ج.م
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                        {hasPiecesOrder ? "≈ " : ""}{totalPrice.toLocaleString("ar-EG")} ج.م
                       </Text>
-                      <View style={{ alignItems: "flex-start" }}>
-                        {selectedPayment === "ewallet" && feeAmount > 0 ? (
-                          <>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textDecorationLine: "line-through" }}>
-                              {totalPrice.toLocaleString("ar-EG")} ج.م
-                            </Text>
-                            <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                              {totalWithFee.toLocaleString("ar-EG")} ج.م
-                            </Text>
-                          </>
-                        ) : (
-                          <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                            {totalPrice.toLocaleString("ar-EG")} ج.م
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  )}
-                  {hasPiecesOrder && piecesEstTotal > 0 && (
-                    <View style={styles.totalRow}>
-                      <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
-                        {totalPrice > 0 ? "الإجمالي التقديري" : "المجموع التقديري"}
-                      </Text>
-                      <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                        ≈ {grandEstimate.toLocaleString("ar-EG")} ج.م
-                      </Text>
-                    </View>
-                  )}
+                    )}
+                  </View>
                 </View>
-              );
-            })()}
+              )}
+            </View>
             {selectedPayment && !editOrderId && (
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingVertical: 2 }}>
                 <Icon name={PAYMENT_METHOD_ICONS[selectedPayment]} size={14} color={PAYMENT_COLORS[selectedPayment]} />
