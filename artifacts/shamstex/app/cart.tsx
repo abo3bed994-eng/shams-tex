@@ -490,26 +490,19 @@ export default function CartScreen() {
                 <View style={styles.salesNoteInfoRow}>
                   <Icon name="info" size={16} color={colors.gold} />
                   <Text style={[styles.salesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                    الطلبات بالثوب يتم تسعيرها من قبل مسؤول المبيعات بعد تأكيد الطلب
+                    الوزن التقديري لكل ثوب 20 كغ — الوزن الفعلي يُحدد عند التجهيز
                   </Text>
                 </View>
-                {user?.role === "merchant" && (() => {
-                  const wholesaleContact = settings.contacts.find((c) => c.label.includes("الجملة") || c.label.includes("تجار"));
-                  const salesContact = settings.contacts.find((c) => c.label.includes("المبيعات"));
-                  const contactToShow = wholesaleContact ?? salesContact;
-                  if (!contactToShow) return null;
-                  return (
-                    <Pressable
-                      onPress={() => Linking.openURL(`tel:${contactToShow.number.replace(/\s/g, "")}`)}
-                      style={[styles.callSalesBtn, { backgroundColor: "transparent", borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius - 4 }]}
-                    >
-                      <Icon name="phone" size={14} color={colors.mutedForeground} />
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
-                        {contactToShow.label}: {contactToShow.number}
-                      </Text>
-                    </Pressable>
-                  );
-                })()}
+                {cart.filter(i => i.orderType === "pieces").map((item, idx) => (
+                  <View key={idx} style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4, paddingVertical: 2 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", flex: 1 }}>
+                      {item.productName} ({item.colorName}) × {item.quantity}
+                    </Text>
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                      ≈ {item.quantity * 20 * item.unitPrice} ج.م
+                    </Text>
+                  </View>
+                ))}
               </View>
             )}
 

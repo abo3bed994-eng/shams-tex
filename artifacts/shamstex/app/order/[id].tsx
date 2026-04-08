@@ -611,6 +611,45 @@ export default function OrderDetailScreen() {
           </Pressable>
         )}
 
+        {isStaff && order.invoiceImage && order.status === "preparing" && !isLockedByOther && (
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                "حذف الصورة",
+                "هل تريد حذف صورة الفاتورة؟",
+                [
+                  { text: "إلغاء", style: "cancel" },
+                  {
+                    text: "حذف",
+                    style: "destructive",
+                    onPress: async () => {
+                      await setOrderInvoiceImage(order.id, null);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    },
+                  },
+                ]
+              );
+            }}
+            style={({ pressed }) => [{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 10,
+              backgroundColor: "#C0392B11",
+              borderColor: "#C0392B44",
+              borderWidth: 1,
+              borderRadius: colors.radius - 4,
+              opacity: pressed ? 0.7 : 1,
+            }]}
+          >
+            <Icon name="trash-2" size={14} color="#C0392B" />
+            <Text style={{ color: "#C0392B", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+              حذف صورة الفاتورة
+            </Text>
+          </Pressable>
+        )}
+
         {order.paymentMethod && (() => {
           const pm = order.paymentMethod as PaymentMethod;
           const pmColors: Record<PaymentMethod, string> = {
@@ -669,7 +708,7 @@ export default function OrderDetailScreen() {
           const prevAction = PREV_ACTION[order.status];
           return (
             <View style={styles.actionRow}>
-              {(isAdmin || user?.role === "supervisor") && prevAction && (
+              {(isAdmin || (user?.role === "supervisor" && order.status !== "delivered")) && prevAction && (
                 <Pressable
                   onPress={() => {
                     Alert.alert(
@@ -699,6 +738,26 @@ export default function OrderDetailScreen() {
                       [
                         { text: "إلغاء", style: "cancel" },
                         { text: "نعم", onPress: () => {
+                          if (nextAction.next === "ready") {
+                            const hasPiecesWithoutWeight = order.items.some(
+                              (i) => i.orderType === "pieces" && !i.actualWeight
+                            );
+                            if (hasPiecesWithoutWeight) {
+                              const newItems = order.items.map((i) => {
+                                if (i.orderType === "pieces" && !i.actualWeight) {
+                                  return { ...i, actualWeight: i.quantity * 20 };
+                                }
+                                return i;
+                              });
+                              const weightTotal = newItems
+                                .filter((i) => i.orderType === "weight")
+                                .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems
+                                .filter((i) => i.orderType === "pieces")
+                                .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                            }
+                          }
                           if (nextAction.next === "received" && user?.role !== "admin") {
                             updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
                           } else {
