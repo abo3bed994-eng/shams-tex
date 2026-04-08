@@ -118,6 +118,7 @@ export interface ReturnRequest {
   reason: string;
   status: ReturnStatus;
   createdAt: string;
+  invoiceImage?: string;
 }
 
 export interface WorkingDay {

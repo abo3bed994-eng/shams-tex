@@ -40,6 +40,46 @@ const PREV_ACTION: Partial<Record<OrderStatus, { prev: OrderStatus; label: strin
   delivered: { prev: "ready",     label: "رجوع لجاهز" },
 };
 
+async function pickImage(): Promise<string | null> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      "اختر مصدر الصورة",
+      "من أين تريد رفع الصورة؟",
+      [
+        {
+          text: "الكاميرا",
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert("خطأ", "يرجى السماح بالوصول للكاميرا");
+              resolve(null);
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              quality: 0.7,
+              allowsEditing: true,
+            });
+            resolve(!result.canceled && result.assets[0] ? result.assets[0].uri : null);
+          },
+        },
+        {
+          text: "المعرض",
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.7,
+              allowsEditing: true,
+            });
+            resolve(!result.canceled && result.assets[0] ? result.assets[0].uri : null);
+          },
+        },
+        { text: "إلغاء", style: "cancel", onPress: () => resolve(null) },
+      ]
+    );
+  });
+}
+
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
@@ -56,6 +96,8 @@ export default function OrderDetailScreen() {
   const [returnItemWeights, setReturnItemWeights] = useState<Record<number, number>>({});
   const [showInvoiceImage, setShowInvoiceImage] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [returnInvoiceImage, setReturnInvoiceImage] = useState<string | null>(null);
+  const [uploadingReturnInvoice, setUploadingReturnInvoice] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -243,6 +285,9 @@ export default function OrderDetailScreen() {
                   <Text style={[styles.orderItemColor, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                     {item.colorName}
                   </Text>
+                  <Text style={{ color: colors.gold + "99", fontFamily: "Inter_500Medium", fontSize: 11 }}>
+                    {item.unitPrice} ج.م/كغ
+                  </Text>
                 </View>
               </View>
               <View style={[styles.orderItemLeft, { gap: 10 }]}>
@@ -269,11 +314,12 @@ export default function OrderDetailScreen() {
                         <TextInput
                           style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
                           value={String(item.weight ?? 1)}
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
                           onChangeText={(txt) => {
-                            const val = parseFloat(txt) || 0;
-                            if (val <= 0) return;
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: val } : it);
+                            const val = parseFloat(txt);
+                            if (isNaN(val) || val < 0) return;
+                            const newW = Math.max(0.1, val);
+                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newW } : it);
                             const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
                             const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
                             updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
@@ -337,11 +383,12 @@ export default function OrderDetailScreen() {
                           <TextInput
                             style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
                             value={String(item.actualWeight ?? (item.quantity * 20))}
-                            keyboardType="numeric"
+                            keyboardType="decimal-pad"
                             onChangeText={(txt) => {
-                              const val = parseFloat(txt) || 0;
-                              if (val <= 0) return;
-                              const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: val } : it);
+                              const val = parseFloat(txt);
+                              if (isNaN(val) || val < 0) return;
+                              const newW = Math.max(0.1, val);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
                               const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
                               updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
@@ -527,18 +574,14 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {isStaff && (order.status === "ready" || order.status === "preparing") && !isLockedByOther && (
+        {isStaff && order.status === "preparing" && !isLockedByOther && (
           <Pressable
             onPress={async () => {
               try {
                 setUploadingInvoice(true);
-                const result = await ImagePicker.launchImageLibraryAsync({
-                  mediaTypes: ['images'],
-                  quality: 0.7,
-                  allowsEditing: true,
-                });
-                if (!result.canceled && result.assets[0]) {
-                  await setOrderInvoiceImage(order.id, result.assets[0].uri);
+                const uri = await pickImage();
+                if (uri) {
+                  await setOrderInvoiceImage(order.id, uri);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   Alert.alert("تم", "تم رفع صورة الفاتورة وإشعار العميل");
                 }
@@ -680,7 +723,7 @@ export default function OrderDetailScreen() {
           );
         })()}
 
-        {isStaff && order.status !== "cancelled" && !isLockedByOther && (
+        {isStaff && order.status === "preparing" && !isLockedByOther && (
           <Pressable
             onPress={() => {
               setOrderEditable(order.id, !order.editable);
@@ -1002,6 +1045,50 @@ export default function OrderDetailScreen() {
                     multiline
                     textAlign="right"
                   />
+
+                  <View style={{ marginTop: 10, gap: 8 }}>
+                    <Pressable
+                      onPress={async () => {
+                        try {
+                          setUploadingReturnInvoice(true);
+                          const uri = await pickImage();
+                          if (uri) {
+                            setReturnInvoiceImage(uri);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          }
+                        } catch {
+                          Alert.alert("خطأ", "تعذّر رفع الصورة");
+                        } finally {
+                          setUploadingReturnInvoice(false);
+                        }
+                      }}
+                      style={({ pressed }) => [{
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        paddingVertical: 10,
+                        backgroundColor: returnInvoiceImage ? "#C0392B11" : colors.surface,
+                        borderColor: returnInvoiceImage ? "#C0392B44" : colors.border,
+                        borderWidth: 1,
+                        borderRadius: colors.radius - 4,
+                        opacity: pressed ? 0.7 : 1,
+                      }]}
+                    >
+                      <Icon name={returnInvoiceImage ? "check-circle" : "camera"} size={16} color={returnInvoiceImage ? "#C0392B" : colors.mutedForeground} />
+                      <Text style={{ color: returnInvoiceImage ? "#C0392B" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                        {uploadingReturnInvoice ? "جاري الرفع..." : returnInvoiceImage ? "تم رفع صورة الفاتورة — تغيير" : "رفع صورة الفاتورة (اختياري)"}
+                      </Text>
+                    </Pressable>
+                    {returnInvoiceImage && (
+                      <Image
+                        source={{ uri: returnInvoiceImage }}
+                        style={{ width: "100%", height: 120, borderRadius: colors.radius - 4, backgroundColor: colors.surface }}
+                        resizeMode="cover"
+                      />
+                    )}
+                  </View>
+
                   <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 8 }}>
                     <GoldButton
                       label={submittingReturn ? "جاري الإرسال..." : "إرسال طلب الاسترجاع"}
@@ -1037,19 +1124,21 @@ export default function OrderDetailScreen() {
                           reason: returnReason.trim(),
                           status: "pending",
                           createdAt: new Date().toISOString(),
+                          ...(returnInvoiceImage ? { invoiceImage: returnInvoiceImage } : {}),
                         });
                         setSubmittingReturn(false);
                         setShowReturnForm(false);
                         setReturnReason("");
                         setReturnSelectedItems({});
                         setReturnItemWeights({});
+                        setReturnInvoiceImage(null);
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         Alert.alert("تم", "تم إرسال طلب الاسترجاع وسيتم مراجعته");
                       }}
                       style={{ flex: 1 }}
                     />
                     <Pressable
-                      onPress={() => { setShowReturnForm(false); setReturnReason(""); setReturnSelectedItems({}); setReturnItemWeights({}); }}
+                      onPress={() => { setShowReturnForm(false); setReturnReason(""); setReturnSelectedItems({}); setReturnItemWeights({}); setReturnInvoiceImage(null); }}
                       style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
                     >
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
