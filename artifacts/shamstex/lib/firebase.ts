@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
+  initializeFirestore,
   getFirestore,
   collection,
   doc,
@@ -11,6 +12,7 @@ import {
   query,
   orderBy,
   Unsubscribe,
+  memoryLocalCache,
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -22,7 +24,14 @@ const firebaseConfig = {
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app);
+
+let db: ReturnType<typeof getFirestore>;
+try {
+  db = initializeFirestore(app, { localCache: memoryLocalCache() });
+} catch {
+  db = getFirestore(app);
+}
+export { db };
 
 export const FS = {
   async saveCustomer(customer: object & { id: string; phone: string }) {
