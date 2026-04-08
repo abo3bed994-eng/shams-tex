@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Linking,
@@ -42,12 +42,15 @@ export default function CartScreen() {
   const editOrderId = paramEditId || editingOrderId;
   const editOrder = editOrderId ? orders.find((o) => o.id === editOrderId) : null;
 
+  const editLoadedRef = useRef(false);
   useEffect(() => {
-    if (paramEditId && paramEditId !== editingOrderId) {
+    if (paramEditId && !editLoadedRef.current) {
+      editLoadedRef.current = true;
       setEditingOrderId(paramEditId);
       const order = orders.find((o) => o.id === paramEditId);
       if (order) {
         setCart([...order.items]);
+        if (order.notes) setNotes(order.notes);
       }
     }
   }, [paramEditId]);
@@ -56,6 +59,7 @@ export default function CartScreen() {
     if (editingOrderId) {
       setEditingOrderId(null);
       clearCart();
+      editLoadedRef.current = false;
     }
     router.back();
   };
