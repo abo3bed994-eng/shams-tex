@@ -174,7 +174,7 @@ export default function OrdersScreen() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]} contentContainerStyle={{ paddingHorizontal: 4 }}>
+      <View style={[styles.filterGrid, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
         {FILTERS.map(({ key, label, count }) => {
           const isReturns = key === "returns";
           const isActive = filter === key;
@@ -185,51 +185,49 @@ export default function OrdersScreen() {
               key={key}
               onPress={() => setFilter(key)}
               style={[
-                styles.filterBtn,
+                styles.filterChip,
                 {
-                  borderBottomWidth: isActive ? 2.5 : 0,
-                  borderBottomColor: activeColor,
+                  backgroundColor: isActive ? activeColor + "18" : colors.surface,
+                  borderColor: isActive ? activeColor : colors.border,
+                  borderWidth: isActive ? 1.5 : 1,
                 },
               ]}
             >
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                <Text
-                  style={[
-                    styles.filterText,
-                    {
-                      color: isActive ? activeColor : colors.mutedForeground,
-                      fontFamily: isActive ? "Inter_600SemiBold" : "Inter_400Regular",
-                    },
-                  ]}
-                >
-                  {label}
-                </Text>
-                {hasCount && (
-                  <View style={{
-                    backgroundColor: isActive ? activeColor + "22" : colors.surface,
-                    paddingHorizontal: 5,
-                    paddingVertical: 1,
-                    borderRadius: 8,
-                    minWidth: 18,
-                    alignItems: "center",
+              <Text
+                style={{
+                  color: isActive ? activeColor : colors.mutedForeground,
+                  fontFamily: isActive ? "Inter_600SemiBold" : "Inter_400Regular",
+                  fontSize: 11,
+                }}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+              {hasCount && (
+                <View style={{
+                  backgroundColor: isActive ? activeColor + "33" : colors.border + "88",
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Text style={{
+                    color: isActive ? activeColor : colors.mutedForeground,
+                    fontFamily: "Inter_700Bold",
+                    fontSize: 9,
                   }}>
-                    <Text style={{
-                      color: isActive ? activeColor : colors.mutedForeground,
-                      fontFamily: "Inter_600SemiBold",
-                      fontSize: 10,
-                    }}>
-                      {count}
-                    </Text>
-                  </View>
-                )}
-              </View>
+                    {count}
+                  </Text>
+                </View>
+              )}
               {isReturns && pendingReturnsCount > 0 && !isActive && (
-                <View style={{ backgroundColor: "#C0392B", width: 6, height: 6, borderRadius: 3, position: "absolute", top: 8, left: 4 }} />
+                <View style={{ backgroundColor: "#C0392B", width: 5, height: 5, borderRadius: 3, position: "absolute", top: 2, left: 2 }} />
               )}
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -514,9 +512,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
-  filterRow: { borderBottomWidth: 1, zIndex: 10 },
-  filterBtn: { alignItems: "center" as const, paddingVertical: 12, paddingHorizontal: 10, position: "relative" as const, minWidth: 52 },
-  filterText: { fontSize: 12 },
+  filterGrid: {
+    flexDirection: "row-reverse" as const,
+    flexWrap: "wrap" as const,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    borderBottomWidth: 1,
+    zIndex: 10,
+  },
+  filterChip: {
+    flexDirection: "row-reverse" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    position: "relative" as const,
+  },
   list: { padding: 16, gap: 4 },
   empty: { alignItems: "center" as const, paddingTop: 80, gap: 16 },
   emptyIcon: {
