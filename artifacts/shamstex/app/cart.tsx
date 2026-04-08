@@ -383,9 +383,14 @@ export default function CartScreen() {
                       {item.unitPrice * (item.weight ?? 1)} ج.م
                     </Text>
                   ) : (
-                    <Text style={[styles.contactSales, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                      الرجاء التواصل مع مسؤول المبيعات
-                    </Text>
+                    <View style={{ gap: 2, alignItems: "flex-end" }}>
+                      <Text style={[styles.itemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                        ≈ {item.quantity * 20 * item.unitPrice} ج.م
+                      </Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                        تقديري ({item.quantity} × 20كغ × {item.unitPrice})
+                      </Text>
+                    </View>
                   )}
 
                   {item.orderType === "weight" && (() => {
@@ -500,17 +505,12 @@ export default function CartScreen() {
                   return (
                     <Pressable
                       onPress={() => Linking.openURL(`tel:${contactToShow.number.replace(/\s/g, "")}`)}
-                      style={[styles.callSalesBtn, { backgroundColor: colors.gold, borderRadius: colors.radius - 4 }]}
+                      style={[styles.callSalesBtn, { backgroundColor: "transparent", borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius - 4 }]}
                     >
-                      <Icon name="phone" size={16} color={colors.background} />
-                      <View style={{ gap: 2, alignItems: "flex-end" }}>
-                        <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                          اتصل بـ{contactToShow.label}
-                        </Text>
-                        <Text style={{ color: colors.background + "CC", fontFamily: "Inter_400Regular", fontSize: 12 }}>
-                          {contactToShow.number}
-                        </Text>
-                      </View>
+                      <Icon name="phone" size={14} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                        {contactToShow.label}: {contactToShow.number}
+                      </Text>
                     </Pressable>
                   );
                 })()}
@@ -603,29 +603,47 @@ export default function CartScreen() {
               },
             ]}
           >
-            {totalPrice > 0 && (
-              <View style={styles.totalRow}>
-                <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  {hasPiecesOrder ? "مجموع الكيلو" : "المجموع الكلي"}
-                </Text>
-                <View style={{ alignItems: "flex-start" }}>
-                  {selectedPayment === "ewallet" && feeAmount > 0 ? (
-                    <>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textDecorationLine: "line-through" }}>
-                        {totalPrice.toLocaleString("ar-EG")} ج.م
+            {(() => {
+              const piecesEstTotal = cart.filter(i => i.orderType === "pieces").reduce((a, b) => a + b.quantity * 20 * b.unitPrice, 0);
+              const grandEstimate = totalPrice + piecesEstTotal;
+              return (
+                <View style={{ gap: 4 }}>
+                  {totalPrice > 0 && (
+                    <View style={styles.totalRow}>
+                      <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                        {hasPiecesOrder ? "مجموع الكيلو" : "المجموع الكلي"}
                       </Text>
-                      <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                        {totalWithFee.toLocaleString("ar-EG")} ج.م
+                      <View style={{ alignItems: "flex-start" }}>
+                        {selectedPayment === "ewallet" && feeAmount > 0 ? (
+                          <>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textDecorationLine: "line-through" }}>
+                              {totalPrice.toLocaleString("ar-EG")} ج.م
+                            </Text>
+                            <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                              {totalWithFee.toLocaleString("ar-EG")} ج.م
+                            </Text>
+                          </>
+                        ) : (
+                          <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                            {totalPrice.toLocaleString("ar-EG")} ج.م
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  )}
+                  {hasPiecesOrder && piecesEstTotal > 0 && (
+                    <View style={styles.totalRow}>
+                      <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
+                        {totalPrice > 0 ? "الإجمالي التقديري" : "المجموع التقديري"}
                       </Text>
-                    </>
-                  ) : (
-                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                      {totalPrice.toLocaleString("ar-EG")} ج.م
-                    </Text>
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }}>
+                        ≈ {grandEstimate.toLocaleString("ar-EG")} ج.م
+                      </Text>
+                    </View>
                   )}
                 </View>
-              </View>
-            )}
+              );
+            })()}
             {selectedPayment && !editOrderId && (
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingVertical: 2 }}>
                 <Icon name={PAYMENT_METHOD_ICONS[selectedPayment]} size={14} color={PAYMENT_COLORS[selectedPayment]} />

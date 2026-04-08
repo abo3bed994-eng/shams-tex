@@ -209,13 +209,51 @@ export default function OrderDetailScreen() {
               </View>
               <View style={[styles.orderItemLeft, { gap: 10 }]}>
                 {item.orderType === "weight" ? (
-                  <Text style={[styles.orderItemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                    {item.unitPrice * (item.weight ?? 1)} ج.م
-                  </Text>
+                  <View style={{ alignItems: "flex-start", gap: 4 }}>
+                    <Text style={[styles.orderItemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                      {item.unitPrice * (item.weight ?? 1)} ج.م
+                    </Text>
+                    {isStaff && order.status === "preparing" && !isLockedByOther && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Pressable
+                          onPress={() => {
+                            const newWeight = Math.max(1, (item.weight ?? 1) - 1);
+                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
+                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            updateOrderItems(order.id, newItems, newTotal, true);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }}
+                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Icon name="minus" size={12} color={colors.gold} />
+                        </Pressable>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 30, textAlign: "center" }}>
+                          {item.weight ?? 1}
+                        </Text>
+                        <Pressable
+                          onPress={() => {
+                            const newWeight = (item.weight ?? 1) + 1;
+                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
+                            const newTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                            updateOrderItems(order.id, newItems, newTotal, true);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }}
+                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Icon name="plus" size={12} color={colors.background} />
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
                 ) : (
-                  <Text style={[styles.orderItemQty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                    x{item.quantity}
-                  </Text>
+                  <View style={{ alignItems: "flex-start", gap: 2 }}>
+                    <Text style={[styles.orderItemQty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                      x{item.quantity}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                      ≈ {item.quantity * 20 * item.unitPrice} ج.م
+                    </Text>
+                  </View>
                 )}
                 {isStaff && order.editable && order.items.length > 1 && (
                   <Pressable
@@ -265,6 +303,10 @@ export default function OrderDetailScreen() {
               .filter((i) => i.orderType === "pieces")
               .reduce((a, b) => a + b.quantity, 0);
 
+            const piecesEstimate = order.items
+              .filter((i) => i.orderType === "pieces")
+              .reduce((a, b) => a + b.quantity * 20 * b.unitPrice, 0);
+
             if (weightTotal > 0 && hasPieces) {
               return (
                 <View style={{ gap: 10 }}>
@@ -276,9 +318,22 @@ export default function OrderDetailScreen() {
                       مجموع الكيلو
                     </Text>
                   </View>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "center" }}>
-                    + {piecesCount} قطعة بالثوب — السعر يحدد من مسؤول المبيعات
-                  </Text>
+                  <View style={styles.totalRow}>
+                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }]}>
+                      ≈ {piecesEstimate} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                      تقديري الأثواب ({piecesCount} × 20كغ)
+                    </Text>
+                  </View>
+                  <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }]}>
+                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                      ≈ {weightTotal + piecesEstimate} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                      الإجمالي التقديري
+                    </Text>
+                  </View>
                 </View>
               );
             }
@@ -295,9 +350,19 @@ export default function OrderDetailScreen() {
               );
             }
             return (
-              <Text style={[styles.salesContact, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                الرجاء التواصل مع مسؤول المبيعات لتحديد السعر
-              </Text>
+              <View style={{ gap: 6 }}>
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                    ≈ {piecesEstimate} ج.م
+                  </Text>
+                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                    الإجمالي التقديري
+                  </Text>
+                </View>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
+                  تقدير بناءً على 20كغ لكل ثوب — السعر النهائي يحدده مسؤول المبيعات
+                </Text>
+              </View>
             );
           })()}
         </View>

@@ -277,7 +277,7 @@ interface AppContextType {
   cancelOrder: (orderId: string) => Promise<void>;
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
-  updateOrderItems: (orderId: string, items: CartItem[], total: number) => Promise<void>;
+  updateOrderItems: (orderId: string, items: CartItem[], total: number, staffEdit?: boolean) => Promise<void>;
   editingOrderId: string | null;
   setEditingOrderId: (id: string | null) => void;
   returnRequests: ReturnRequest[];
@@ -850,9 +850,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateOrderItems = useCallback(
-    async (orderId: string, items: CartItem[], total: number) => {
+    async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean) => {
       const updated = ordersRef.current.map((o) =>
-        o.id === orderId ? { ...o, items, total, editable: false, edited: true, editedAt: new Date().toISOString() } : o
+        o.id === orderId ? {
+          ...o,
+          items,
+          total,
+          ...(staffEdit ? {} : { editable: false, edited: true, editedAt: new Date().toISOString() }),
+        } : o
       );
       const updatedOrder = updated.find((o) => o.id === orderId);
       setOrdersState(updated);
@@ -860,29 +865,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (updatedOrder) {
         FS.saveOrder(updatedOrder).catch(() => {});
-        const assignedStaffId = updatedOrder.assignedTo;
-        const staffNotif: Notification = {
-          id: `notif_edited_${orderId}_${Date.now()}`,
-          title: "تم تعديل الطلب من قبل العميل ✏️",
-          body: `العميل ${updatedOrder.userName} عدّل طلبه #${orderId.slice(0, 8)} — يرجى مراجعة التعديلات ومتابعة التجهيز`,
-          createdAt: new Date().toISOString(),
-          read: false,
-          ...(assignedStaffId ? { targetUserId: assignedStaffId } : { targetRole: "employee" as any }),
-          linkedOrderId: orderId,
-        };
-        const updatedNotifs = [staffNotif, ...notificationsRef.current];
-        setNotifications(updatedNotifs);
-        await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
-        FS.saveNotification(staffNotif).catch(() => {});
-        if (assignedStaffId) {
-          const staffRecord = registeredCustomersRef.current.find((c) => c.id === assignedStaffId);
-          if (staffRecord?.phone) {
-            notifyUserByPhone(
-              staffRecord.phone,
-              "تم تعديل الطلب ✏️",
-              `العميل ${updatedOrder.userName} عدّل طلبه #${orderId.slice(0, 8)} — راجع التعديلات`,
-              { type: "order_edited", orderId }
-            ).catch(() => {});
+        if (!staffEdit) {
+          const assignedStaffId = updatedOrder.assignedTo;
+          const staffNotif: Notification = {
+            id: `notif_edited_${orderId}_${Date.now()}`,
+            title: "تم تعديل الطلب من قبل العميل ✏️",
+            body: `العميل ${updatedOrder.userName} عدّل طلبه #${orderId.slice(0, 8)} — يرجى مراجعة التعديلات ومتابعة التجهيز`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            ...(assignedStaffId ? { targetUserId: assignedStaffId } : { targetRole: "employee" as any }),
+            linkedOrderId: orderId,
+          };
+          const updatedNotifs = [staffNotif, ...notificationsRef.current];
+          setNotifications(updatedNotifs);
+          await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
+          FS.saveNotification(staffNotif).catch(() => {});
+          if (assignedStaffId) {
+            const staffRecord = registeredCustomersRef.current.find((c) => c.id === assignedStaffId);
+            if (staffRecord?.phone) {
+              notifyUserByPhone(
+                staffRecord.phone,
+                "تم تعديل الطلب ✏️",
+                `العميل ${updatedOrder.userName} عدّل طلبه #${orderId.slice(0, 8)} — راجع التعديلات`,
+                { type: "order_edited", orderId }
+              ).catch(() => {});
+            }
           }
         }
       }
@@ -1020,10 +1027,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async () => {
       const updated = notificationsRef.current.map((n) => ({ ...n, read: true }));
       setNotifications(updated);
-      await AsyncStorage.setItem("notifications", JSON.stringify(updated));
-      for (const n of updated) {
-        FS.saveNotification(n).catch(() => {});
-      }
+      AsyncStorage.setItem("notifications", JSON.stringify(updated)).catch(() => {});
+      Promise.all(updated.map((n) => FS.saveNotification(n).catch(() => {}))).catch(() => {});
     },
     []
   );

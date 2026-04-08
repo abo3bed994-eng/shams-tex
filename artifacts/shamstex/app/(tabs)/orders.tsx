@@ -515,8 +515,8 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
   filterRow: { borderBottomWidth: 1, zIndex: 10 },
-  filterBtn: { alignItems: "center" as const, paddingVertical: 12, paddingHorizontal: 14, position: "relative" as const },
-  filterText: { fontSize: 13 },
+  filterBtn: { alignItems: "center" as const, paddingVertical: 12, paddingHorizontal: 10, position: "relative" as const, minWidth: 52 },
+  filterText: { fontSize: 12 },
   list: { padding: 16, gap: 4 },
   empty: { alignItems: "center" as const, paddingTop: 80, gap: 16 },
   emptyIcon: {

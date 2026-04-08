@@ -25,6 +25,13 @@ export default function NotificationsScreen() {
     }
   }, []);
 
+  const goingBack = useRef(false);
+  const safeBack = useCallback(() => {
+    if (goingBack.current) return;
+    goingBack.current = true;
+    router.back();
+  }, []);
+
   const navigatingRef = useRef(false);
   const handleNotifPress = useCallback((notif: Notification) => {
     if (notif.actionType === "upgrade_request" && notif.actionUserId && (user?.role === "admin" || user?.role === "supervisor")) {
@@ -132,7 +139,7 @@ export default function NotificationsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <GoldHeader title="الإشعارات" onBack={() => router.back()} />
+      <GoldHeader title="الإشعارات" onBack={safeBack} />
 
       {visibleNotifications.length === 0 ? (
         <View style={styles.empty}>
