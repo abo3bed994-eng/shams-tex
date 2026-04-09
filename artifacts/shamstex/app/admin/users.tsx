@@ -198,70 +198,29 @@ export default function AdminUsersScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const updated = customerList.find((u) => u.id === userId) || customerList.find((u) => u.phone === userId);
     if (updated) {
-      saveCustomerChange({ ...updated, role: newRole, upgradeStatus: undefined });
-      if (newRole === "merchant") {
+      let perms: EmployeePermission[] | undefined = undefined;
+      if (newRole === "employee") perms = ["view_orders", "view_products"];
+      if (newRole === "supervisor") perms = [...SUPERVISOR_PERMISSIONS];
+
+      saveCustomerChange({ ...updated, role: newRole, permissions: perms, upgradeStatus: undefined });
+
+      const notifications: Record<string, { title: string; body: string }> = {
+        merchant: { title: "🎉 تمت ترقيتك إلى تاجر!", body: "تم تفعيل حسابك كتاجر. سيتم تحديث حسابك تلقائياً خلال لحظات للاستفادة من أسعار الجملة." },
+        employee: { title: "تم تعيينك كموظف 🛠️", body: "تم تفعيل حسابك كموظف. يمكنك الآن الوصول إلى لوحة الإدارة." },
+        supervisor: { title: "تم تعيينك كمشرف 🛡️", body: "تم تفعيل حسابك كمشرف. لديك صلاحيات إشرافية كاملة." },
+        customer: { title: "تغيير الدور", body: "تم تغيير دورك إلى زبون عادي. سيتم تحديث حسابك تلقائياً خلال لحظات." },
+      };
+      const notif = notifications[newRole];
+      if (notif) {
         addNotification({
-          id: `role_merchant_${userId}_${Date.now()}`,
-          title: "🎉 تمت ترقيتك إلى تاجر!",
-          body: "تم تفعيل حسابك كتاجر. سيتم تحديث حسابك تلقائياً خلال لحظات للاستفادة من أسعار الجملة.",
-          createdAt: new Date().toISOString(),
-          read: false,
-          targetUserId: userId,
-        });
-        notifyUserByPhone(
-          updated.phone,
-          "🎉 تمت ترقيتك إلى تاجر!",
-          "تم تفعيل حسابك كتاجر. سيتم التحديث تلقائياً.",
-          { type: "role_change", newRole: "merchant" }
-        ).catch(() => {});
-      } else if (newRole === "employee") {
-        const defaultPerms: EmployeePermission[] = ["view_orders", "view_products"];
-        saveCustomerChange({ ...updated, role: "employee", permissions: defaultPerms, upgradeStatus: undefined });
-        addNotification({
-          id: `role_employee_${updated.id}_${Date.now()}`,
-          title: "تم تعيينك كموظف 🛠️",
-          body: "تم تفعيل حسابك كموظف. يمكنك الآن الوصول إلى لوحة الإدارة.",
+          id: `role_${newRole}_${updated.id}_${Date.now()}`,
+          title: notif.title,
+          body: notif.body,
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: updated.id,
         });
-        notifyUserByPhone(
-          updated.phone,
-          "تم تعيينك كموظف 🛠️",
-          "تم تفعيل حسابك كموظف. يمكنك الآن الوصول إلى لوحة الإدارة.",
-          { type: "role_change", newRole: "employee" }
-        ).catch(() => {});
-      } else if (newRole === "supervisor") {
-        saveCustomerChange({ ...updated, role: "supervisor", permissions: [...SUPERVISOR_PERMISSIONS], upgradeStatus: undefined });
-        addNotification({
-          id: `role_supervisor_${updated.id}_${Date.now()}`,
-          title: "تم تعيينك كمشرف 🛡️",
-          body: "تم تفعيل حسابك كمشرف. لديك صلاحيات إشرافية كاملة.",
-          createdAt: new Date().toISOString(),
-          read: false,
-          targetUserId: updated.id,
-        });
-        notifyUserByPhone(
-          updated.phone,
-          "تم تعيينك كمشرف 🛡️",
-          "تم تفعيل حسابك كمشرف. لديك صلاحيات إشرافية كاملة.",
-          { type: "role_change", newRole: "supervisor" }
-        ).catch(() => {});
-      } else if (newRole === "customer") {
-        addNotification({
-          id: `role_customer_${updated.id}_${Date.now()}`,
-          title: "تغيير الدور",
-          body: "تم تغيير دورك إلى زبون عادي. سيتم تحديث حسابك تلقائياً خلال لحظات.",
-          createdAt: new Date().toISOString(),
-          read: false,
-          targetUserId: updated.id,
-        });
-        notifyUserByPhone(
-          updated.phone,
-          "تغيير الدور",
-          "تم تغيير دورك إلى زبون عادي. سيتم التحديث تلقائياً.",
-          { type: "role_change", newRole: "customer" }
-        ).catch(() => {});
+        notifyUserByPhone(updated.phone, notif.title, notif.body, { type: "role_change", newRole }).catch(() => {});
       }
     }
     setConfirmAction(null);
@@ -286,11 +245,44 @@ export default function AdminUsersScreen() {
     if (target) saveCustomerChange({ ...target, upgradeStatus: "rejected" });
   };
 
-  const handleChangeStaffRole = (userId: string, newRole: "employee" | "supervisor") => {
+  const handleChangeStaffRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const defaultPerms = newRole === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_PERMISSIONS;
     const target = staffList.find((u) => u.id === userId);
-    if (target) saveStaffMember({ ...target, role: newRole, permissions: defaultPerms });
+    if (!target) return;
+    if (newRole === "admin") {
+      saveStaffMember({ ...target, role: "admin", permissions: [] });
+      addNotification({
+        id: `role_admin_${target.id}_${Date.now()}`,
+        title: "ترقية إلى مدير 🎉",
+        body: "تم ترقيتك إلى مدير. لديك الآن صلاحيات كاملة.",
+        createdAt: new Date().toISOString(),
+        read: false,
+        targetUserId: target.id,
+      });
+      notifyUserByPhone(target.phone, "🎉 ترقية إلى مدير!", "تم ترقيتك إلى مدير. لديك الآن صلاحيات كاملة.", { type: "role_change", newRole: "admin" }).catch(() => {});
+    } else if (newRole === "supervisor") {
+      saveStaffMember({ ...target, role: "supervisor", permissions: [...SUPERVISOR_PERMISSIONS] });
+      addNotification({
+        id: `role_supervisor_${target.id}_${Date.now()}`,
+        title: "تغيير الدور إلى مشرف 🛡️",
+        body: "تم تغيير دورك إلى مشرف.",
+        createdAt: new Date().toISOString(),
+        read: false,
+        targetUserId: target.id,
+      });
+      notifyUserByPhone(target.phone, "تغيير الدور إلى مشرف 🛡️", "تم تغيير دورك إلى مشرف.", { type: "role_change", newRole: "supervisor" }).catch(() => {});
+    } else if (newRole === "employee") {
+      saveStaffMember({ ...target, role: "employee", permissions: [...EMPLOYEE_PERMISSIONS] });
+      addNotification({
+        id: `role_employee_${target.id}_${Date.now()}`,
+        title: "تغيير الدور إلى موظف 🛠️",
+        body: "تم تغيير دورك إلى موظف.",
+        createdAt: new Date().toISOString(),
+        read: false,
+        targetUserId: target.id,
+      });
+      notifyUserByPhone(target.phone, "تغيير الدور إلى موظف 🛠️", "تم تغيير دورك إلى موظف.", { type: "role_change", newRole: "employee" }).catch(() => {});
+    }
   };
 
   const handleToggleStaffPermission = (userId: string, permission: EmployeePermission) => {
@@ -747,16 +739,30 @@ export default function AdminUsersScreen() {
               </View>
             )}
             {u.phone !== PRIMARY_ADMIN_PHONE && renderNameEdit(u, handleSaveStaffName)}
-            {(u.role === "employee" || u.role === "supervisor") && (
+            {u.phone !== PRIMARY_ADMIN_PHONE && user?.role === "admin" && (
               <View style={{ gap: 8 }}>
                 <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
                   الدور الوظيفي
                 </Text>
-                <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-                  {(["supervisor", "employee"] as ("supervisor" | "employee")[]).map((role) => (
+                <View style={{ flexDirection: "row-reverse", gap: 8, flexWrap: "wrap" }}>
+                  {(["admin", "supervisor", "employee"] as UserRole[]).map((role) => (
                     <Pressable
                       key={role}
-                      onPress={() => handleChangeStaffRole(u.id, role)}
+                      onPress={() => {
+                        if (u.role === role) return;
+                        if (role === "admin") {
+                          handlePromoteToAdmin(u);
+                        } else {
+                          Alert.alert(
+                            "تغيير الدور",
+                            `هل تريد تغيير دور "${u.name}" إلى ${ROLE_LABELS[role]}؟`,
+                            [
+                              { text: "إلغاء", style: "cancel" },
+                              { text: "تأكيد", onPress: () => handleChangeStaffRole(u.id, role) },
+                            ]
+                          );
+                        }
+                      }}
                       style={[
                         styles.roleBtn,
                         {
@@ -767,7 +773,7 @@ export default function AdminUsersScreen() {
                       ]}
                     >
                       <Icon
-                        name={role === "supervisor" ? "shield" : "tool"}
+                        name={ROLE_ICONS[role]}
                         size={14}
                         color={u.role === role ? ROLE_COLORS[role] : colors.mutedForeground}
                       />
@@ -783,25 +789,6 @@ export default function AdminUsersScreen() {
                     </Pressable>
                   ))}
                 </View>
-
-                {user?.role === "admin" && (
-                  <Pressable
-                    onPress={() => handlePromoteToAdmin(u)}
-                    style={[
-                      styles.roleBtn,
-                      {
-                        backgroundColor: colors.gold + "11",
-                        borderColor: colors.gold + "44",
-                        justifyContent: "center",
-                      },
-                    ]}
-                  >
-                    <Icon name="award" size={14} color={colors.gold} />
-                    <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                      ترقية إلى مدير
-                    </Text>
-                  </Pressable>
-                )}
               </View>
             )}
             {showPermissions && (user?.role === "admin" || (user?.role === "supervisor" && (user.permissions ?? []).includes("manage_staff"))) && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
