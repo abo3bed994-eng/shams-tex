@@ -87,7 +87,11 @@ export default function LoginScreen() {
         return;
       }
       const demo = DEMO_ACCOUNTS[phone];
-      await finishLogin(demo.name, demo.role, { id: demo.id, phone, name: demo.name, role: demo.role, permissions: demo.permissions });
+      const existingDemo = findCustomerByPhone(phone);
+      const demoUser = existingDemo
+        ? { ...existingDemo }
+        : { id: demo.id, phone, name: demo.name, role: demo.role, permissions: demo.permissions };
+      await finishLogin(demoUser.name, demoUser.role as any, demoUser);
       return;
     }
 
@@ -101,7 +105,7 @@ export default function LoginScreen() {
     const existing = findCustomerByPhone(phone);
     if (existing) {
       setReturningUser(existing);
-      await finishLogin(existing.name, "customer", existing);
+      await finishLogin(existing.name, existing.role as any, existing);
     } else {
       setStep("name");
     }

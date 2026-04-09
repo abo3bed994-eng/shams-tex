@@ -512,17 +512,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Auto-sync logged-in user when their customer record changes in Firestore
-  // (fixes VIP badge, role upgrade, upgradeStatus not reflecting for logged-in customer)
   const userRef = React.useRef<User | null>(null);
   userRef.current = user;
-  useEffect(() => {
+
+  const syncUserWithRecords = useCallback(() => {
     const currentUser = userRef.current;
     if (!currentUser || !currentUser.phone) return;
-    // Find current user in the freshly-updated registeredCustomers list
     const freshRecord = registeredCustomers.find((c) => c.phone === currentUser.phone);
     if (!freshRecord) return;
-    // Only update if something relevant actually changed
     const changed =
       freshRecord.role !== currentUser.role ||
       freshRecord.vip !== currentUser.vip ||
@@ -535,6 +532,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
     }
   }, [registeredCustomers]);
+
+  useEffect(() => {
+    syncUserWithRecords();
+  }, [registeredCustomers, syncUserWithRecords]);
+
+  useEffect(() => {
+    if (user) syncUserWithRecords();
+  }, [user?.phone]);
 
   const loadPersistedData = async () => {
     try {
@@ -609,11 +614,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const registerCustomer = useCallback(async (newUser: User) => {
-    // If this phone already exists, preserve their existing ID and permissions
     const existing = registeredCustomers.find((c) => c.phone === newUser.phone);
-    // Preserve existing permissions — ?? means: only fallback if existing.permissions is null/undefined
     const userToSave = existing
-      ? { ...newUser, id: existing.id, permissions: existing.permissions ?? newUser.permissions }
+      ? { ...newUser, id: existing.id, role: existing.role, permissions: existing.permissions ?? newUser.permissions, vip: existing.vip ?? newUser.vip }
       : newUser;
     const updated = [...registeredCustomers.filter((c) => c.phone !== newUser.phone), userToSave];
     setRegisteredCustomersState(updated);
