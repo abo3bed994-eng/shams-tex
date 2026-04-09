@@ -293,6 +293,9 @@ export default function OrderDetailScreen() {
               <View style={[styles.orderItemLeft, { gap: 10 }]}>
                 {item.orderType === "weight" ? (
                   <View style={{ alignItems: "flex-start", gap: 4 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11 }}>
+                      {item.weight ?? 1} {(() => { const p = products.find(pp => pp.id === item.productId); return p?.unit === "meter" ? "متر" : "كغ"; })()}
+                    </Text>
                     <Text style={[styles.orderItemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                       {item.unitPrice * (item.weight ?? 1)} ج.م
                     </Text>
@@ -574,7 +577,7 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {isStaff && order.status === "preparing" && !isLockedByOther && (
+        {isStaff && order.status === "ready" && !isLockedByOther && (
           <Pressable
             onPress={async () => {
               try {
@@ -611,7 +614,7 @@ export default function OrderDetailScreen() {
           </Pressable>
         )}
 
-        {isStaff && order.invoiceImage && order.status === "preparing" && !isLockedByOther && (
+        {isStaff && order.invoiceImage && order.status === "ready" && !isLockedByOther && (
           <Pressable
             onPress={() => {
               Alert.alert(

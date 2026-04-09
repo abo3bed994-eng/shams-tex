@@ -407,9 +407,18 @@ export default function CartScreen() {
                       >
                         <Icon name="minus" size={14} color={colors.gold} />
                       </Pressable>
-                      <Text style={[styles.qty, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                        {item.weight ?? 1} {unitLabel}
-                      </Text>
+                      <TextInput
+                        style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
+                        value={String(item.weight ?? 1)}
+                        keyboardType="decimal-pad"
+                        onChangeText={(txt) => {
+                          if (txt === "" || txt === "0") return;
+                          const val = parseFloat(txt);
+                          if (isNaN(val) || val < 0) return;
+                          updateCartWeight(item.productId, item.colorName, val);
+                        }}
+                      />
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{unitLabel}</Text>
                       <Pressable
                         onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) + 1)}
                         style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
