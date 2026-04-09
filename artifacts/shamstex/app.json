@@ -48,6 +48,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0fabe669-f585-4876-b076-774ecd01c24d"
+      }
+    },
+    "owner": "shams_tex"
   }
 }
