@@ -47,11 +47,21 @@ export { auth };
 
 let recaptchaVerifierInstance: RecaptchaVerifier | null = null;
 
-export function setupRecaptcha(containerId: string): RecaptchaVerifier {
+export function setupRecaptcha(): RecaptchaVerifier {
   if (recaptchaVerifierInstance) {
     try { recaptchaVerifierInstance.clear(); } catch {}
+    recaptchaVerifierInstance = null;
   }
-  recaptchaVerifierInstance = new RecaptchaVerifier(auth, containerId, {
+
+  const oldContainer = document.getElementById("recaptcha-container");
+  if (oldContainer) {
+    oldContainer.remove();
+  }
+  const container = document.createElement("div");
+  container.id = "recaptcha-container";
+  document.body.appendChild(container);
+
+  recaptchaVerifierInstance = new RecaptchaVerifier(auth, "recaptcha-container", {
     size: "invisible",
     callback: () => {},
     "expired-callback": () => {
@@ -63,13 +73,7 @@ export function setupRecaptcha(containerId: string): RecaptchaVerifier {
 
 export async function sendOtp(phoneNumber: string): Promise<ConfirmationResult> {
   if (Platform.OS === "web") {
-    let container = document.getElementById("recaptcha-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "recaptcha-container";
-      document.body.appendChild(container);
-    }
-    const verifier = setupRecaptcha("recaptcha-container");
+    const verifier = setupRecaptcha();
 
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("TIMEOUT: تعذّر التحقق من reCAPTCHA. جرّب فتح التطبيق في تبويب جديد")), 15000)
