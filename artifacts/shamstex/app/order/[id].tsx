@@ -9,6 +9,7 @@ import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { persistImageUri } from "@/utils/persistImage";
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
@@ -60,7 +61,12 @@ async function pickImage(): Promise<string | null> {
               quality: 0.7,
               allowsEditing: true,
             });
-            resolve(!result.canceled && result.assets[0] ? result.assets[0].uri : null);
+            if (!result.canceled && result.assets[0]) {
+              const uploaded = await persistImageUri(result.assets[0].uri);
+              resolve(uploaded);
+            } else {
+              resolve(null);
+            }
           },
         },
         {
@@ -71,7 +77,12 @@ async function pickImage(): Promise<string | null> {
               quality: 0.7,
               allowsEditing: true,
             });
-            resolve(!result.canceled && result.assets[0] ? result.assets[0].uri : null);
+            if (!result.canceled && result.assets[0]) {
+              const uploaded = await persistImageUri(result.assets[0].uri);
+              resolve(uploaded);
+            } else {
+              resolve(null);
+            }
           },
         },
         { text: "إلغاء", style: "cancel", onPress: () => resolve(null) },

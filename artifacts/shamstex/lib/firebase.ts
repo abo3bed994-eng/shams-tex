@@ -35,7 +35,10 @@ const firebaseConfig = {
   measurementId: "G-HK64J683SZ",
 };
 
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const storage = getStorage(app);
 
 let auth: Auth;
 try {
