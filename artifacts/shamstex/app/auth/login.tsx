@@ -132,13 +132,21 @@ export default function LoginScreen() {
   ) => {
     setLoading(true);
     const sessionToken = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+
+    const existingRecord = findCustomerByPhone(existingUser?.phone || phone);
+    const resolvedRole = existingRecord?.role || existingUser?.role || role;
+    const resolvedPerms = existingRecord?.permissions || existingUser?.permissions;
+    const resolvedVip = existingRecord?.vip || existingUser?.vip;
+
     const userToSet = {
       ...(existingUser ?? {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         phone,
         name: displayName,
-        role,
       }),
+      role: resolvedRole,
+      permissions: resolvedPerms,
+      vip: resolvedVip,
       sessionToken,
     };
     try {
