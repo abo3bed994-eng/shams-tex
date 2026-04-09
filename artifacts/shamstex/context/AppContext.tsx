@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Alert, Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
 import { playNotificationAlert } from "@/lib/notificationSound";
@@ -520,8 +521,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser || !currentUser.phone) return;
     const freshRecord = registeredCustomers.find((c) => c.phone === currentUser.phone);
     if (!freshRecord) return;
+    const roleChanged = freshRecord.role !== currentUser.role;
     const changed =
-      freshRecord.role !== currentUser.role ||
+      roleChanged ||
       freshRecord.vip !== currentUser.vip ||
       freshRecord.upgradeStatus !== currentUser.upgradeStatus ||
       freshRecord.name !== currentUser.name ||
@@ -530,6 +532,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const synced: User = { ...currentUser, ...freshRecord };
       setUserState(synced);
       AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
+
+      if (roleChanged) {
+        const roleNames: Record<string, string> = {
+          customer: "زبون",
+          merchant: "تاجر",
+          employee: "موظف",
+          supervisor: "مشرف",
+          admin: "مدير",
+        };
+        const roleName = roleNames[freshRecord.role] || freshRecord.role;
+        if (Platform.OS === "web") {
+          setTimeout(() => {
+            window.alert(`تم تغيير دورك إلى: ${roleName}\nسيتم إعادة تحميل التطبيق لتحديث الأسعار`);
+            window.location.reload();
+          }, 300);
+        } else {
+          Alert.alert(
+            "تم تغيير دورك",
+            `تم تغيير دورك إلى: ${roleName}\nسيتم إعادة تسجيل الدخول لتحديث الأسعار`,
+            [{
+              text: "حسناً",
+              onPress: async () => {
+                await AsyncStorage.setItem("user", JSON.stringify(synced));
+                setUserState(null);
+                setTimeout(() => setUserState(synced), 500);
+              },
+            }]
+          );
+        }
+      }
     }
   }, [registeredCustomers]);
 
