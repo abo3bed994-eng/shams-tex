@@ -31,7 +31,8 @@ const firebaseConfig = {
   projectId: "shamstexapp",
   storageBucket: "shamstexapp.firebasestorage.app",
   messagingSenderId: "22978900641",
-  appId: "1:22978900641:ios:6b20b46ea318ff0a8db6e0",
+  appId: "1:22978900641:web:c9fdc26bb0b7baea8db6e0",
+  measurementId: "G-HK64J683SZ",
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
