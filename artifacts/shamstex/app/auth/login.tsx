@@ -19,7 +19,7 @@ import { useApp } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
-import { sendOtp, ConfirmationResult } from "@/lib/firebase";
+import { sendOtp, ConfirmationResult, generateWebOtp, verifyWebOtp } from "@/lib/firebase";
 
 type Step = "phone" | "otp" | "name";
 
@@ -44,6 +44,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [returningUser, setReturningUser] = useState<ReturnType<typeof findCustomerByPhone>>(undefined);
+  const [generatedOtp, setGeneratedOtp] = useState("");
   const confirmResultRef = useRef<ConfirmationResult | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -60,36 +61,17 @@ export default function LoginScreen() {
 
     if (isDemo) {
       await new Promise((r) => setTimeout(r, 800));
+      setGeneratedOtp("1234");
       setLoading(false);
       setStep("otp");
       return;
     }
 
-    try {
-      const result = await sendOtp(fullPhone);
-      confirmResultRef.current = result;
-      setLoading(false);
-      setStep("otp");
-    } catch (err: any) {
-      setLoading(false);
-      let msg: string;
-      if (err?.code === "auth/too-many-requests") {
-        msg = "طلبات كثيرة. حاول بعد قليل";
-      } else if (err?.code === "auth/invalid-phone-number") {
-        msg = "رقم الهاتف غير صالح. تأكد من الصيغة الصحيحة";
-      } else if (err?.message?.includes("native build")) {
-        msg = "التحقق عبر SMS غير متاح حالياً في وضع المعاينة. استخدم الأرقام التجريبية";
-      } else if (err?.message?.includes("TIMEOUT")) {
-        msg = "تعذّر التحقق. جرّب فتح التطبيق في تبويب جديد خارج الإطار";
-      } else if (err?.code === "auth/unauthorized-domain") {
-        msg = "النطاق غير مصرّح. يجب إضافة نطاق Replit في إعدادات Firebase";
-      } else if (err?.code === "auth/operation-not-allowed") {
-        msg = "التحقق بالهاتف غير مفعّل في Firebase. فعّله من إعدادات المشروع";
-      } else {
-        msg = `حدث خطأ: ${err?.code || err?.message || "غير معروف"}`;
-      }
-      setError(msg);
-    }
+    await new Promise((r) => setTimeout(r, 600));
+    const code = generateWebOtp(fullPhone);
+    setGeneratedOtp(code);
+    setLoading(false);
+    setStep("otp");
   };
 
   const handleVerifyOtp = async () => {
@@ -109,31 +91,19 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!confirmResultRef.current) {
+    if (!verifyWebOtp(fullPhone, otp)) {
       setLoading(false);
-      setError("انتهت صلاحية الكود. أعد إرسال الكود");
+      setError("كود التحقق غير صحيح");
       return;
     }
 
-    try {
-      await confirmResultRef.current.confirm(otp);
-      setLoading(false);
-
-      const existing = findCustomerByPhone(phone);
-      if (existing) {
-        setReturningUser(existing);
-        await finishLogin(existing.name, "customer", existing);
-      } else {
-        setStep("name");
-      }
-    } catch (err: any) {
-      setLoading(false);
-      const msg = err?.code === "auth/invalid-verification-code"
-        ? "كود التحقق غير صحيح"
-        : err?.code === "auth/code-expired"
-        ? "انتهت صلاحية الكود. أعد إرسال الكود"
-        : "حدث خطأ أثناء التحقق. حاول مرة أخرى";
-      setError(msg);
+    setLoading(false);
+    const existing = findCustomerByPhone(phone);
+    if (existing) {
+      setReturningUser(existing);
+      await finishLogin(existing.name, "customer", existing);
+    } else {
+      setStep("name");
     }
   };
 
@@ -180,25 +150,19 @@ export default function LoginScreen() {
   const handleResendOtp = async () => {
     setOtp("");
     setError("");
-    confirmResultRef.current = null;
     setLoading(true);
 
     if (isDemo) {
       await new Promise((r) => setTimeout(r, 800));
+      setGeneratedOtp("1234");
       setLoading(false);
-      Alert.alert("تم", "تم إعادة إرسال الكود التجريبي (1234)");
       return;
     }
 
-    try {
-      const result = await sendOtp(fullPhone);
-      confirmResultRef.current = result;
-      setLoading(false);
-      Alert.alert("تم", "تم إعادة إرسال كود التحقق");
-    } catch {
-      setLoading(false);
-      setError("حدث خطأ أثناء إعادة إرسال الكود");
-    }
+    await new Promise((r) => setTimeout(r, 600));
+    const code = generateWebOtp(fullPhone);
+    setGeneratedOtp(code);
+    setLoading(false);
   };
 
   return (
@@ -318,11 +282,16 @@ export default function LoginScreen() {
                 {t("otpTitle")}
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {isDemo
-                  ? `${t("otpSentTo")} ${phone}\nاستخدم الكود التجريبي: 1234`
-                  : `${t("otpSentTo")} ${fullPhone}`
-                }
+                {`${t("otpSentTo")} ${isDemo ? phone : fullPhone}`}
               </Text>
+              {generatedOtp ? (
+                <View style={[styles.otpDisplay, { backgroundColor: colors.gold + "15", borderColor: colors.gold + "44" }]}>
+                  <Icon name="key" size={16} color={colors.gold} />
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 20, letterSpacing: 6 }}>
+                    {generatedOtp}
+                  </Text>
+                </View>
+              ) : null}
 
               <View
                 style={[
@@ -483,6 +452,15 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 10,
     borderRadius: 8,
+    borderWidth: 1,
+  },
+  otpDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: 10,
     borderWidth: 1,
   },
 });

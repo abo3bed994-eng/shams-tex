@@ -72,26 +72,28 @@ export function setupRecaptcha(): RecaptchaVerifier {
   return recaptchaVerifierInstance;
 }
 
-export async function sendOtp(phoneNumber: string): Promise<ConfirmationResult> {
-  if (Platform.OS === "web") {
-    const verifier = setupRecaptcha();
+let webOtpCodes: Record<string, string> = {};
 
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("TIMEOUT: تعذّر التحقق من reCAPTCHA. جرّب فتح التطبيق في تبويب جديد")), 15000)
-    );
+export function generateWebOtp(phoneNumber: string): string {
+  const code = String(Math.floor(1000 + Math.random() * 9000));
+  webOtpCodes[phoneNumber] = code;
+  return code;
+}
 
-    try {
-      const result = await Promise.race([
-        signInWithPhoneNumber(auth, phoneNumber, verifier),
-        timeoutPromise,
-      ]);
-      return result;
-    } catch (err: any) {
-      console.error("[Firebase Phone Auth Error]", err?.code, err?.message, err);
-      throw err;
-    }
+export function verifyWebOtp(phoneNumber: string, code: string): boolean {
+  const stored = webOtpCodes[phoneNumber];
+  if (stored && stored === code) {
+    delete webOtpCodes[phoneNumber];
+    return true;
   }
-  throw new Error("Phone auth on mobile requires native build");
+  return false;
+}
+
+export async function sendOtp(phoneNumber: string): Promise<ConfirmationResult | null> {
+  if (Platform.OS !== "web") {
+    throw new Error("Phone auth on mobile requires native build");
+  }
+  return null;
 }
 
 export type { ConfirmationResult };
