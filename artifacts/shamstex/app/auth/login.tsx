@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +19,7 @@ import { useApp } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
+import { sendOtp, ConfirmationResult } from "@/lib/firebase";
 
 type Step = "phone" | "otp" | "name";
 
@@ -35,46 +37,94 @@ export default function LoginScreen() {
   const { t, isRTL, textAlign, flexDir } = useTranslation();
 
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+20");
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
   const [step, setStep] = useState<Step>("phone");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [returningUser, setReturningUser] = useState<ReturnType<typeof findCustomerByPhone>>(undefined);
+  const confirmResultRef = useRef<ConfirmationResult | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const isDemo = !!DEMO_ACCOUNTS[phone];
+  const fullPhone = `${countryCode}${phone.replace(/^0+/, "")}`;
 
   const handleSendOtp = async () => {
     if (phone.length < 10) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setStep("otp");
+    setError("");
+
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 800));
+      setLoading(false);
+      setStep("otp");
+      return;
+    }
+
+    try {
+      const result = await sendOtp(fullPhone);
+      confirmResultRef.current = result;
+      setLoading(false);
+      setStep("otp");
+    } catch (err: any) {
+      setLoading(false);
+      const msg = err?.code === "auth/too-many-requests"
+        ? "طلبات كثيرة. حاول بعد قليل"
+        : err?.code === "auth/invalid-phone-number"
+        ? "رقم الهاتف غير صالح"
+        : err?.message?.includes("native build")
+        ? "التحقق عبر SMS غير متاح حالياً في وضع المعاينة. استخدم الأرقام التجريبية"
+        : "حدث خطأ أثناء إرسال الكود. حاول مرة أخرى";
+      setError(msg);
+    }
   };
 
   const handleVerifyOtp = async () => {
     if (otp.length < 4) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
+    setError("");
 
     if (isDemo) {
+      if (otp !== "1234") {
+        setLoading(false);
+        setError("كود التحقق غير صحيح. للحسابات التجريبية استخدم 1234");
+        return;
+      }
       const demo = DEMO_ACCOUNTS[phone];
-      // Pass stable demo user object including default permissions for first-time setup
       await finishLogin(demo.name, demo.role, { id: demo.id, phone, name: demo.name, role: demo.role, permissions: demo.permissions });
       return;
     }
 
-    const existing = findCustomerByPhone(phone);
-    if (existing) {
-      setReturningUser(existing);
-      await finishLogin(existing.name, "customer", existing);
-    } else {
-      setStep("name");
+    if (!confirmResultRef.current) {
+      setLoading(false);
+      setError("انتهت صلاحية الكود. أعد إرسال الكود");
+      return;
+    }
+
+    try {
+      await confirmResultRef.current.confirm(otp);
+      setLoading(false);
+
+      const existing = findCustomerByPhone(phone);
+      if (existing) {
+        setReturningUser(existing);
+        await finishLogin(existing.name, "customer", existing);
+      } else {
+        setStep("name");
+      }
+    } catch (err: any) {
+      setLoading(false);
+      const msg = err?.code === "auth/invalid-verification-code"
+        ? "كود التحقق غير صحيح"
+        : err?.code === "auth/code-expired"
+        ? "انتهت صلاحية الكود. أعد إرسال الكود"
+        : "حدث خطأ أثناء التحقق. حاول مرة أخرى";
+      setError(msg);
     }
   };
 
@@ -98,7 +148,6 @@ export default function LoginScreen() {
     existingUser: any
   ) => {
     setLoading(true);
-    // Generate unique session token — invalidates any other device's session
     const sessionToken = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     const userToSet = {
       ...(existingUser ?? {
@@ -109,16 +158,38 @@ export default function LoginScreen() {
       }),
       sessionToken,
     };
-    // Save session token to Firebase — invalidates sessions on other devices
     try {
       const { FS } = await import("@/lib/firebase");
       await FS.saveSession(userToSet.phone, sessionToken);
     } catch {}
-    // Register user in Firestore so permissions can be managed by admin
     await registerCustomer(userToSet);
     await setUser(userToSet);
     setLoading(false);
     router.replace("/(tabs)");
+  };
+
+  const handleResendOtp = async () => {
+    setOtp("");
+    setError("");
+    confirmResultRef.current = null;
+    setLoading(true);
+
+    if (isDemo) {
+      await new Promise((r) => setTimeout(r, 800));
+      setLoading(false);
+      Alert.alert("تم", "تم إعادة إرسال الكود التجريبي (1234)");
+      return;
+    }
+
+    try {
+      const result = await sendOtp(fullPhone);
+      confirmResultRef.current = result;
+      setLoading(false);
+      Alert.alert("تم", "تم إعادة إرسال كود التحقق");
+    } catch {
+      setLoading(false);
+      setError("حدث خطأ أثناء إعادة إرسال الكود");
+    }
   };
 
   return (
@@ -166,25 +237,41 @@ export default function LoginScreen() {
                 {t("enterPhone")}
               </Text>
 
-              <View
-                style={[
-                  styles.inputWrapper,
-                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
-                ]}
-              >
-                <Icon name="phone" size={18} color={colors.mutedForeground} />
-                <TextInput
-                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
-                  placeholder={t("phone")}
-                  placeholderTextColor={colors.mutedForeground}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  textAlign="right"
-                  returnKeyType="done"
-                  onSubmitEditing={handleSendOtp}
-                />
+              <View style={{ gap: 8 }}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
+                  ]}
+                >
+                  <View style={[styles.countryCodeBox, { borderLeftColor: colors.border }]}>
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 15 }}>
+                      {countryCode}
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+                    placeholder={t("phone")}
+                    placeholderTextColor={colors.mutedForeground}
+                    value={phone}
+                    onChangeText={(val) => { setPhone(val); setError(""); }}
+                    keyboardType="phone-pad"
+                    textAlign="right"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSendOtp}
+                  />
+                  <Icon name="phone" size={18} color={colors.mutedForeground} />
+                </View>
               </View>
+
+              {error ? (
+                <View style={[styles.errorBox, { backgroundColor: "#E74C3C11", borderColor: "#E74C3C44" }]}>
+                  <Icon name="alert-circle" size={14} color="#E74C3C" />
+                  <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }}>
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
 
               <GoldButton
                 label={t("sendOtp")}
@@ -198,13 +285,20 @@ export default function LoginScreen() {
               <Text style={[styles.newCustomerNote, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                 {t("newCustomer")}
               </Text>
+
+              <View style={[styles.demoBox, { backgroundColor: colors.gold + "08", borderColor: colors.gold + "22" }]}>
+                <Icon name="info" size={13} color={colors.gold} />
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10, flex: 1, textAlign: "right", lineHeight: 16 }}>
+                  حسابات تجريبية: مدير 0000000001 | تاجر 0000000002 | موظف 0000000003 | مشرف 0000000004 (كود: 1234)
+                </Text>
+              </View>
             </>
           )}
 
           {step === "otp" && (
             <>
               <View style={styles.backRow}>
-                <Pressable onPress={() => { setStep("phone"); setOtp(""); }}>
+                <Pressable onPress={() => { setStep("phone"); setOtp(""); setError(""); confirmResultRef.current = null; }}>
                   <Icon name="arrow-right" size={20} color={colors.foreground} />
                 </Pressable>
               </View>
@@ -215,7 +309,10 @@ export default function LoginScreen() {
                 {t("otpTitle")}
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {t("otpSentTo")} {phone}
+                {isDemo
+                  ? `${t("otpSentTo")} ${phone}\nاستخدم الكود التجريبي: 1234`
+                  : `${t("otpSentTo")} ${fullPhone}`
+                }
               </Text>
 
               <View
@@ -230,7 +327,7 @@ export default function LoginScreen() {
                   placeholder="_ _ _ _"
                   placeholderTextColor={colors.mutedForeground}
                   value={otp}
-                  onChangeText={setOtp}
+                  onChangeText={(val) => { setOtp(val); setError(""); }}
                   keyboardType="numeric"
                   textAlign="center"
                   maxLength={6}
@@ -240,6 +337,15 @@ export default function LoginScreen() {
                 />
               </View>
 
+              {error ? (
+                <View style={[styles.errorBox, { backgroundColor: "#E74C3C11", borderColor: "#E74C3C44" }]}>
+                  <Icon name="alert-circle" size={14} color="#E74C3C" />
+                  <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }}>
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
+
               <GoldButton
                 label={t("verify")}
                 onPress={handleVerifyOtp}
@@ -247,6 +353,12 @@ export default function LoginScreen() {
                 disabled={otp.length < 4}
                 style={{ width: "100%" }}
               />
+
+              <Pressable onPress={handleResendOtp} disabled={loading}>
+                <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "center" }}>
+                  إعادة إرسال الكود
+                </Text>
+              </Pressable>
             </>
           )}
 
@@ -329,6 +441,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   input: { flex: 1, fontSize: 16, height: "100%" },
+  countryCodeBox: {
+    borderLeftWidth: 1,
+    paddingLeft: 12,
+    marginLeft: 4,
+    height: 30,
+    justifyContent: "center",
+  },
   backRow: { flexDirection: "row-reverse", marginBottom: -4 },
   divider: { borderTopWidth: 1, marginVertical: 4 },
   newCustomerNote: { fontSize: 12, textAlign: "center", lineHeight: 18 },
@@ -341,4 +460,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   privacyText: { fontSize: 11, flex: 1, textAlign: "right", lineHeight: 17 },
+  errorBox: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  demoBox: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
 });

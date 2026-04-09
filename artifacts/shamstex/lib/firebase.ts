@@ -16,9 +16,18 @@ import {
   memoryLocalCache,
   writeBatch,
 } from "firebase/firestore";
+import {
+  getAuth,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult,
+  Auth,
+} from "firebase/auth";
+import { Platform } from "react-native";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD9tLziFlwyRBpSgMj0Pa_qfNG--XP2csQ",
+  authDomain: "shamstexapp.firebaseapp.com",
   projectId: "shamstexapp",
   storageBucket: "shamstexapp.firebasestorage.app",
   messagingSenderId: "22978900641",
@@ -26,6 +35,47 @@ const firebaseConfig = {
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+let auth: Auth;
+try {
+  auth = getAuth(app);
+  auth.languageCode = "ar";
+} catch {
+  auth = getAuth(app);
+}
+export { auth };
+
+let recaptchaVerifierInstance: RecaptchaVerifier | null = null;
+
+export function setupRecaptcha(containerId: string): RecaptchaVerifier {
+  if (recaptchaVerifierInstance) {
+    try { recaptchaVerifierInstance.clear(); } catch {}
+  }
+  recaptchaVerifierInstance = new RecaptchaVerifier(auth, containerId, {
+    size: "invisible",
+    callback: () => {},
+    "expired-callback": () => {
+      recaptchaVerifierInstance = null;
+    },
+  });
+  return recaptchaVerifierInstance;
+}
+
+export async function sendOtp(phoneNumber: string): Promise<ConfirmationResult> {
+  if (Platform.OS === "web") {
+    let container = document.getElementById("recaptcha-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "recaptcha-container";
+      document.body.appendChild(container);
+    }
+    const verifier = setupRecaptcha("recaptcha-container");
+    return signInWithPhoneNumber(auth, phoneNumber, verifier);
+  }
+  throw new Error("Phone auth on mobile requires native build");
+}
+
+export type { ConfirmationResult };
 
 let db: ReturnType<typeof getFirestore>;
 try {
