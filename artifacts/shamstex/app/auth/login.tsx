@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useTranslation } from "@/lib/i18n";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
 
@@ -30,7 +31,8 @@ const DEMO_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" | 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUser, findCustomerByPhone, registerCustomer } = useApp();
+  const { setUser, findCustomerByPhone, registerCustomer, settings } = useApp();
+  const { t, isRTL, textAlign, flexDir } = useTranslation();
 
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -134,15 +136,15 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Image
-            source={require("../../assets/images/logo.png")}
+            source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
             style={styles.logoImg}
             resizeMode="contain"
           />
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-            Shams Tex
+            SHAMS TEX
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            أقمشة فاخرة لكل مناسبة
+            {t("tagline")}
           </Text>
         </View>
 
@@ -158,10 +160,10 @@ export default function LoginScreen() {
                 <Icon name="smartphone" size={28} color={colors.gold} />
               </View>
               <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                تسجيل الدخول
+                {t("login")}
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                أدخل رقم هاتفك — سيصلك رمز التحقق
+                {t("enterPhone")}
               </Text>
 
               <View
@@ -173,7 +175,7 @@ export default function LoginScreen() {
                 <Icon name="phone" size={18} color={colors.mutedForeground} />
                 <TextInput
                   style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
-                  placeholder="رقم الهاتف"
+                  placeholder={t("phone")}
                   placeholderTextColor={colors.mutedForeground}
                   value={phone}
                   onChangeText={setPhone}
@@ -185,7 +187,7 @@ export default function LoginScreen() {
               </View>
 
               <GoldButton
-                label="إرسال رمز التحقق"
+                label={t("sendOtp")}
                 onPress={handleSendOtp}
                 loading={loading}
                 disabled={phone.length < 10}
@@ -194,7 +196,7 @@ export default function LoginScreen() {
 
               <View style={[styles.divider, { borderColor: colors.border }]} />
               <Text style={[styles.newCustomerNote, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                إذا كنت عميلاً جديداً سيتم إنشاء حسابك تلقائياً
+                {t("newCustomer")}
               </Text>
             </>
           )}
@@ -210,10 +212,10 @@ export default function LoginScreen() {
                 <Icon name="lock" size={28} color={colors.gold} />
               </View>
               <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                رمز التحقق
+                {t("otpTitle")}
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                تم إرسال الرمز إلى {phone}
+                {t("otpSentTo")} {phone}
               </Text>
 
               <View
@@ -239,7 +241,7 @@ export default function LoginScreen() {
               </View>
 
               <GoldButton
-                label="تأكيد"
+                label={t("verify")}
                 onPress={handleVerifyOtp}
                 loading={loading}
                 disabled={otp.length < 4}
@@ -259,10 +261,10 @@ export default function LoginScreen() {
                 <Icon name="user-plus" size={28} color={colors.gold} />
               </View>
               <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                إنشاء حساب جديد
+                {t("enterName")}
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                أدخل اسمك لإتمام التسجيل — سيُحفظ حسابك للمرات القادمة
+                {t("enterNameHint")}
               </Text>
 
               <View
@@ -274,7 +276,7 @@ export default function LoginScreen() {
                 <Icon name="user" size={18} color={colors.mutedForeground} />
                 <TextInput
                   style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
-                  placeholder="الاسم الكامل"
+                  placeholder={t("nameLabel")}
                   placeholderTextColor={colors.mutedForeground}
                   value={name}
                   onChangeText={setName}
@@ -286,7 +288,7 @@ export default function LoginScreen() {
               </View>
 
               <GoldButton
-                label="إنشاء الحساب"
+                label={t("startShopping")}
                 onPress={handleNameSubmit}
                 loading={loading}
                 disabled={name.trim().length < 2}

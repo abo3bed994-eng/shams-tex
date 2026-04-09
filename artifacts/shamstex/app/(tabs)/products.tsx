@@ -14,6 +14,7 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useTranslation } from "@/lib/i18n";
 import ProductCard from "@/components/ProductCard";
 
 const OUT_OF_STOCK_LABEL = "غير متوفر";
@@ -22,9 +23,10 @@ export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { products, user, cart, settings } = useApp();
-  const CATEGORIES = settings.categories.length > 0 ? settings.categories : ["الكل"];
+  const { t, isRTL } = useTranslation();
+  const CATEGORIES = settings.categories.length > 0 ? settings.categories : [isRTL ? "الكل" : "All"];
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("الكل");
+  const [activeCategory, setActiveCategory] = useState(isRTL ? "الكل" : "All");
   const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
   const catScrollRef = useRef<ScrollViewType>(null);
   const subCatScrollRef = useRef<ScrollViewType>(null);
@@ -66,7 +68,7 @@ export default function ProductsScreen() {
         <Text
           style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
         >
-          المنتجات
+          {t("products")}
         </Text>
         <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
           {/* Cart button for customers/merchants */}
@@ -126,7 +128,7 @@ export default function ProductsScreen() {
           <Icon name="search" size={18} color={colors.mutedForeground} />
           <TextInput
             style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
-            placeholder="ابحث عن خامة..."
+            placeholder={t("searchProducts")}
             placeholderTextColor={colors.mutedForeground}
             value={search}
             onChangeText={setSearch}
@@ -203,7 +205,7 @@ export default function ProductsScreen() {
                 color: !activeSubcategory ? colors.gold : colors.mutedForeground,
                 fontFamily: !activeSubcategory ? "Inter_600SemiBold" : "Inter_400Regular",
               }]}>
-                الكل
+                {t("allCategories")}
               </Text>
             </Pressable>
             {subcategoriesForActive.map((sub) => (
@@ -239,7 +241,7 @@ export default function ProductsScreen() {
           <View style={styles.empty}>
             <Icon name="layers" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              لا توجد منتجات
+              {t("noProducts")}
             </Text>
           </View>
         ) : (

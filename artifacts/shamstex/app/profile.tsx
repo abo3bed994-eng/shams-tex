@@ -14,22 +14,23 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, AppTheme } from "@/context/AppContext";
+import { useTranslation } from "@/lib/i18n";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
-
-const ROLE_LABELS: Record<string, string> = {
-  customer: "زبون",
-  merchant: "تاجر",
-  employee: "موظف",
-  supervisor: "مشرف",
-  admin: "مدير",
-};
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme, registeredCustomers } = useApp();
+  const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme, language, setLanguage, registeredCustomers, settings } = useApp();
+  const { t, isRTL } = useTranslation();
   const [requestSent, setRequestSent] = useState(false);
+  const ROLE_LABELS: Record<string, string> = {
+    customer: t("roleCustomer"),
+    merchant: t("roleMerchant"),
+    employee: t("roleEmployee"),
+    supervisor: t("roleSupervisor"),
+    admin: t("roleAdmin"),
+  };
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
   const myOrdersCount = orders.filter((o) => o.userId === user?.id).length;
@@ -53,14 +54,17 @@ export default function ProfileScreen() {
       actionType: "upgrade_request",
       actionUserId: user.id,
     });
-    Alert.alert("تم إرسال الطلب", "سيتم مراجعة طلبك من قبل الإدارة وإبلاغك بالنتيجة.");
+    Alert.alert(
+      isRTL ? "تم إرسال الطلب" : "Request Sent",
+      isRTL ? "سيتم مراجعة طلبك من قبل الإدارة وإبلاغك بالنتيجة." : "Your request will be reviewed by the admin team."
+    );
   };
 
   const handleLogout = () => {
-    Alert.alert("تسجيل الخروج", "هل تريد تسجيل الخروج؟", [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(t("logout"), t("logoutConfirm"), [
+      { text: t("cancel"), style: "cancel" },
       {
-        text: "خروج",
+        text: t("exit"),
         style: "destructive",
         onPress: async () => {
           await setUser(null);
@@ -79,25 +83,28 @@ export default function ProfileScreen() {
   if (!user) return null;
 
   const allAdminLinks = [
-    { label: "إدارة المنتجات", icon: "layers", route: "/admin/products", permission: "view_products" },
-    { label: "إدارة الأسعار", icon: "dollar-sign", route: "/admin/prices", permission: "edit_products" },
-    { label: "إدارة المستخدمين", icon: "users", route: "/admin/users", permission: "view_users" },
-    { label: "إرسال إشعار", icon: "bell", route: "/admin/notifications", permission: "send_notifications" },
-    { label: "المنتجات المميزة", icon: "star", route: "/admin/featured", permission: "edit_products" },
-    { label: "لوحة الألوان", icon: "droplet", route: "/admin/colors", permission: null },
-    { label: "إعدادات التطبيق", icon: "settings", route: "/admin/settings", permission: null },
+    { label: t("manageProducts"), icon: "layers", route: "/admin/products", permission: "view_products" },
+    { label: t("managePrices"), icon: "dollar-sign", route: "/admin/prices", permission: "edit_products" },
+    { label: t("manageUsers"), icon: "users", route: "/admin/users", permission: "view_users" },
+    { label: t("sendNotification"), icon: "bell", route: "/admin/notifications", permission: "send_notifications" },
+    { label: t("featuredProducts"), icon: "star", route: "/admin/featured", permission: "edit_products" },
+    { label: t("colorPalette"), icon: "droplet", route: "/admin/colors", permission: null },
+    { label: t("appSettings"), icon: "settings", route: "/admin/settings", permission: null },
   ];
 
   const adminLinks = user.role === "admin"
     ? allAdminLinks
     : allAdminLinks.filter((link) => {
-        if (!link.permission) return user.role === "supervisor"; // supervisor-only links
+        if (link.route === "/admin/settings") {
+          return user.role === "supervisor" && settings.supervisorSettingsAccess !== false;
+        }
+        if (!link.permission) return user.role === "supervisor";
         return (user.permissions ?? []).includes(link.permission as any);
       });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <GoldHeader title="حسابي" onBack={() => router.back()} />
+      <GoldHeader title={t("myProfile")} onBack={() => router.back()} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -124,7 +131,7 @@ export default function ProfileScreen() {
             <View style={[styles.vipBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "44" }]}>
               <Icon name="star" size={13} color={colors.gold} />
               <Text style={[{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 12 }]}>
-                عميل مميز
+                {t("vipCustomer")}
               </Text>
             </View>
           )}
@@ -132,7 +139,7 @@ export default function ProfileScreen() {
             <View style={[styles.vipBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Icon name="user" size={13} color={colors.mutedForeground} />
               <Text style={[{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
-                عميل عادي
+                {t("regularCustomer")}
               </Text>
             </View>
           )}
@@ -144,13 +151,13 @@ export default function ProfileScreen() {
               {myOrdersCount}
             </Text>
             <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              طلباتي
+              {t("myOrdersCount")}
             </Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Icon name={user.vip ? "star" : "user"} size={24} color={user.vip ? colors.gold : colors.mutedForeground} />
             <Text style={[styles.statLabel, { color: user.vip ? colors.gold : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {user.vip ? "عميل مميز" : "عميل عادي"}
+              {user.vip ? t("vipCustomer") : t("regularCustomer")}
             </Text>
           </View>
         </View>
@@ -160,22 +167,22 @@ export default function ProfileScreen() {
             <View style={styles.upgradeHeader}>
               <Icon name="award" size={22} color={colors.gold} />
               <Text style={[styles.upgradeTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                انضم كتاجر
+                {t("joinAsMerchant")}
               </Text>
             </View>
             <Text style={[styles.upgradeDesc, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              احصل على أسعار الجملة الحصرية وميزات خاصة للتجار بعد موافقة الإدارة
+              {t("merchantDesc")}
             </Text>
             {requestSent || user.upgradeStatus === "pending" ? (
               <View style={[styles.pendingBadge, { backgroundColor: colors.gold + "22" }]}>
                 <Icon name="clock" size={14} color={colors.gold} />
                 <Text style={[styles.pendingText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-                  طلبك قيد المراجعة
+                  {t("upgradeUnderReview")}
                 </Text>
               </View>
             ) : (
               <GoldButton
-                label="طلب ترقية لتاجر"
+                label={t("requestUpgrade")}
                 onPress={handleUpgradeRequest}
                 variant="outline"
                 size="sm"
@@ -188,7 +195,7 @@ export default function ProfileScreen() {
         {(user.role === "admin" || user.role === "employee" || user.role === "supervisor") && adminLinks.length > 0 && (
           <View style={[styles.adminSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Text style={[styles.adminTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              لوحة الإدارة
+              {t("adminPanel")}
             </Text>
             {adminLinks.map((item) => (
               <Pressable
@@ -215,7 +222,7 @@ export default function ProfileScreen() {
           <View style={styles.themeHeader}>
             <Icon name={theme === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
             <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              مظهر التطبيق
+              {isRTL ? "مظهر التطبيق" : "Appearance"}
             </Text>
           </View>
           <View style={styles.themeButtons}>
@@ -232,7 +239,7 @@ export default function ProfileScreen() {
             >
               <Icon name="moon" size={16} color={theme === "dark" ? colors.background : colors.mutedForeground} />
               <Text style={[styles.themeBtnText, { color: theme === "dark" ? colors.background : colors.mutedForeground, fontFamily: theme === "dark" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                داكن
+                {t("darkMode")}
               </Text>
             </Pressable>
             <Pressable
@@ -248,14 +255,55 @@ export default function ProfileScreen() {
             >
               <Icon name="sun" size={16} color={theme === "light" ? colors.background : colors.mutedForeground} />
               <Text style={[styles.themeBtnText, { color: theme === "light" ? colors.background : colors.mutedForeground, fontFamily: theme === "light" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                فاتح
+                {t("lightMode")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          <View style={styles.themeHeader}>
+            <Icon name="globe" size={20} color={colors.gold} />
+            <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              {language === "ar" ? "اللغة" : "Language"}
+            </Text>
+          </View>
+          <View style={styles.themeButtons}>
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLanguage("ar"); }}
+              style={[
+                styles.themeBtn,
+                {
+                  backgroundColor: language === "ar" ? colors.gold : colors.surface,
+                  borderColor: language === "ar" ? colors.gold : colors.border,
+                  borderRadius: colors.radius - 4,
+                },
+              ]}
+            >
+              <Text style={[styles.themeBtnText, { color: language === "ar" ? colors.background : colors.mutedForeground, fontFamily: language === "ar" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                العربية
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLanguage("en"); }}
+              style={[
+                styles.themeBtn,
+                {
+                  backgroundColor: language === "en" ? colors.gold : colors.surface,
+                  borderColor: language === "en" ? colors.gold : colors.border,
+                  borderRadius: colors.radius - 4,
+                },
+              ]}
+            >
+              <Text style={[styles.themeBtnText, { color: language === "en" ? colors.background : colors.mutedForeground, fontFamily: language === "en" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                English
               </Text>
             </Pressable>
           </View>
         </View>
 
         <GoldButton
-          label="تسجيل الخروج"
+          label={language === "ar" ? "تسجيل الخروج" : "Sign Out"}
           onPress={handleLogout}
           variant="outline"
           style={{ borderColor: colors.destructive + "88" }}

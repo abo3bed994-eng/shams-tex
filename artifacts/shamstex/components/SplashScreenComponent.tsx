@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Image, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useApp } from "@/context/AppContext";
 
 export default function SplashScreenComponent({ onFinish }: { onFinish: () => void }) {
   const colors = useColors();
+  const { settings, language } = useApp();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.75)).current;
   const textFade = useRef(new Animated.Value(0)).current;
@@ -61,7 +63,7 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
         ]}
       >
         <Image
-          source={require("../assets/images/logo.png")}
+          source={settings.logoUri ? { uri: settings.logoUri } : require("../assets/images/logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -71,7 +73,7 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
         <Text
           style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}
         >
-          Shams Tex
+          SHAMS TEX
         </Text>
         <Animated.View
           style={[styles.line, { backgroundColor: colors.gold, width: lineWidth }]}
@@ -82,7 +84,7 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
             { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
           ]}
         >
-          أقمشة فاخرة لكل مناسبة
+          {settings.logoUri ? "SHAMS TEX" : (language === "ar" ? "الأقمشة كما يجب أن تكون" : "Fabrics as they should be")}
         </Text>
       </Animated.View>
     </View>

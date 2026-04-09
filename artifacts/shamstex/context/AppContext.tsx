@@ -168,6 +168,7 @@ export interface SocialEntry {
 }
 
 export type AppTheme = "dark" | "light";
+export type AppLanguage = "ar" | "en";
 
 export interface PaymentSettings {
   ewalletNumber: string;
@@ -195,6 +196,8 @@ export interface AppSettings {
   stats: { clients: string; products: string; years: string };
   workingHours?: WorkingDay[];
   payment?: PaymentSettings;
+  logoUri?: string;
+  supervisorSettingsAccess?: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -300,6 +303,8 @@ interface AppContextType {
   setSettings: (settings: AppSettings) => Promise<void>;
   theme: AppTheme;
   setTheme: (theme: AppTheme) => Promise<void>;
+  language: AppLanguage;
+  setLanguage: (lang: AppLanguage) => Promise<void>;
   isLoading: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   toast: { message: string; type: "success" | "error"; visible: boolean };
@@ -423,6 +428,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [theme, setThemeState] = useState<AppTheme>("dark");
+  const [language, setLanguageState] = useState<AppLanguage>("ar");
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
   const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -574,6 +580,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSettingsState({ ...DEFAULT_SETTINGS, ...parsed });
       }
       if (themeData) setThemeState(themeData as AppTheme);
+      const langData = await AsyncStorage.getItem("language");
+      if (langData) setLanguageState(langData as AppLanguage);
     } catch (e) {
     } finally {
       setIsLoading(false);
@@ -1114,6 +1122,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem("theme", t);
   }, []);
 
+  const setLanguage = useCallback(async (l: AppLanguage) => {
+    setLanguageState(l);
+    await AsyncStorage.setItem("language", l);
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -1160,6 +1173,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSettings,
         theme,
         setTheme,
+        language,
+        setLanguage,
         isLoading,
         showToast,
         toast,

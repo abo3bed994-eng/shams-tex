@@ -126,6 +126,19 @@ export default function AdminSettingsScreen() {
     setDraft((d) => ({ ...d, bannerVideoUris: (d.bannerVideoUris ?? []).filter((_, i) => i !== idx) }));
   };
 
+  const pickLogo = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.9, allowsEditing: true, aspect: [1, 1] });
+    if (!result.canceled && result.assets[0]) {
+      setMediaLoading(true);
+      const uri = await persistImageUri(result.assets[0].uri);
+      setDraft((d) => ({ ...d, logoUri: uri }));
+      setMediaLoading(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   const clearBanner = () => {
     setDraft((d) => ({ ...d, bannerImageUri: undefined, bannerVideoUris: [] }));
   };
@@ -264,6 +277,62 @@ export default function AdminSettingsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
       >
+        <Card title="الشعار (اللوجو)">
+          <View style={{ alignItems: "center", gap: 12 }}>
+            {draft.logoUri ? (
+              <Image
+                source={{ uri: draft.logoUri }}
+                style={{ width: 100, height: 100, borderRadius: 20, borderWidth: 1, borderColor: colors.border }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={require("../../assets/images/logo.png")}
+                style={{ width: 100, height: 100, borderRadius: 20 }}
+                resizeMode="contain"
+              />
+            )}
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              <Pressable
+                onPress={pickLogo}
+                style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.gold + "15", borderColor: colors.gold + "44", borderWidth: 1, borderRadius: 8 }}
+              >
+                <Icon name="upload" size={14} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                  {draft.logoUri ? "تغيير الشعار" : "رفع شعار مخصص"}
+                </Text>
+              </Pressable>
+              {draft.logoUri && (
+                <Pressable
+                  onPress={() => setDraft((d) => ({ ...d, logoUri: undefined }))}
+                  style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: "#C0392B11", borderColor: "#C0392B44", borderWidth: 1, borderRadius: 8 }}
+                >
+                  <Text style={{ color: "#C0392B", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>إزالة</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </Card>
+
+        <Card title="صلاحيات المشرف">
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
+                السماح بالوصول للإعدادات
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                عند التفعيل، يستطيع المشرف الدخول لإعدادات التطبيق
+              </Text>
+            </View>
+            <Switch
+              value={draft.supervisorSettingsAccess !== false}
+              onValueChange={(v) => setDraft((d) => ({ ...d, supervisorSettingsAccess: v }))}
+              trackColor={{ false: colors.border, true: colors.gold + "66" }}
+              thumbColor={draft.supervisorSettingsAccess !== false ? colors.gold : colors.mutedForeground}
+            />
+          </View>
+        </Card>
+
         <Card title="النبذة التعريفية">
           <Field
             label="عنوان النبذة"

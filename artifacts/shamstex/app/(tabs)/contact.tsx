@@ -13,11 +13,13 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useTranslation } from "@/lib/i18n";
 
 export default function ContactScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings } = useApp();
+  const { t } = useTranslation();
   const CONTACTS = settings.contacts;
   const SOCIAL = settings.social;
 
@@ -39,7 +41,7 @@ export default function ContactScreen() {
         <Text
           style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
         >
-          تواصل معنا
+          {t("contactUs")}
         </Text>
       </View>
 
@@ -49,21 +51,21 @@ export default function ContactScreen() {
       >
         <View style={styles.logoSection}>
           <Image
-            source={require("../../assets/images/logo.png")}
+            source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
             style={styles.logoImg}
             resizeMode="contain"
           />
           <Text style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-            Shams Tex
+            SHAMS TEX
           </Text>
           <Text style={[styles.tagline, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            أقمشة فاخرة لكل مناسبة
+            {t("tagline")}
           </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-            أرقام التواصل
+            {t("contactUs")}
           </Text>
           {CONTACTS.map((contact) => (
             <Pressable
@@ -97,7 +99,7 @@ export default function ContactScreen() {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-            التواصل الاجتماعي
+            {t("followUs")}
           </Text>
           <View style={styles.socialRow}>
             {SOCIAL.map((s) => (
@@ -147,7 +149,7 @@ export default function ContactScreen() {
                 {settings.stats?.clients ?? "+500"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                عميل
+                {t("clients")}
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -156,7 +158,7 @@ export default function ContactScreen() {
                 {settings.stats?.products ?? "+50"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                خامة
+                {t("productsCount")}
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -165,7 +167,7 @@ export default function ContactScreen() {
                 {settings.stats?.years ?? "15+"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                سنوات خبرة
+                {t("yearsExperience")}
               </Text>
             </View>
           </View>

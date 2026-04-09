@@ -212,6 +212,39 @@ export default function AdminUsersScreen() {
           "تم تفعيل حسابك كتاجر. سيتم التحديث تلقائياً.",
           { type: "role_change", newRole: "merchant" }
         ).catch(() => {});
+      } else if (newRole === "employee") {
+        const defaultPerms: EmployeePermission[] = ["view_orders", "view_products"];
+        saveCustomerChange({ ...updated, role: "employee", permissions: defaultPerms, upgradeStatus: undefined });
+        addNotification({
+          id: `role_employee_${updated.id}_${Date.now()}`,
+          title: "تم تعيينك كموظف 🛠️",
+          body: "تم تفعيل حسابك كموظف. يمكنك الآن الوصول إلى لوحة الإدارة.",
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: updated.id,
+        });
+        notifyUserByPhone(
+          updated.phone,
+          "تم تعيينك كموظف 🛠️",
+          "تم تفعيل حسابك كموظف. يمكنك الآن الوصول إلى لوحة الإدارة.",
+          { type: "role_change", newRole: "employee" }
+        ).catch(() => {});
+      } else if (newRole === "supervisor") {
+        saveCustomerChange({ ...updated, role: "supervisor", permissions: [...SUPERVISOR_PERMISSIONS], upgradeStatus: undefined });
+        addNotification({
+          id: `role_supervisor_${updated.id}_${Date.now()}`,
+          title: "تم تعيينك كمشرف 🛡️",
+          body: "تم تفعيل حسابك كمشرف. لديك صلاحيات إشرافية كاملة.",
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: updated.id,
+        });
+        notifyUserByPhone(
+          updated.phone,
+          "تم تعيينك كمشرف 🛡️",
+          "تم تفعيل حسابك كمشرف. لديك صلاحيات إشرافية كاملة.",
+          { type: "role_change", newRole: "supervisor" }
+        ).catch(() => {});
       } else if (newRole === "customer") {
         addNotification({
           id: `role_customer_${updated.id}_${Date.now()}`,
@@ -574,6 +607,10 @@ export default function AdminUsersScreen() {
                 <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
                   {confirmAction.newRole === "merchant"
                     ? `ترقية "${u.name}" إلى تاجر؟`
+                    : confirmAction.newRole === "employee"
+                    ? `تعيين "${u.name}" كموظف؟`
+                    : confirmAction.newRole === "supervisor"
+                    ? `تعيين "${u.name}" كمشرف؟`
                     : `تغيير "${u.name}" إلى زبون عادي؟`}
                 </Text>
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", lineHeight: 18 }}>
@@ -596,8 +633,8 @@ export default function AdminUsersScreen() {
                 </View>
               </View>
             ) : (
-              <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-                {(["customer", "merchant"] as UserRole[]).map((role) => (
+              <View style={{ flexDirection: "row-reverse", gap: 8, flexWrap: "wrap" }}>
+                {(user?.role === "admin" ? ["customer", "merchant", "employee", "supervisor"] as UserRole[] : ["customer", "merchant"] as UserRole[]).map((role) => (
                   <Pressable
                     key={role}
                     onPress={() => {

@@ -14,6 +14,7 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useTranslation } from "@/lib/i18n";
 import ProductCard from "@/components/ProductCard";
 import { filterNotificationsForUser } from "@/lib/notificationFilter";
 
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, products, notifications, cart, settings, orders } = useApp();
+  const { t, isRTL } = useTranslation();
 
   const videos = settings.bannerVideoUris ?? [];
   const [videoIdx, setVideoIdx] = useState(0);
@@ -80,10 +82,10 @@ export default function HomeScreen() {
   const activeOrders = isStaff ? [] : orders.filter((o) => o.userId === user?.id && !["cancelled", "delivered"].includes(o.status));
 
   const STATUS_LABEL: Record<string, { text: string; color: string }> = {
-    pending: { text: "بانتظار الاستلام", color: "#9B59B6" },
-    received: { text: "تم الاستلام", color: "#3498DB" },
-    preparing: { text: "قيد التجهيز", color: "#F39C12" },
-    ready: { text: "جاهز للاستلام", color: "#27AE60" },
+    pending: { text: t("awaitingPickup"), color: "#9B59B6" },
+    received: { text: t("received"), color: "#3498DB" },
+    preparing: { text: t("preparing"), color: "#F39C12" },
+    ready: { text: t("ready"), color: "#27AE60" },
   };
 
   const hasVideo = videos.length > 0;
@@ -91,16 +93,16 @@ export default function HomeScreen() {
 
   const roleLabel =
     user?.vip
-      ? { icon: "star" as const, text: "عميل مميز", gold: true }
+      ? { icon: "star" as const, text: t("vipCustomer"), gold: true }
       : user?.role === "merchant"
-      ? { icon: "award" as const, text: "تاجر موثّق", gold: true }
+      ? { icon: "award" as const, text: t("verifiedMerchant"), gold: true }
       : user?.role === "admin"
-      ? { icon: "shield" as const, text: "مدير", gold: true }
+      ? { icon: "shield" as const, text: t("roleAdmin"), gold: true }
       : user?.role === "supervisor"
-      ? { icon: "shield-check" as const, text: "مشرف", gold: true }
+      ? { icon: "shield-check" as const, text: t("roleSupervisor"), gold: true }
       : user?.role === "employee"
-      ? { icon: "briefcase" as const, text: "موظف", gold: false }
-      : { icon: "user" as const, text: "عميل", gold: false };
+      ? { icon: "briefcase" as const, text: t("roleEmployee"), gold: false }
+      : { icon: "user" as const, text: t("customer"), gold: false };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -185,9 +187,9 @@ export default function HomeScreen() {
 
           <View style={styles.bannerNameRow} pointerEvents="none">
             <View style={styles.bannerNamePill}>
-              <Text style={styles.bannerGreeting}>أهلاً بك،</Text>
+              <Text style={styles.bannerGreeting}>{t("welcomeUser")}</Text>
               <Text style={styles.bannerUserName} numberOfLines={1}>
-                {user?.name ?? "زائر"}
+                {user?.name ?? t("guest")}
               </Text>
             </View>
             <View style={[styles.bannerRolePill, { backgroundColor: roleLabel.gold ? colors.gold : colors.surface + "CC" }]}>
@@ -222,7 +224,7 @@ export default function HomeScreen() {
               <View style={styles.activeOrdersRight}>
                 <Icon name="package" size={18} color={colors.gold} />
                 <Text style={[styles.activeOrdersTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                  طلباتك الحالية
+                  {t("currentOrders")}
                 </Text>
               </View>
               <View style={[styles.activeOrdersBadge, { backgroundColor: colors.gold }]}>
@@ -238,7 +240,7 @@ export default function HomeScreen() {
                   <Icon name="chevron-left" size={14} color={colors.mutedForeground} />
                   <View style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                     <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
-                      طلب #{order.id.slice(0, 8)}
+                      {t("orderNum")} #{order.id.slice(0, 8)}
                     </Text>
                     <View style={[styles.activeOrderStatusPill, { backgroundColor: statusInfo.color + "22" }]}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusInfo.color }} />
@@ -252,7 +254,7 @@ export default function HomeScreen() {
             })}
             {activeOrders.length > 3 && (
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "center", paddingTop: 6 }}>
-                +{activeOrders.length - 3} طلبات أخرى
+                +{activeOrders.length - 3} {t("moreOrders")}
               </Text>
             )}
           </Pressable>
@@ -262,17 +264,17 @@ export default function HomeScreen() {
           <View style={styles.sectionHeader}>
             <Pressable onPress={() => router.push("/(tabs)/products")}>
               <Text style={[styles.seeAll, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-                عرض الكل
+                {t("viewAll")}
               </Text>
             </Pressable>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              المنتجات المميزة
+              {t("featuredProducts")}
             </Text>
           </View>
 
           {featuredProducts.length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              لا توجد منتجات مميزة
+              {t("noFeatured")}
             </Text>
           ) : (
             featuredProducts.map((product) => (

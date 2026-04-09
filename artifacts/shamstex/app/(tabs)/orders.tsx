@@ -14,6 +14,7 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, Order, OrderStatus } from "@/context/AppContext";
+import { useTranslation } from "@/lib/i18n";
 import OrderCard from "@/components/OrderCard";
 
 type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled" | "returns";
@@ -23,6 +24,7 @@ export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, orders, updateOrderStatus, deleteOrder, cancelOrder, cart, returnRequests, updateReturnStatus, deleteReturnRequest } = useApp();
+  const { t, isRTL } = useTranslation();
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
 
@@ -71,24 +73,24 @@ export default function OrdersScreen() {
   const pendingReturnsCount = myReturns.filter((r) => r.status === "pending").length;
 
   const FILTERS: { key: FilterType; label: string; count?: number }[] = [
-    { key: "all", label: "الكل", count: myOrders.length },
-    { key: "pending", label: "جديد", count: myOrders.filter((o) => o.status === "pending").length },
-    { key: "received", label: "مستلم", count: myOrders.filter((o) => o.status === "received").length },
-    { key: "preparing", label: "تجهيز", count: myOrders.filter((o) => o.status === "preparing").length },
-    { key: "ready", label: "جاهز", count: myOrders.filter((o) => o.status === "ready").length },
-    { key: "delivered", label: "تم التسليم", count: myOrders.filter((o) => o.status === "delivered").length },
-    { key: "cancelled", label: "ملغي", count: myOrders.filter((o) => o.status === "cancelled").length },
-    { key: "returns", label: "استرجاع", count: pendingReturnsCount },
+    { key: "all", label: t("all"), count: myOrders.length },
+    { key: "pending", label: t("newOrder"), count: myOrders.filter((o) => o.status === "pending").length },
+    { key: "received", label: t("received"), count: myOrders.filter((o) => o.status === "received").length },
+    { key: "preparing", label: t("preparing"), count: myOrders.filter((o) => o.status === "preparing").length },
+    { key: "ready", label: t("ready"), count: myOrders.filter((o) => o.status === "ready").length },
+    { key: "delivered", label: t("delivered"), count: myOrders.filter((o) => o.status === "delivered").length },
+    { key: "cancelled", label: t("cancelled"), count: myOrders.filter((o) => o.status === "cancelled").length },
+    { key: "returns", label: t("returns"), count: pendingReturnsCount },
   ];
 
   const handleCancelOrder = (order: Order) => {
     Alert.alert(
-      "إلغاء الطلب",
-      "هل أنت متأكد من إلغاء هذا الطلب؟ سيظهر الطلب كملغي.",
+      t("cancelOrder"),
+      t("cancelOrderConfirm"),
       [
-        { text: "لا، ابقِه", style: "cancel" },
+        { text: t("no"), style: "cancel" },
         {
-          text: "نعم، إلغاء الطلب",
+          text: t("yesCancel"),
           style: "destructive",
           onPress: () => cancelOrder(order.id),
         },
@@ -97,9 +99,9 @@ export default function OrdersScreen() {
   };
 
   const RETURN_STEPS = [
-    { key: "pending", label: "طلب استرجاع" },
-    { key: "returned", label: "تم الاسترجاع" },
-    { key: "settled", label: "تمت المخالصة" },
+    { key: "pending", label: t("returnStep1") },
+    { key: "returned", label: t("returnStep2") },
+    { key: "settled", label: t("returnStep3") },
   ];
 
   return (
@@ -107,11 +109,11 @@ export default function OrdersScreen() {
       <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-            {isStaff ? "إدارة الطلبات" : "طلباتي"}
+            {isStaff ? t("manageOrders") : t("myOrders")}
           </Text>
           {!isStaff && myOrders.length > 0 && (
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 }}>
-              {myOrders.length} طلب
+              {myOrders.length} {t("orders")}
             </Text>
           )}
         </View>
@@ -136,19 +138,19 @@ export default function OrdersScreen() {
         <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
           <View style={[styles.statBox, { backgroundColor: "#9B59B611", borderColor: "#9B59B633" }]}>
             <Text style={{ color: "#9B59B6", fontFamily: "Inter_700Bold", fontSize: 18 }}>{stats.pending}</Text>
-            <Text style={{ color: "#9B59B6", fontFamily: "Inter_500Medium", fontSize: 10 }}>جديد</Text>
+            <Text style={{ color: "#9B59B6", fontFamily: "Inter_500Medium", fontSize: 10 }}>{t("newOrder")}</Text>
           </View>
           <View style={[styles.statBox, { backgroundColor: "#F39C1211", borderColor: "#F39C1233" }]}>
             <Text style={{ color: "#F39C12", fontFamily: "Inter_700Bold", fontSize: 18 }}>{stats.preparing}</Text>
-            <Text style={{ color: "#F39C12", fontFamily: "Inter_500Medium", fontSize: 10 }}>قيد التجهيز</Text>
+            <Text style={{ color: "#F39C12", fontFamily: "Inter_500Medium", fontSize: 10 }}>{t("inPreparation")}</Text>
           </View>
           <View style={[styles.statBox, { backgroundColor: "#27AE6011", borderColor: "#27AE6033" }]}>
             <Text style={{ color: "#27AE60", fontFamily: "Inter_700Bold", fontSize: 18 }}>{stats.delivered}</Text>
-            <Text style={{ color: "#27AE60", fontFamily: "Inter_500Medium", fontSize: 10 }}>تم التسليم</Text>
+            <Text style={{ color: "#27AE60", fontFamily: "Inter_500Medium", fontSize: 10 }}>{t("delivered")}</Text>
           </View>
           <View style={[styles.statBox, { backgroundColor: colors.gold + "11", borderColor: colors.gold + "33" }]}>
             <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>{stats.totalRevenue > 0 ? `${(stats.totalRevenue / 1000).toFixed(1)}k` : "0"}</Text>
-            <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 10 }}>الإيرادات</Text>
+            <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 10 }}>{t("revenue")}</Text>
           </View>
         </View>
       )}
@@ -160,7 +162,7 @@ export default function OrdersScreen() {
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="بحث باسم الزبون أو رقم الطلب..."
+              placeholder={t("searchOrders")}
               placeholderTextColor={colors.mutedForeground}
               style={[styles.searchInput, { color: colors.foreground, fontFamily: "Inter_400Regular", textAlign: "right" }]}
               returnKeyType="search"
@@ -240,7 +242,7 @@ export default function OrdersScreen() {
                 <Icon name="rotate-ccw" size={32} color="#C0392B44" />
               </View>
               <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                لا توجد طلبات استرجاع
+                {t("noReturns")}
               </Text>
             </View>
           ) : (
@@ -268,7 +270,7 @@ export default function OrdersScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
-                          طلب استرجاع
+                          {t("returnRequestLabel")}
                         </Text>
                         {isStaff && (
                           <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
@@ -276,7 +278,7 @@ export default function OrdersScreen() {
                           </Text>
                         )}
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                          طلب #{ret.orderId.slice(0, 8)}
+                          {t("orderNum")} #{ret.orderId.slice(0, 8)}
                         </Text>
                       </View>
                     </View>
@@ -287,7 +289,7 @@ export default function OrdersScreen() {
                         color: isCancelled ? "#E74C3C" : ret.status === "settled" ? "#27AE60" : ret.status === "returned" ? "#F39C12" : "#C0392B",
                         fontFamily: "Inter_600SemiBold", fontSize: 10,
                       }}>
-                        {isCancelled ? "ملغي" : ret.status === "settled" ? "مخالصة" : ret.status === "returned" ? "مسترجع" : "قيد المراجعة"}
+                        {isCancelled ? t("cancelled") : ret.status === "settled" ? t("settled") : ret.status === "returned" ? t("returned") : t("pendingReview")}
                       </Text>
                     </View>
                   </View>
@@ -329,13 +331,13 @@ export default function OrdersScreen() {
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 6, backgroundColor: "#E74C3C11", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
                       <Icon name="info" size={12} color="#E74C3C" />
                       <Text style={{ color: "#E74C3C", fontFamily: "Inter_400Regular", fontSize: 11, flex: 1, textAlign: "right" }}>
-                        تم إلغاء هذا الطلب
+                        {t("returnCancelled")}
                       </Text>
                     </View>
                   )}
 
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", marginTop: 6 }}>
-                    السبب: {ret.reason}
+                    {t("reason")}: {ret.reason}
                   </Text>
 
                   {ret.items && ret.items.length > 0 && (
@@ -356,7 +358,7 @@ export default function OrdersScreen() {
                       {new Date(ret.createdAt).toLocaleDateString("ar-EG")}
                     </Text>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                      <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 11 }}>التفاصيل</Text>
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 11 }}>{t("details")}</Text>
                       <Icon name="chevron-left" size={12} color={colors.gold} />
                     </View>
                   </View>
@@ -370,7 +372,7 @@ export default function OrdersScreen() {
               <Icon name="package" size={32} color={colors.gold + "44"} />
             </View>
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              {search.trim() ? "لا توجد طلبات مطابقة للبحث" : isStaff ? "لا توجد طلبات" : "لا توجد طلبات بعد"}
+              {search.trim() ? t("noMatchingOrders") : isStaff ? t("noOrders") : t("noOrdersYet")}
             </Text>
             {!isStaff && !search.trim() && (
               <Pressable
@@ -382,7 +384,7 @@ export default function OrdersScreen() {
               >
                 <Icon name="shopping-bag" size={16} color={colors.background} />
                 <Text style={[styles.shopBtnText, { color: colors.background, fontFamily: "Inter_600SemiBold" }]}>
-                  تصفح المنتجات
+                  {t("browseProducts")}
                 </Text>
               </Pressable>
             )}

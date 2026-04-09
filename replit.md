@@ -50,6 +50,7 @@ Expo React Native app for Shams Tex fabric company.
 
 ### Features
 - Luxury black + gold design
+- **Multi-language support (AR/EN)**: `lib/i18n.ts` provides `useTranslation()` hook; language toggle in profile; persisted via AsyncStorage; RTL-aware with `isRTL`, `textAlign`, `flexDir` helpers
 - OTP phone login with user roles (customer, merchant, employee, admin)
 - Product catalog with fabric listings, colors, retail/wholesale pricing
 - Cart with weight-based and piece-based ordering, payment method selection (cash, bank transfer, e-wallet, InstaPay)

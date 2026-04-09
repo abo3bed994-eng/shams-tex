@@ -5,10 +5,12 @@ import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useTranslation } from "@/lib/i18n";
 
 export default function TabLayout() {
   const colors = useColors();
   const { theme, orders, user, returnRequests } = useApp();
+  const { t } = useTranslation();
   const isDark = theme === "dark";
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
@@ -62,21 +64,21 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "الرئيسية",
+          title: t("products"),
           tabBarIcon: ({ color }) => <Icon name="home" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="products"
         options={{
-          title: "المنتجات",
+          title: t("products"),
           tabBarIcon: ({ color }) => <Icon name="grid" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
-          title: "الطلبات",
+          title: t("orders"),
           tabBarIcon: ({ color }) => <Icon name="package" size={20} color={color} />,
           tabBarBadge: badgeCount > 0 ? badgeCount : undefined,
           tabBarBadgeStyle: { backgroundColor: "#C0392B", fontSize: 10, minWidth: 16, height: 16 },
@@ -85,7 +87,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="contact"
         options={{
-          title: "تواصل",
+          title: t("contact"),
           tabBarIcon: ({ color }) => <Icon name="phone" size={20} color={color} />,
         }}
       />
