@@ -61,6 +61,13 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(t("logoutConfirm"));
+      if (confirmed) {
+        setUser(null).then(() => router.replace("/auth/login"));
+      }
+      return;
+    }
     Alert.alert(t("logout"), t("logoutConfirm"), [
       { text: t("cancel"), style: "cancel" },
       {
