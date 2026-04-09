@@ -72,13 +72,22 @@ export default function LoginScreen() {
       setStep("otp");
     } catch (err: any) {
       setLoading(false);
-      const msg = err?.code === "auth/too-many-requests"
-        ? "طلبات كثيرة. حاول بعد قليل"
-        : err?.code === "auth/invalid-phone-number"
-        ? "رقم الهاتف غير صالح"
-        : err?.message?.includes("native build")
-        ? "التحقق عبر SMS غير متاح حالياً في وضع المعاينة. استخدم الأرقام التجريبية"
-        : "حدث خطأ أثناء إرسال الكود. حاول مرة أخرى";
+      let msg: string;
+      if (err?.code === "auth/too-many-requests") {
+        msg = "طلبات كثيرة. حاول بعد قليل";
+      } else if (err?.code === "auth/invalid-phone-number") {
+        msg = "رقم الهاتف غير صالح. تأكد من الصيغة الصحيحة";
+      } else if (err?.message?.includes("native build")) {
+        msg = "التحقق عبر SMS غير متاح حالياً في وضع المعاينة. استخدم الأرقام التجريبية";
+      } else if (err?.message?.includes("TIMEOUT")) {
+        msg = "تعذّر التحقق. جرّب فتح التطبيق في تبويب جديد خارج الإطار";
+      } else if (err?.code === "auth/unauthorized-domain") {
+        msg = "النطاق غير مصرّح. يجب إضافة نطاق Replit في إعدادات Firebase";
+      } else if (err?.code === "auth/operation-not-allowed") {
+        msg = "التحقق بالهاتف غير مفعّل في Firebase. فعّله من إعدادات المشروع";
+      } else {
+        msg = `حدث خطأ: ${err?.code || err?.message || "غير معروف"}`;
+      }
       setError(msg);
     }
   };

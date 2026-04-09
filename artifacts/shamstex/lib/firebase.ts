@@ -70,7 +70,21 @@ export async function sendOtp(phoneNumber: string): Promise<ConfirmationResult> 
       document.body.appendChild(container);
     }
     const verifier = setupRecaptcha("recaptcha-container");
-    return signInWithPhoneNumber(auth, phoneNumber, verifier);
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT: تعذّر التحقق من reCAPTCHA. جرّب فتح التطبيق في تبويب جديد")), 15000)
+    );
+
+    try {
+      const result = await Promise.race([
+        signInWithPhoneNumber(auth, phoneNumber, verifier),
+        timeoutPromise,
+      ]);
+      return result;
+    } catch (err: any) {
+      console.error("[Firebase Phone Auth Error]", err?.code, err?.message, err);
+      throw err;
+    }
   }
   throw new Error("Phone auth on mobile requires native build");
 }
