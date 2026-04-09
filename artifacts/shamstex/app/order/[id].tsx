@@ -1072,7 +1072,7 @@ export default function OrderDetailScreen() {
                               <TextInput
                                 style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 12, minWidth: 36, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 1 }}
                                 value={String(curVal)}
-                                keyboardType="numeric"
+                                keyboardType="decimal-pad"
                                 onChangeText={(txt) => {
                                   const val = parseFloat(txt) || 0;
                                   if (val <= 0 || val > maxVal) return;

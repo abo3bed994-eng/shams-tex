@@ -144,7 +144,7 @@ export default function AdminPricesScreen() {
                         ]}
                         value={String(editValues.wholesalePrice ?? "")}
                         onChangeText={(v) => setEditValues((p) => ({ ...p, wholesalePrice: Number(v) }))}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         textAlign="right"
                       />
                     </View>
@@ -165,7 +165,7 @@ export default function AdminPricesScreen() {
                         ]}
                         value={String(editValues.retailPrice ?? "")}
                         onChangeText={(v) => setEditValues((p) => ({ ...p, retailPrice: Number(v) }))}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         textAlign="right"
                       />
                     </View>

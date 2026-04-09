@@ -287,7 +287,7 @@ export default function EditProductScreen() {
                   style={[styles.textInput, { color: colors.gold, backgroundColor: colors.input, borderColor: colors.border, fontFamily: "Inter_700Bold" }]}
                   value={f.value}
                   onChangeText={f.onChange}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   textAlign="right"
                 />
               </View>

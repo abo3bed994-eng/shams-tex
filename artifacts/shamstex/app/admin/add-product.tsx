@@ -387,7 +387,7 @@ export default function AddProductScreen() {
                   ]}
                   value={field.value}
                   onChangeText={field.onChange}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   placeholder="0"
                   placeholderTextColor={colors.mutedForeground}
                   textAlign="right"
