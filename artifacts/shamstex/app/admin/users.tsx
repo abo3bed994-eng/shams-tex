@@ -54,6 +54,7 @@ const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   approve_upgrades: "الموافقة على الترقيات",
   delete_orders: "حذف الطلبات",
   cancel_returns: "إلغاء الاسترجاعات",
+  manage_settings: "إدارة الإعدادات",
 };
 
 const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
@@ -76,6 +77,7 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "approve_upgrades",
   "delete_orders",
   "cancel_returns",
+  "manage_settings",
 ];
 
 const DEMO_STAFF: User[] = [
@@ -558,7 +560,7 @@ export default function AdminUsersScreen() {
           </View>
         </Pressable>
 
-        {isExpanded && user?.role === "admin" && u.id !== user.id && (
+        {isExpanded && (user?.role === "admin" || (user?.role === "supervisor" && (user.permissions ?? []).includes("view_users"))) && u.id !== user.id && (
           <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
             {totalOrders > 0 && (
               <View style={[styles.orderStatsBar, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
@@ -675,15 +677,17 @@ export default function AdminUsersScreen() {
               </Pressable>
             </View>
 
-            <Pressable
-              onPress={() => handleDeleteCustomer(u)}
-              style={[styles.deleteUserBtn, { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11", borderRadius: colors.radius - 4 }]}
-            >
-              <Icon name="trash-2" size={14} color="#E74C3C" />
-              <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }}>
-                حذف المستخدم نهائياً
-              </Text>
-            </Pressable>
+            {user?.role === "admin" && (
+              <Pressable
+                onPress={() => handleDeleteCustomer(u)}
+                style={[styles.deleteUserBtn, { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11", borderRadius: colors.radius - 4 }]}
+              >
+                <Icon name="trash-2" size={14} color="#E74C3C" />
+                <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                  حذف المستخدم نهائياً
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
       </View>
@@ -732,7 +736,7 @@ export default function AdminUsersScreen() {
           </View>
         </Pressable>
 
-        {isExpanded && user?.role === "admin" && u.id !== user.id && (
+        {isExpanded && (user?.role === "admin" || (user?.role === "supervisor" && (user.permissions ?? []).includes("manage_staff"))) && u.id !== user.id && (
           <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
             {u.phone === PRIMARY_ADMIN_PHONE && (
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, padding: 10, backgroundColor: colors.gold + "11", borderRadius: colors.radius - 4, borderWidth: 1, borderColor: colors.gold + "33" }}>
@@ -780,27 +784,29 @@ export default function AdminUsersScreen() {
                   ))}
                 </View>
 
-                <Pressable
-                  onPress={() => handlePromoteToAdmin(u)}
-                  style={[
-                    styles.roleBtn,
-                    {
-                      backgroundColor: colors.gold + "11",
-                      borderColor: colors.gold + "44",
-                      justifyContent: "center",
-                    },
-                  ]}
-                >
-                  <Icon name="award" size={14} color={colors.gold} />
-                  <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                    ترقية إلى مدير
-                  </Text>
-                </Pressable>
+                {user?.role === "admin" && (
+                  <Pressable
+                    onPress={() => handlePromoteToAdmin(u)}
+                    style={[
+                      styles.roleBtn,
+                      {
+                        backgroundColor: colors.gold + "11",
+                        borderColor: colors.gold + "44",
+                        justifyContent: "center",
+                      },
+                    ]}
+                  >
+                    <Icon name="award" size={14} color={colors.gold} />
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                      ترقية إلى مدير
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             )}
-            {showPermissions && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
+            {showPermissions && (user?.role === "admin" || (user?.role === "supervisor" && (user.permissions ?? []).includes("manage_staff"))) && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
 
-            {u.phone !== PRIMARY_ADMIN_PHONE && (
+            {u.phone !== PRIMARY_ADMIN_PHONE && user?.role === "admin" && (
               <Pressable
                 onPress={() => handleDeleteStaff(u)}
                 style={[styles.deleteUserBtn, { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11", borderRadius: colors.radius - 4 }]}

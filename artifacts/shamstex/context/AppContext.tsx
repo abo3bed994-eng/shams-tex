@@ -16,7 +16,8 @@ export type EmployeePermission =
   | "manage_staff"
   | "approve_upgrades"
   | "delete_orders"
-  | "cancel_returns";
+  | "cancel_returns"
+  | "manage_settings";
 
 export interface User {
   id: string;
@@ -197,7 +198,6 @@ export interface AppSettings {
   workingHours?: WorkingDay[];
   payment?: PaymentSettings;
   logoUri?: string;
-  supervisorSettingsAccess?: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {

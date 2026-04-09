@@ -314,24 +314,6 @@ export default function AdminSettingsScreen() {
           </View>
         </Card>
 
-        <Card title="صلاحيات المشرف">
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
-                السماح بالوصول للإعدادات
-              </Text>
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                عند التفعيل، يستطيع المشرف الدخول لإعدادات التطبيق
-              </Text>
-            </View>
-            <Switch
-              value={draft.supervisorSettingsAccess !== false}
-              onValueChange={(v) => setDraft((d) => ({ ...d, supervisorSettingsAccess: v }))}
-              trackColor={{ false: colors.border, true: colors.gold + "66" }}
-              thumbColor={draft.supervisorSettingsAccess !== false ? colors.gold : colors.mutedForeground}
-            />
-          </View>
-        </Card>
 
         <Card title="النبذة التعريفية">
           <Field

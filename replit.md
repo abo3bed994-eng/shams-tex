@@ -72,7 +72,7 @@ Expo React Native app for Shams Tex fabric company.
 
 ### Permissions System
 - Employee/Supervisor permissions stored in Firestore `customers` collection
-- Permissions: `view_orders`, `edit_orders`, `view_products`, `edit_products`, `view_users`, `send_notifications`, `manage_staff`, `approve_upgrades`, `delete_orders`, `cancel_returns`
+- Permissions: `view_orders`, `edit_orders`, `view_products`, `edit_products`, `view_users`, `send_notifications`, `manage_staff`, `approve_upgrades`, `delete_orders`, `cancel_returns`, `manage_settings`
 - Admin screens guarded by `useAdminGuard(permission)` hook — unauthorized access redirects back
 - Permission changes sync in real-time to logged-in staff sessions
 

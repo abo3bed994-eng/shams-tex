@@ -96,7 +96,7 @@ export default function ProfileScreen() {
     ? allAdminLinks
     : allAdminLinks.filter((link) => {
         if (link.route === "/admin/settings") {
-          return user.role === "supervisor" && settings.supervisorSettingsAccess !== false;
+          return (user.permissions ?? []).includes("manage_settings");
         }
         if (!link.permission) return user.role === "supervisor";
         return (user.permissions ?? []).includes(link.permission as any);
