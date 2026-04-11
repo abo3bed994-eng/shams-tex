@@ -2,7 +2,7 @@
   "expo": {
     "name": "Shams Tex",
     "slug": "shamstex",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon-new.png",
     "scheme": "shamstex",
@@ -44,7 +44,21 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "يحتاج التطبيق للوصول إلى صورك لرفع صور المنتجات",
+          "cameraPermission": "يحتاج التطبيق للوصول إلى الكاميرا لالتقاط صور المنتجات"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon-new.png",
+          "color": "#C9A84C"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
