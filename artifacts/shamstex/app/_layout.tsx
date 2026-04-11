@@ -13,12 +13,19 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { I18nManager, Platform } from "react-native";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import SplashScreenComponent from "@/components/SplashScreenComponent";
 import Toast from "@/components/Toast";
 import NotificationBanner from "@/components/NotificationBanner";
+import OfflineBanner from "@/components/OfflineBanner";
 import { registerForPushNotifications } from "@/lib/pushService";
+
+if (Platform.OS !== "web") {
+  I18nManager.allowRTL(true);
+  I18nManager.forceRTL(true);
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -113,6 +120,7 @@ function RootLayoutNav() {
       </Stack>
       <Toast />
       <NotificationBanner />
+      <OfflineBanner />
     </>
   );
 }

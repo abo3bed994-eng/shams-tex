@@ -18,3 +18,15 @@ id = "wBtBgFjoq6DEjEi5MO1DK"
 uri = "file://artifacts/shamstex/assets/images/hero-fabrics.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "a6J4cO57jv--5DCCoEB2o"
+uri = "file://artifacts/shamstex/assets/images/icon-new.png"
+type = "image"
+title = "Shams Tex app icon"
+
+[[generated]]
+id = "xvQsbOPnxdcoekopODJ13"
+uri = "file://artifacts/shamstex/assets/images/adaptive-icon.png"
+type = "image"
+title = "Adaptive icon foreground"
