@@ -285,7 +285,7 @@ interface AppContextType {
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
   setOrderInvoiceImage: (orderId: string, imageUri: string | null) => Promise<void>;
-  updateOrderItems: (orderId: string, items: CartItem[], total: number, staffEdit?: boolean) => Promise<void>;
+  updateOrderItems: (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string) => Promise<void>;
   editingOrderId: string | null;
   setEditingOrderId: (id: string | null) => void;
   returnRequests: ReturnRequest[];
@@ -941,7 +941,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateOrderItems = useCallback(
-    async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean) => {
+    async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string) => {
       const updated = ordersRef.current.map((o) => {
         if (o.id !== orderId) return o;
         const ewalletPct = settings.payment?.ewalletFeePercent ?? 1;
@@ -952,6 +952,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           total,
           paymentFee: fee,
           totalWithFee: total + fee,
+          ...(notes !== undefined ? { notes } : {}),
           ...(staffEdit ? {} : { editable: false, edited: true, editedAt: new Date().toISOString() }),
         };
       });

@@ -59,7 +59,7 @@ function RootLayoutNav() {
         sub = Notifications.addNotificationResponseReceivedListener((response) => {
           const data = response.notification.request.content.data as Record<string, any>;
           let path = "/notifications";
-          if (data?.orderId && (data?.type === "new_order" || data?.type === "order_status")) {
+          if (data?.orderId && (data?.type === "new_order" || data?.type === "order_status" || data?.type === "order_editable" || data?.type === "order_message" || data?.type === "order_edited")) {
             path = `/order/${data.orderId}`;
           }
           if (appReady) {
@@ -156,8 +156,9 @@ export default function RootLayout() {
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
                 <KeyboardAvoidingView
-                  style={{ flex: 1 }}
-                  behavior={Platform.OS === "ios" ? "padding" : "height"}
+                  style={{ flex: 1, backgroundColor: "#0A0A0A" }}
+                  behavior={Platform.OS === "ios" ? "padding" : undefined}
+                  enabled={Platform.OS === "ios"}
                   keyboardVerticalOffset={0}
                 >
                   <RootLayoutNav />

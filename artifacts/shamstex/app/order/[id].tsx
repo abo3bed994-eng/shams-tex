@@ -729,7 +729,7 @@ export default function OrderDetailScreen() {
           const prevAction = PREV_ACTION[order.status];
           return (
             <View style={styles.actionRow}>
-              {isAdmin && prevAction && (
+              {(isAdmin || (isStaff && (user?.permissions ?? []).includes("edit_orders"))) && prevAction && (
                 <Pressable
                   onPress={() => {
                     Alert.alert(

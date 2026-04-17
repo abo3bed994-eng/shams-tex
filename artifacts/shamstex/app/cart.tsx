@@ -126,7 +126,7 @@ export default function CartScreen() {
 
     try {
       if (editOrderId) {
-        await updateOrderItems(editOrderId, [...cart], totalPrice);
+        await updateOrderItems(editOrderId, [...cart], totalPrice, false, notes);
         clearCart();
         setEditingOrderId(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
