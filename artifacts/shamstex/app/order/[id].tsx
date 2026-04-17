@@ -105,6 +105,8 @@ export default function OrderDetailScreen() {
   const [submittingReturn, setSubmittingReturn] = useState(false);
   const [returnSelectedItems, setReturnSelectedItems] = useState<Record<number, boolean>>({});
   const [returnItemWeights, setReturnItemWeights] = useState<Record<number, number>>({});
+  const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
+  const [returnWeightTexts, setReturnWeightTexts] = useState<Record<number, string>>({});
   const [showInvoiceImage, setShowInvoiceImage] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [returnInvoiceImage, setReturnInvoiceImage] = useState<string | null>(null);
@@ -327,17 +329,20 @@ export default function OrderDetailScreen() {
                         </Pressable>
                         <TextInput
                           style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                          value={String(item.weight ?? 1)}
+                          value={weightTexts[`w_${index}`] !== undefined ? weightTexts[`w_${index}`] : String(item.weight ?? 1)}
                           keyboardType="decimal-pad"
                           onChangeText={(txt) => {
+                            if (!/^\d*\.?\d*$/.test(txt)) return;
+                            setWeightTexts(p => ({ ...p, [`w_${index}`]: txt }));
                             const val = parseFloat(txt);
-                            if (isNaN(val) || val < 0) return;
+                            if (isNaN(val) || val <= 0) return;
                             const newW = Math.max(0.1, val);
                             const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newW } : it);
                             const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
                             const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
                             updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                           }}
+                          onBlur={() => setWeightTexts(p => { const n={...p}; delete n[`w_${index}`]; return n; })}
                         />
                         <Pressable
                           onPress={() => {
@@ -396,11 +401,13 @@ export default function OrderDetailScreen() {
                           </Pressable>
                           <TextInput
                             style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                            value={String(item.actualWeight ?? (item.quantity * 20))}
+                            value={weightTexts[`a_${index}`] !== undefined ? weightTexts[`a_${index}`] : String(item.actualWeight ?? (item.quantity * 20))}
                             keyboardType="decimal-pad"
                             onChangeText={(txt) => {
+                              if (!/^\d*\.?\d*$/.test(txt)) return;
+                              setWeightTexts(p => ({ ...p, [`a_${index}`]: txt }));
                               const val = parseFloat(txt);
-                              if (isNaN(val) || val < 0) return;
+                              if (isNaN(val) || val <= 0) return;
                               const newW = Math.max(0.1, val);
                               const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
@@ -1082,13 +1089,16 @@ export default function OrderDetailScreen() {
                               </Pressable>
                               <TextInput
                                 style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 12, minWidth: 36, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 1 }}
-                                value={String(curVal)}
+                                value={returnWeightTexts[index] !== undefined ? returnWeightTexts[index] : String(curVal)}
                                 keyboardType="decimal-pad"
                                 onChangeText={(txt) => {
-                                  const val = parseFloat(txt) || 0;
-                                  if (val <= 0 || val > maxVal) return;
+                                  if (!/^\d*\.?\d*$/.test(txt)) return;
+                                  setReturnWeightTexts(p => ({ ...p, [index]: txt }));
+                                  const val = parseFloat(txt);
+                                  if (isNaN(val) || val <= 0 || val > maxVal) return;
                                   setReturnItemWeights((prev) => ({ ...prev, [index]: val }));
                                 }}
+                                onBlur={() => setReturnWeightTexts(p => { const n={...p}; delete n[index]; return n; })}
                               />
                               <Pressable
                                 onPress={() => {

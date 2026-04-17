@@ -22,6 +22,7 @@
       "package": "com.shamstex.app",
       "googleServicesFile": "./google-services.json",
       "supportsRTL": true,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"

@@ -32,6 +32,7 @@ export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId, updateCartWeight, products } = useApp();
+  const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
@@ -409,14 +410,17 @@ export default function CartScreen() {
                       </Pressable>
                       <TextInput
                         style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                        value={String(item.weight ?? 1)}
+                        value={weightTexts[`${item.productId}_${item.colorName}`] !== undefined ? weightTexts[`${item.productId}_${item.colorName}`] : String(item.weight ?? 1)}
                         keyboardType="decimal-pad"
                         onChangeText={(txt) => {
-                          if (txt === "" || txt === "0") return;
+                          if (!/^\d*\.?\d*$/.test(txt)) return;
+                          const key = `${item.productId}_${item.colorName}`;
+                          setWeightTexts(p => ({ ...p, [key]: txt }));
+                          if (!txt || txt === "0") return;
                           const val = parseFloat(txt);
-                          if (isNaN(val) || val < 0) return;
-                          updateCartWeight(item.productId, item.colorName, val);
+                          if (!isNaN(val) && val > 0) updateCartWeight(item.productId, item.colorName, val);
                         }}
+                        onBlur={() => { const key = `${item.productId}_${item.colorName}`; setWeightTexts(p => { const n = {...p}; delete n[key]; return n; }); }}
                       />
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{unitLabel}</Text>
                       <Pressable

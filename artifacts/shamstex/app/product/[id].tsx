@@ -34,6 +34,7 @@ export default function ProductDetailScreen() {
 
   const [selectedColors, setSelectedColors] = useState<Record<string, number>>({});
   const [colorWeights, setColorWeights] = useState<Record<string, number>>({});
+  const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
   const [orderType, setOrderType] = useState<"weight" | "pieces">("pieces");
   const [imgIdx, setImgIdx] = useState(0);
   const [showColors, setShowColors] = useState(true);
@@ -246,13 +247,15 @@ export default function ProductDetailScreen() {
                         borderColor: w > 0 ? colors.gold + "55" : colors.border,
                         fontFamily: "Inter_700Bold",
                       }]}
-                      value={w > 0 ? String(w) : ""}
+                      value={weightTexts[color.name] !== undefined ? weightTexts[color.name] : (w > 0 ? String(w) : "")}
                       placeholder="0"
                       placeholderTextColor={colors.mutedForeground}
                       keyboardType="decimal-pad"
                       textAlign="center"
                       onChangeText={(text) => {
-                        if (text === "" || text === "0") {
+                        if (!/^\d*\.?\d*$/.test(text)) return;
+                        setWeightTexts((prev) => ({ ...prev, [color.name]: text }));
+                        if (text === "" || text === "0" || text === "0.") {
                           setColorWeights((prev) => {
                             const next = { ...prev };
                             delete next[color.name];
@@ -265,6 +268,7 @@ export default function ProductDetailScreen() {
                           setColorWeights((prev) => ({ ...prev, [color.name]: val }));
                         }
                       }}
+                      onBlur={() => setWeightTexts((prev) => { const n = { ...prev }; delete n[color.name]; return n; })}
                     />
                     <Pressable
                       onPress={() => removeColorWeight(color.name)}

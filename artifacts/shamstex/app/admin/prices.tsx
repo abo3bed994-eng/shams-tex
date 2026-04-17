@@ -26,32 +26,30 @@ export default function AdminPricesScreen() {
   const { products, setProducts } = useApp();
   const [editing, setEditing] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Product>>({});
+  const [editTexts, setEditTexts] = useState<{ retail: string; wholesale: string }>({ retail: "", wholesale: "" });
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const startEdit = (product: Product) => {
     setEditing(product.id);
-    setEditValues({
-      name: product.name,
-      retailPrice: product.retailPrice,
-      wholesalePrice: product.wholesalePrice,
+    setEditValues({ name: product.name });
+    setEditTexts({
+      retail: String(product.retailPrice),
+      wholesale: String(product.wholesalePrice),
     });
   };
 
   const saveEdit = async (id: string) => {
-    if (!editValues.name || !editValues.retailPrice || !editValues.wholesalePrice) {
+    const retail = parseFloat(editTexts.retail);
+    const wholesale = parseFloat(editTexts.wholesale);
+    if (!editValues.name || isNaN(retail) || isNaN(wholesale)) {
       Alert.alert("خطأ", "الرجاء إدخال جميع الحقول");
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const updated = products.map((p) =>
       p.id === id
-        ? {
-            ...p,
-            name: editValues.name!,
-            retailPrice: Number(editValues.retailPrice),
-            wholesalePrice: Number(editValues.wholesalePrice),
-          }
+        ? { ...p, name: editValues.name!, retailPrice: retail, wholesalePrice: wholesale }
         : p
     );
     await setProducts(updated);
@@ -142,8 +140,8 @@ export default function AdminPricesScreen() {
                             fontFamily: "Inter_600SemiBold",
                           },
                         ]}
-                        value={String(editValues.wholesalePrice ?? "")}
-                        onChangeText={(v) => setEditValues((p) => ({ ...p, wholesalePrice: Number(v) }))}
+                        value={editTexts.wholesale}
+                        onChangeText={(v) => { if (/^\d*\.?\d*$/.test(v)) setEditTexts(p => ({ ...p, wholesale: v })); }}
                         keyboardType="decimal-pad"
                         textAlign="right"
                       />
@@ -163,8 +161,8 @@ export default function AdminPricesScreen() {
                             fontFamily: "Inter_600SemiBold",
                           },
                         ]}
-                        value={String(editValues.retailPrice ?? "")}
-                        onChangeText={(v) => setEditValues((p) => ({ ...p, retailPrice: Number(v) }))}
+                        value={editTexts.retail}
+                        onChangeText={(v) => { if (/^\d*\.?\d*$/.test(v)) setEditTexts(p => ({ ...p, retail: v })); }}
                         keyboardType="decimal-pad"
                         textAlign="right"
                       />
