@@ -777,7 +777,7 @@ export default function AdminSettingsScreen() {
                 setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewalletFeePercent: num } }));
               }}
               placeholder="1"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
             />
 
             <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
@@ -821,7 +821,7 @@ export default function AdminSettingsScreen() {
               value={draft.payment?.bankAccountNumber ?? ""}
               onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), bankAccountNumber: v } }))}
               placeholder="1234567890123"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
             />
             <Field
               label="IBAN"

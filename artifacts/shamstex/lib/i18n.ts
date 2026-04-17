@@ -16,7 +16,7 @@ const translations: Record<string, Record<Language, string>> = {
   enterNameHint: { ar: "الاسم سيظهر للبائعين عند تقديم طلباتك", en: "Your name will be visible to sellers when placing orders" },
   nameLabel: { ar: "الاسم الكامل", en: "Full Name" },
   startShopping: { ar: "ابدأ التسوق", en: "Start Shopping" },
-  tagline: { ar: "الأقمشة كما يجب أن تكون", en: "Fabrics as they should be" },
+  tagline: { ar: "تعانق الجودة كل خيط", en: "Quality embraces every thread" },
 
   products: { ar: "المنتجات", en: "Products" },
   orders: { ar: "الطلبات", en: "Orders" },

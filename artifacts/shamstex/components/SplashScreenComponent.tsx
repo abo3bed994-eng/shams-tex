@@ -84,7 +84,7 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
             { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
           ]}
         >
-          {settings.logoUri ? "SHAMS TEX" : (language === "ar" ? "الأقمشة كما يجب أن تكون" : "Fabrics as they should be")}
+          {settings.logoUri ? "SHAMS TEX" : (language === "ar" ? "تعانق الجودة كل خيط" : "Quality embraces every thread")}
         </Text>
       </Animated.View>
     </View>

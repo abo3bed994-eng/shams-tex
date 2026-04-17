@@ -24,7 +24,9 @@ import { registerForPushNotifications } from "@/lib/pushService";
 
 if (Platform.OS !== "web") {
   I18nManager.allowRTL(true);
-  I18nManager.forceRTL(true);
+  if (!I18nManager.isRTL) {
+    I18nManager.forceRTL(true);
+  }
 }
 
 SplashScreen.preventAutoHideAsync();
