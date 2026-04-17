@@ -25,6 +25,7 @@ type Step = "phone" | "otp" | "name";
 
 const DEMO_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" | "supervisor" | "merchant" | "employee"; permissions?: string[] }> = {
   "0000000001": { id: "u1", name: "مدير النظام", role: "admin", permissions: [] },
+  "01221131138": { id: "u0", name: "المدير", role: "admin", permissions: [] },
   "0000000002": { id: "u2", name: "تاجر", role: "merchant", permissions: [] },
   "0000000003": { id: "u3", name: "موظف", role: "employee", permissions: ["view_orders", "view_products"] },
   "0000000004": { id: "u4", name: "مشرف", role: "supervisor", permissions: ["view_orders", "edit_orders", "view_products", "view_users", "send_notifications", "approve_upgrades"] },
@@ -72,6 +73,13 @@ export default function LoginScreen() {
     setGeneratedOtp(code);
     setLoading(false);
     setStep("otp");
+    if (Platform.OS !== "web") {
+      Alert.alert(
+        "رمز التحقق",
+        `رمزك هو: ${code}\n\nاحتفظ به ولا تشاركه مع أحد`,
+        [{ text: "حسناً" }]
+      );
+    }
   };
 
   const handleVerifyOtp = async () => {

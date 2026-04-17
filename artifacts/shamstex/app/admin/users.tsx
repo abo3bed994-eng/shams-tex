@@ -82,6 +82,7 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
 
 const DEMO_STAFF: User[] = [
   { id: "u1", phone: "0000000001", name: "مدير النظام", role: "admin" },
+  { id: "u0", phone: "01221131138", name: "المدير", role: "admin" },
   {
     id: "u3",
     phone: "0000000003",
@@ -317,6 +318,7 @@ export default function AdminUsersScreen() {
   };
 
   const PRIMARY_ADMIN_PHONE = "0000000001";
+  const PROTECTED_PHONES = ["0000000001", "01221131138"];
 
   const handleDeleteCustomer = (u: User) => {
     Alert.alert(
@@ -338,7 +340,7 @@ export default function AdminUsersScreen() {
   };
 
   const handleDeleteStaff = (u: User) => {
-    if (u.phone === PRIMARY_ADMIN_PHONE) return;
+    if (PROTECTED_PHONES.includes(u.phone)) return;
     Alert.alert(
       "حذف عضو الفريق",
       `هل أنت متأكد من حذف "${u.name}" من الفريق؟\n\nسيتم حذف بياناته نهائياً.`,
@@ -730,7 +732,7 @@ export default function AdminUsersScreen() {
 
         {isExpanded && (user?.role === "admin" || (user?.role === "supervisor" && (user.permissions ?? []).includes("manage_staff"))) && u.id !== user.id && (
           <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
-            {u.phone === PRIMARY_ADMIN_PHONE && (
+            {PROTECTED_PHONES.includes(u.phone) && (
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, padding: 10, backgroundColor: colors.gold + "11", borderRadius: colors.radius - 4, borderWidth: 1, borderColor: colors.gold + "33" }}>
                 <Icon name="lock" size={14} color={colors.gold} />
                 <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 13, flex: 1, textAlign: "right" }}>
@@ -738,8 +740,8 @@ export default function AdminUsersScreen() {
                 </Text>
               </View>
             )}
-            {u.phone !== PRIMARY_ADMIN_PHONE && renderNameEdit(u, handleSaveStaffName)}
-            {u.phone !== PRIMARY_ADMIN_PHONE && user?.role === "admin" && (
+            {!PROTECTED_PHONES.includes(u.phone) && renderNameEdit(u, handleSaveStaffName)}
+            {!PROTECTED_PHONES.includes(u.phone) && user?.role === "admin" && (
               <View style={{ gap: 8 }}>
                 <Text style={[styles.expandLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
                   الدور الوظيفي
@@ -793,7 +795,7 @@ export default function AdminUsersScreen() {
             )}
             {showPermissions && (user?.role === "admin" || (user?.role === "supervisor" && (user.permissions ?? []).includes("manage_staff"))) && renderPermissions(u, allowedPerms, handleToggleStaffPermission)}
 
-            {u.phone !== PRIMARY_ADMIN_PHONE && user?.role === "admin" && (
+            {!PROTECTED_PHONES.includes(u.phone) && user?.role === "admin" && (
               <Pressable
                 onPress={() => handleDeleteStaff(u)}
                 style={[styles.deleteUserBtn, { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11", borderRadius: colors.radius - 4 }]}
