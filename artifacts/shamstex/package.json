@@ -65,6 +65,7 @@
     "expo-device": "~8.0.10",
     "expo-file-system": "~19.0.21",
     "expo-notifications": "~0.32.16",
+    "expo-secure-store": "^15.0.8",
     "expo-video": "^3.0.16",
     "firebase": "^12.11.0",
     "lucide-react-native": "^1.7.0",

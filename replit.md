@@ -189,3 +189,22 @@ Generated Zod schemas from the OpenAPI spec.
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec.
+
+## Security Hardening (April 2026)
+
+Added production-readiness improvements to artifacts/shamstex:
+- `firestore.rules` — role-based Firestore access rules (DO NOT DEPLOY until real Firebase Phone Auth is wired; see header warning in file)
+- `storage.rules` — image size/type limits, owner+staff read access for invoices/returns
+- `firebase.json` + `firestore.indexes.json` — deployment config
+- `lib/secureStorage.ts` — expo-secure-store wrapper (with web AsyncStorage fallback) for sensitive data
+- `lib/validation.ts` — Egyptian phone regex (01[0125]xxxxxxxx) + amount/name validators
+- `context/AppContext.tsx` — sessionToken now stored via secureStorage; added `persistUserSafe()` helper that strips token before AsyncStorage writes; one-time migration from old AsyncStorage tokens
+- `app/auth/login.tsx` — uses `isValidPhone()` instead of length-only check
+- Firebase config in `lib/firebase.ts` now reads from EXPO_PUBLIC_* env vars (with fallback defaults); see `.env.example`
+- Removed old Firebase config snapshots from `attached_assets/`
+
+⚠️ Still TODO before app store publication:
+1. Replace fake client-side OTP (`generateWebOtp`/`verifyWebOtp` in lib/firebase.ts and `1234` demo path in login.tsx) with real Firebase Phone Auth (`signInWithPhoneNumber`). Requires Blaze plan and dev build (already using `@react-native-firebase/auth@^24`).
+2. Convert phone storage to E.164 (+20...) in customers/orders/sessions doc IDs to match what Firebase Auth provides via `request.auth.token.phone_number` — OR adjust firestore.rules to extract local format.
+3. Deploy firestore.rules and storage.rules via `firebase deploy --only firestore:rules,storage` after the above.
+

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setSecureItem, getSecureItem, deleteSecureItem } from "@/lib/secureStorage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { FS } from "@/lib/firebase";
@@ -531,7 +532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (changed) {
       const synced: User = { ...currentUser, ...freshRecord };
       setUserState(synced);
-      AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
+      persistUserSafe(synced).catch(() => {});
 
       if (roleChanged) {
         const roleNames: Record<string, string> = {
@@ -554,7 +555,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             [{
               text: "حسناً",
               onPress: async () => {
-                await AsyncStorage.setItem("user", JSON.stringify(synced));
+                await persistUserSafe(synced);
                 setUserState(null);
                 setTimeout(() => setUserState(synced), 500);
               },
@@ -590,11 +591,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (userData) {
         const parsedUser: User = JSON.parse(userData);
+        // Migrate sessionToken to secure storage on first read
+        if (parsedUser.sessionToken) {
+          await setSecureItem("sessionToken", parsedUser.sessionToken);
+          delete (parsedUser as any).sessionToken;
+          await persistUserSafe(parsedUser);
+        }
+        const secureToken = await getSecureItem("sessionToken");
         try {
-          if (parsedUser.phone && parsedUser.sessionToken) {
+          if (parsedUser.phone && secureToken) {
             const remoteToken = await FS.getSession(parsedUser.phone);
-            if (remoteToken && remoteToken !== parsedUser.sessionToken) {
+            if (remoteToken && remoteToken !== secureToken) {
               await AsyncStorage.removeItem("user");
+              await deleteSecureItem("sessionToken");
               setUserState(null);
             } else {
               setUserState(parsedUser);
@@ -634,10 +643,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (_e) {}
   };
 
+  // Safely persist a user object to AsyncStorage WITHOUT the sessionToken.
+  // Token is moved to secure storage. Use this everywhere instead of raw AsyncStorage.setItem("user", ...).
+  const persistUserSafe = async (u: User) => {
+    if (u.sessionToken) {
+      try { await setSecureItem("sessionToken", u.sessionToken); } catch {}
+    }
+    const { sessionToken: _omit, ...rest } = u as any;
+    await AsyncStorage.setItem("user", JSON.stringify(rest));
+  };
+
   const setUser = useCallback(async (u: User | null) => {
     setUserState(u);
-    if (u) await AsyncStorage.setItem("user", JSON.stringify(u));
-    else await AsyncStorage.removeItem("user");
+    if (u) {
+      await persistUserSafe(u);
+    } else {
+      await AsyncStorage.removeItem("user");
+      await deleteSecureItem("sessionToken");
+    }
   }, []);
 
   const findCustomerByPhone = useCallback(
@@ -666,7 +689,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (currentUser && currentUser.phone === updatedUser.phone) {
       const synced = { ...currentUser, ...updatedUser };
       setUserState(synced);
-      AsyncStorage.setItem("user", JSON.stringify(synced)).catch(() => {});
+      persistUserSafe(synced).catch(() => {});
     }
     FS.saveCustomer(updatedUser).catch(() => {});
   }, []);

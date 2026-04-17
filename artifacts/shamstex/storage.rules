@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userPhone() {
+      return request.auth.token.phone_number;
+    }
+
+    function getRole() {
+      return firestore.get(/databases/(default)/documents/customers/$(userPhone())).data.role;
+    }
+
+    function isStaff() {
+      return isSignedIn() && (getRole() == 'admin' || getRole() == 'supervisor' || getRole() == 'employee');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getRole() == 'admin';
+    }
+
+    // Product images — public read, staff-only write with size+type limits
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isStaff();
+    }
+
+    // Invoice images — owner+staff read, staff-only write
+    match /invoices/{orderId}/{fileName} {
+      allow read: if isStaff() || (
+        isSignedIn() &&
+        firestore.get(/databases/(default)/documents/orders/$(orderId)).data.userPhone == userPhone()
+      );
+      allow write: if isStaff()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    // Return request images — owner+staff read
+    match /returns/{reqId}/{fileName} {
+      allow read: if isStaff() || (
+        isSignedIn() &&
+        firestore.get(/databases/(default)/documents/returnRequests/$(reqId)).data.userPhone == userPhone()
+      );
+      allow write: if isSignedIn()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

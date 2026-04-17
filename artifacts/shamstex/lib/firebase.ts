@@ -26,13 +26,13 @@ import {
 import { Platform } from "react-native";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD9tLziFlwyRBpSgMj0Pa_qfNG--XP2csQ",
-  authDomain: "shamstexapp.firebaseapp.com",
-  projectId: "shamstexapp",
-  storageBucket: "shamstexapp.firebasestorage.app",
-  messagingSenderId: "22978900641",
-  appId: "1:22978900641:web:c9fdc26bb0b7baea8db6e0",
-  measurementId: "G-HK64J683SZ",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyD9tLziFlwyRBpSgMj0Pa_qfNG--XP2csQ",
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "shamstexapp.firebaseapp.com",
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "shamstexapp",
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "shamstexapp.firebasestorage.app",
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_SENDER_ID || "22978900641",
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "1:22978900641:web:c9fdc26bb0b7baea8db6e0",
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-HK64J683SZ",
 };
 
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";

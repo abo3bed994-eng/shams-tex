@@ -20,6 +20,7 @@ import { useTranslation } from "@/lib/i18n";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
 import { sendOtp, ConfirmationResult, generateWebOtp, verifyWebOtp } from "@/lib/firebase";
+import { isValidPhone } from "@/lib/validation";
 
 type Step = "phone" | "otp" | "name";
 
@@ -55,7 +56,10 @@ export default function LoginScreen() {
   const fullPhone = `${countryCode}${phone.replace(/^0+/, "")}`;
 
   const handleSendOtp = async () => {
-    if (phone.length < 10) return;
+    if (!isValidPhone(phone)) {
+      setError("رقم الهاتف غير صحيح");
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     setError("");
@@ -270,7 +274,7 @@ export default function LoginScreen() {
                 label={t("sendOtp")}
                 onPress={handleSendOtp}
                 loading={loading}
-                disabled={phone.length < 10}
+                disabled={!isValidPhone(phone)}
                 style={{ width: "100%" }}
               />
 
