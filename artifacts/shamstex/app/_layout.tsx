@@ -157,8 +157,7 @@ export default function RootLayout() {
               <KeyboardProvider>
                 <KeyboardAvoidingView
                   style={{ flex: 1, backgroundColor: "#0A0A0A" }}
-                  behavior={Platform.OS === "ios" ? "padding" : undefined}
-                  enabled={Platform.OS === "ios"}
+                  behavior="padding"
                   keyboardVerticalOffset={0}
                 >
                   <RootLayoutNav />
