@@ -23,8 +23,8 @@ import OfflineBanner from "@/components/OfflineBanner";
 import { registerForPushNotifications } from "@/lib/pushService";
 
 if (Platform.OS !== "web") {
-  I18nManager.allowRTL(true);
-  I18nManager.forceRTL(true);
+  I18nManager.allowRTL(false);
+  I18nManager.forceRTL(false);
 }
 
 SplashScreen.preventAutoHideAsync();
@@ -141,7 +141,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === "web" && typeof document !== "undefined") {
-      document.documentElement.setAttribute("dir", "rtl");
+      document.documentElement.setAttribute("dir", "ltr");
       document.documentElement.setAttribute("lang", "ar");
     }
   }, []);
