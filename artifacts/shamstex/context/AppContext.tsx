@@ -474,16 +474,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let isFirstNotifLoad = true;
     const unsubNotifications = FS.subscribeNotifications((freshNotifs) => {
       if (freshNotifs.length > 0) {
-        const prevCount = notificationsRef.current.length;
         const prevIds = new Set(notificationsRef.current.map((n) => n.id));
         setNotifications(freshNotifs);
         AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
-        if (!isFirstNotifLoad && freshNotifs.length > prevCount) {
-          const hasNewFromOthers = freshNotifs.some(
-            (n) => !prevIds.has(n.id) && n.targetUserId !== "self"
-          );
-          if (hasNewFromOthers) {
+        if (!isFirstNotifLoad) {
+          const me = userRef.current;
+          const isStaff = me && me.role !== "customer";
+          const newOnes = freshNotifs.filter((n) => !prevIds.has(n.id));
+          const forMe = newOnes.filter((n) => {
+            if (n.targetUserId === "self") return false;
+            if (n.targetUserId && me && n.targetUserId === me.id) return true;
+            if (n.targetRole === "staff" && isStaff) return true;
+            if (n.targetRole && me && n.targetRole === me.role) return true;
+            if (!n.targetUserId && !n.targetRole) return true;
+            return false;
+          });
+          if (forMe.length > 0) {
             playNotificationAlert();
+            if (Platform.OS !== "web") {
+              import("expo-notifications").then((Notif) => {
+                forMe.slice(0, 5).forEach((n) => {
+                  Notif.scheduleNotificationAsync({
+                    content: {
+                      title: n.title,
+                      body: n.body,
+                      sound: "notification.wav",
+                      data: { id: n.id, orderId: n.linkedOrderId },
+                    },
+                    trigger: null,
+                  }).catch(() => {});
+                });
+              }).catch(() => {});
+            }
           }
         }
         isFirstNotifLoad = false;
