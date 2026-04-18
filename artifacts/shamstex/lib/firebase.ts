@@ -239,6 +239,14 @@ export const FS = {
     return snap.exists() ? snap.data().token : null;
   },
 
+  subscribeSession(phone: string, callback: (token: string | null) => void): Unsubscribe {
+    return onSnapshot(
+      doc(db, "sessions", phone),
+      (snap) => callback(snap.exists() ? (snap.data().token as string) : null),
+      () => {}
+    );
+  },
+
   // Push notification tokens — keyed by user phone
   async savePushToken(phone: string, role: string, expoPushToken: string) {
     await setDoc(doc(db, "pushTokens", phone), {

@@ -517,6 +517,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const userRef = React.useRef<User | null>(null);
   userRef.current = user;
 
+  // Real-time single-device session enforcement.
+  // When the same phone signs in on another device, Firestore session token changes.
+  // We listen and force-logout if the local secure token no longer matches the remote one.
+  useEffect(() => {
+    if (!user?.phone) return;
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+
+    (async () => {
+      const localToken = await getSecureItem("sessionToken");
+      if (!localToken || cancelled) return;
+
+      unsub = FS.subscribeSession(user.phone, async (remoteToken) => {
+        if (cancelled || !remoteToken) return;
+        if (remoteToken !== localToken) {
+          // Another device took over this account → log out immediately
+          try {
+            await AsyncStorage.removeItem("user");
+            await deleteSecureItem("sessionToken");
+          } catch {}
+          setUserState(null);
+          Alert.alert(
+            "تم تسجيل الدخول من جهاز آخر",
+            "تم تسجيل دخول حسابك على جهاز آخر، فتم إخراجك من هذا الجهاز.",
+            [{ text: "حسناً" }]
+          );
+        }
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      if (unsub) unsub();
+    };
+  }, [user?.phone]);
+
   const syncUserWithRecords = useCallback(() => {
     const currentUser = userRef.current;
     if (!currentUser || !currentUser.phone) return;

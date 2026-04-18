@@ -26,15 +26,18 @@ import { startPhoneSignIn, PhoneAuthConfirmation } from "@/lib/phoneAuth";
 
 type Step = "phone" | "otp" | "name" | "adminBypass";
 
-// Hidden admin accounts used by the long-press-logo bypass.
-// Phone is stored in E.164 (+20…) — these are the admin's real numbers.
-const ADMIN_BYPASS_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" }> = {
-  "+201221131138": { id: "u0", name: "المدير", role: "admin" },
-  "+200000000001": { id: "u1", name: "مدير النظام", role: "admin" },
-};
+// Primary admin account (the one signed in when secret bypass is used)
+const PRIMARY_ADMIN = { id: "u0", phone: "+201221131138", name: "المدير", role: "admin" as const };
 
+// SECRET ADMIN ENTRY (Method D — magic phone + password + verify code)
+// Triggered when user types the magic local digits in the phone field.
+const SECRET_MAGIC_PHONE_LOCAL = "9998765432";
+const SECRET_MAGIC_PHONE_E164 =
+  (process.env.EXPO_PUBLIC_ADMIN_MAGIC_PHONE as string | undefined) || "+9998765432";
 const ADMIN_BYPASS_PASSWORD =
-  (process.env.EXPO_PUBLIC_ADMIN_BYPASS_PASSWORD as string | undefined) || "";
+  (process.env.EXPO_PUBLIC_ADMIN_BYPASS_PASSWORD as string | undefined) || "$h@m$TEX1994";
+const ADMIN_VERIFY_CODE =
+  (process.env.EXPO_PUBLIC_ADMIN_VERIFY_CODE as string | undefined) || "096746";
 
 export default function LoginScreen() {
   const colors = useColors();
@@ -50,8 +53,8 @@ export default function LoginScreen() {
   const [step, setStep] = useState<Step>("phone");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [bypassPhone, setBypassPhone] = useState("");
   const [bypassPassword, setBypassPassword] = useState("");
+  const [bypassVerifyCode, setBypassVerifyCode] = useState("");
   const confirmRef = useRef<PhoneAuthConfirmation | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -62,6 +65,15 @@ export default function LoginScreen() {
 
   // ---------- Real OTP send ----------
   const handleSendOtp = async () => {
+    // SECRET ADMIN ENTRY: detect magic phone number → switch to bypass step silently
+    const digitsOnly = phone.replace(/\D/g, "").replace(/^0+/, "");
+    if (digitsOnly === SECRET_MAGIC_PHONE_LOCAL || e164Phone === SECRET_MAGIC_PHONE_E164) {
+      setError("");
+      setBypassPassword("");
+      setBypassVerifyCode("");
+      setStep("adminBypass");
+      return;
+    }
     if (!phoneValid) {
       setError("رقم الهاتف غير صحيح");
       return;
@@ -139,36 +151,21 @@ export default function LoginScreen() {
     await finishLogin(trimmed, "customer", newUser);
   };
 
-  // ---------- Hidden admin bypass ----------
-  const handleLogoLongPress = () => {
-    if (!ADMIN_BYPASS_PASSWORD) {
-      Alert.alert("غير متاح", "لم يتم إعداد كلمة سر الأدمن في هذا البناء.");
-      return;
-    }
-    setError("");
-    setBypassPhone("");
-    setBypassPassword("");
-    setStep("adminBypass");
-  };
-
+  // ---------- Secret admin bypass (Method D) ----------
   const handleAdminBypassSubmit = async () => {
-    const phoneKey = bypassPhone.trim().startsWith("+")
-      ? bypassPhone.trim()
-      : `+20${bypassPhone.trim().replace(/^0+/, "")}`;
-    const account = ADMIN_BYPASS_ACCOUNTS[phoneKey];
-    if (!account) {
-      setError("رقم الأدمن غير معروف");
+    if (bypassPassword !== ADMIN_BYPASS_PASSWORD) {
+      setError("بيانات الدخول غير صحيحة");
       return;
     }
-    if (bypassPassword !== ADMIN_BYPASS_PASSWORD) {
-      setError("كلمة السر غير صحيحة");
+    if (bypassVerifyCode !== ADMIN_VERIFY_CODE) {
+      setError("بيانات الدخول غير صحيحة");
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const existing = findCustomerByPhone(phoneKey);
+    const existing = findCustomerByPhone(PRIMARY_ADMIN.phone);
     const userObj = existing
-      ? { ...existing, phone: phoneKey, role: "admin" as const }
-      : { id: account.id, phone: phoneKey, name: account.name, role: "admin" as const };
+      ? { ...existing, phone: PRIMARY_ADMIN.phone, role: "admin" as const }
+      : { ...PRIMARY_ADMIN };
     await finishLogin(userObj.name, "admin", userObj);
   };
 
@@ -223,13 +220,11 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Pressable onLongPress={handleLogoLongPress} delayLongPress={1500}>
-            <Image
-              source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
-              style={styles.logoImg}
-              resizeMode="contain"
-            />
-          </Pressable>
+          <Image
+            source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
             SHAMS TEX
           </Text>
@@ -441,28 +436,11 @@ export default function LoginScreen() {
                 <Icon name="shield" size={28} color={colors.gold} />
               </View>
               <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                دخول الأدمن
+                دخول مسؤول النظام
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                للأدمن فقط — أدخل رقمك وكلمة السر
+                أدخل كلمة السر ورمز التحقق
               </Text>
-
-              <View
-                style={[
-                  styles.inputWrapper,
-                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
-                ]}
-              >
-                <TextInput
-                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
-                  placeholder="رقم الأدمن (+20...)"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={bypassPhone}
-                  onChangeText={(v) => { setBypassPhone(v); setError(""); }}
-                  keyboardType="phone-pad"
-                  textAlign="right"
-                />
-              </View>
 
               <View
                 style={[
@@ -478,6 +456,26 @@ export default function LoginScreen() {
                   onChangeText={(v) => { setBypassPassword(v); setError(""); }}
                   secureTextEntry
                   textAlign="right"
+                  autoFocus
+                />
+              </View>
+
+              <View
+                style={[
+                  styles.inputWrapper,
+                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
+                ]}
+              >
+                <TextInput
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 6 }]}
+                  placeholder="رمز التحقق"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={bypassVerifyCode}
+                  onChangeText={(v) => { setBypassVerifyCode(v); setError(""); }}
+                  secureTextEntry
+                  keyboardType="numeric"
+                  maxLength={6}
+                  textAlign="center"
                   onSubmitEditing={handleAdminBypassSubmit}
                 />
               </View>
@@ -495,7 +493,7 @@ export default function LoginScreen() {
                 label="دخول"
                 onPress={handleAdminBypassSubmit}
                 loading={loading}
-                disabled={!bypassPhone || !bypassPassword}
+                disabled={!bypassPassword || bypassVerifyCode.length < 4}
                 style={{ width: "100%" }}
               />
             </>
