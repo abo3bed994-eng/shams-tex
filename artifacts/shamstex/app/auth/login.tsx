@@ -39,6 +39,13 @@ const ADMIN_BYPASS_PASSWORD =
 const ADMIN_VERIFY_CODE =
   (process.env.EXPO_PUBLIC_ADMIN_VERIFY_CODE as string | undefined) || "096746";
 
+// TEST CUSTOMER ACCOUNTS — bypass SMS for development/testing.
+// Any phone starting with 5550 (e.g. 5550000001..5550000099) accepts fixed code below.
+const TEST_PHONE_PREFIX = "5550";
+const TEST_VERIFY_CODE = "123456";
+const isTestPhone = (localDigits: string) =>
+  localDigits.startsWith(TEST_PHONE_PREFIX) && localDigits.length >= 8;
+
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -74,6 +81,13 @@ export default function LoginScreen() {
       setStep("adminBypass");
       return;
     }
+    // TEST CUSTOMER PHONES: skip SMS, jump straight to OTP step
+    if (isTestPhone(digitsOnly)) {
+      setError("");
+      confirmRef.current = null;
+      setStep("otp");
+      return;
+    }
     if (!phoneValid) {
       setError("رقم الهاتف غير صحيح");
       return;
@@ -104,10 +118,34 @@ export default function LoginScreen() {
 
   // ---------- Real OTP verify ----------
   const handleVerifyOtp = async () => {
-    if (otp.length < 4 || !confirmRef.current) return;
+    if (otp.length < 4) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     setError("");
+
+    // TEST CUSTOMER PHONES: bypass real verification
+    const digitsOnly = phone.replace(/\D/g, "").replace(/^0+/, "");
+    if (isTestPhone(digitsOnly)) {
+      if (otp !== TEST_VERIFY_CODE) {
+        setError(`كود التحقق غير صحيح (للحسابات التجريبية: ${TEST_VERIFY_CODE})`);
+        setLoading(false);
+        return;
+      }
+      const existing = findCustomerByPhone(e164Phone);
+      if (existing) {
+        await finishLogin(existing.name, existing.role as any, { ...existing, phone: e164Phone });
+      } else {
+        setStep("name");
+      }
+      setLoading(false);
+      return;
+    }
+
+    if (!confirmRef.current) {
+      setError("جلسة التحقق منتهية، أعد المحاولة");
+      setLoading(false);
+      return;
+    }
     try {
       const result = await confirmRef.current.confirm(otp);
       const verifiedPhone = result.phoneNumber || e164Phone;
