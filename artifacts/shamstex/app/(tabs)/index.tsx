@@ -21,7 +21,7 @@ import { filterNotificationsForUser } from "@/lib/notificationFilter";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, products, notifications, cart, settings, orders } = useApp();
+  const { user, products, notifications, cart, settings, orders, onlineCount } = useApp();
   const { t, isRTL } = useTranslation();
 
   const videos = settings.bannerVideoUris ?? [];
@@ -198,6 +198,14 @@ export default function HomeScreen() {
                 {roleLabel.text}
               </Text>
             </View>
+            {user?.role === "admin" && (
+              <View style={[styles.bannerRolePill, { backgroundColor: "#27AE60", marginInlineStart: 6 }]}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#FFFFFF" }} />
+                <Text style={[styles.bannerRoleText, { color: "#FFFFFF" }]}>
+                  {onlineCount} متصل الآن
+                </Text>
+              </View>
+            )}
           </View>
 
           {videos.length > 1 && (

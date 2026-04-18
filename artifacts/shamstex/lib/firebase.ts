@@ -278,4 +278,24 @@ export const FS = {
     const snap = await getDocs(collection(db, "pushTokens"));
     return snap.docs.map((d) => d.data() as any);
   },
+
+  async setPresence(userId: string, info: { name: string; role: string; phone?: string }) {
+    await setDoc(doc(db, "presence", userId), {
+      userId,
+      name: info.name,
+      role: info.role,
+      phone: info.phone || "",
+      lastSeen: Date.now(),
+    });
+  },
+
+  async clearPresence(userId: string) {
+    await deleteDoc(doc(db, "presence", userId)).catch(() => {});
+  },
+
+  subscribePresence(callback: (entries: { userId: string; name: string; role: string; phone: string; lastSeen: number }[]) => void): Unsubscribe {
+    return onSnapshot(collection(db, "presence"), (snap) => {
+      callback(snap.docs.map((d) => d.data() as any));
+    });
+  },
 };

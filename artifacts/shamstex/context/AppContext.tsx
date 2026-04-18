@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setSecureItem, getSecureItem, deleteSecureItem } from "@/lib/secureStorage";
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
@@ -298,6 +298,8 @@ interface AppContextType {
   setTabs: (tabs: Tab[]) => Promise<void>;
   notifications: Notification[];
   addNotification: (notification: Notification) => Promise<void>;
+  onlineCount: number;
+  onlineUsers: { userId: string; name: string; role: string; phone: string; lastSeen: number }[];
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   updateCartWeight: (productId: string, colorName: string, weight: number) => void;
@@ -574,6 +576,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (unsub) unsub();
     };
   }, [user?.phone]);
+
+  // Presence tracking — heartbeat to Firestore every 30s while logged in.
+  // Admins use this to see how many users are currently browsing.
+  const [onlineUsers, setOnlineUsers] = useState<{ userId: string; name: string; role: string; phone: string; lastSeen: number }[]>([]);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const beat = () => {
+      if (cancelled) return;
+      FS.setPresence(user.id, { name: user.name || "", role: user.role, phone: user.phone || "" }).catch(() => {});
+    };
+    beat();
+    const interval = setInterval(beat, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      FS.clearPresence(user.id).catch(() => {});
+    };
+  }, [user?.id, user?.name, user?.role, user?.phone]);
+
+  useEffect(() => {
+    if (user?.role !== "admin") {
+      setOnlineUsers([]);
+      return;
+    }
+    const unsub = FS.subscribePresence((entries) => {
+      setOnlineUsers(entries);
+    });
+    return () => unsub();
+  }, [user?.role]);
+
+  const ONLINE_WINDOW_MS = 90_000;
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    const t = setInterval(() => setNowTick(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, [user?.role]);
+  const onlineCount = useMemo(() => {
+    const cutoff = nowTick - ONLINE_WINDOW_MS;
+    return onlineUsers.filter((u) => u.lastSeen >= cutoff).length;
+  }, [onlineUsers, nowTick]);
 
   const syncUserWithRecords = useCallback(() => {
     const currentUser = userRef.current;
@@ -1323,6 +1367,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTabs,
         notifications,
         addNotification,
+        onlineCount,
+        onlineUsers,
         markNotificationRead,
         markAllNotificationsRead,
         updateCartWeight,
