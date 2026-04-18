@@ -45,3 +45,4 @@ externalPort = 3000
 
 [userenv.shared]
 EXPO_TOKEN = "o5IkvEVW6vdzKf6_T9ErmrezzEs_AGwGxhvcNiQK"
+EXPO_PUBLIC_ADMIN_BYPASS_PASSWORD = "$h@m$TEX1994"
