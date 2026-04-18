@@ -75,30 +75,10 @@ export function setupRecaptcha(): RecaptchaVerifier {
   return recaptchaVerifierInstance;
 }
 
-let webOtpCodes: Record<string, string> = {};
-
-export function generateWebOtp(phoneNumber: string): string {
-  const code = String(Math.floor(1000 + Math.random() * 9000));
-  webOtpCodes[phoneNumber] = code;
-  return code;
-}
-
-export function verifyWebOtp(phoneNumber: string, code: string): boolean {
-  const stored = webOtpCodes[phoneNumber];
-  if (stored && stored === code) {
-    delete webOtpCodes[phoneNumber];
-    return true;
-  }
-  return false;
-}
-
-export async function sendOtp(phoneNumber: string): Promise<ConfirmationResult | null> {
-  if (Platform.OS !== "web") {
-    throw new Error("Phone auth on mobile requires native build");
-  }
-  return null;
-}
-
+// Real phone authentication is implemented in lib/phoneAuth.ts using:
+//   • Firebase JS SDK (web)
+//   • @react-native-firebase/auth (native)
+// The fake client-side OTP previously implemented here has been removed.
 export type { ConfirmationResult };
 
 let db: ReturnType<typeof getFirestore>;

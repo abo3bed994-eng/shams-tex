@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -19,116 +19,114 @@ import { useApp } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
 import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
-import { sendOtp, ConfirmationResult, generateWebOtp, verifyWebOtp } from "@/lib/firebase";
-import { isValidPhone } from "@/lib/validation";
+import CountryPicker from "@/components/CountryPicker";
+import { COUNTRIES, DEFAULT_COUNTRY, Country } from "@/lib/countries";
+import { isValidLocal, toE164 } from "@/lib/phoneUtils";
+import { startPhoneSignIn, PhoneAuthConfirmation } from "@/lib/phoneAuth";
 
-type Step = "phone" | "otp" | "name";
+type Step = "phone" | "otp" | "name" | "adminBypass";
 
-const DEMO_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" | "supervisor" | "merchant" | "employee"; permissions?: string[] }> = {
-  "0000000001": { id: "u1", name: "مدير النظام", role: "admin", permissions: [] },
-  "01221131138": { id: "u0", name: "المدير", role: "admin", permissions: [] },
-  "0000000002": { id: "u2", name: "تاجر", role: "merchant", permissions: [] },
-  "0000000003": { id: "u3", name: "موظف", role: "employee", permissions: ["view_orders", "view_products"] },
-  "0000000004": { id: "u4", name: "مشرف", role: "supervisor", permissions: ["view_orders", "edit_orders", "view_products", "view_users", "send_notifications", "approve_upgrades"] },
+// Hidden admin accounts used by the long-press-logo bypass.
+// Phone is stored in E.164 (+20…) — these are the admin's real numbers.
+const ADMIN_BYPASS_ACCOUNTS: Record<string, { id: string; name: string; role: "admin" }> = {
+  "+201221131138": { id: "u0", name: "المدير", role: "admin" },
+  "+200000000001": { id: "u1", name: "مدير النظام", role: "admin" },
 };
+
+const ADMIN_BYPASS_PASSWORD =
+  (process.env.EXPO_PUBLIC_ADMIN_BYPASS_PASSWORD as string | undefined) || "";
 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { setUser, findCustomerByPhone, registerCustomer, settings } = useApp();
-  const { t, isRTL, textAlign, flexDir } = useTranslation();
+  const { t } = useTranslation();
 
+  const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phone, setPhone] = useState("");
-  const [countryCode, setCountryCode] = useState("+20");
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
   const [step, setStep] = useState<Step>("phone");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [returningUser, setReturningUser] = useState<ReturnType<typeof findCustomerByPhone>>(undefined);
-  const [generatedOtp, setGeneratedOtp] = useState("");
-  const confirmResultRef = useRef<ConfirmationResult | null>(null);
+  const [bypassPhone, setBypassPhone] = useState("");
+  const [bypassPassword, setBypassPassword] = useState("");
+  const confirmRef = useRef<PhoneAuthConfirmation | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const isDemo = !!DEMO_ACCOUNTS[phone];
-  const fullPhone = `${countryCode}${phone.replace(/^0+/, "")}`;
+  const e164Phone = toE164(country, phone);
+  const phoneValid = isValidLocal(country, phone);
 
+  // ---------- Real OTP send ----------
   const handleSendOtp = async () => {
-    if (!isValidPhone(phone)) {
+    if (!phoneValid) {
       setError("رقم الهاتف غير صحيح");
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     setError("");
-
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 800));
-      setGeneratedOtp("1234");
-      setLoading(false);
+    try {
+      const conf = await startPhoneSignIn(e164Phone);
+      confirmRef.current = conf;
       setStep("otp");
-      return;
-    }
-
-    await new Promise((r) => setTimeout(r, 600));
-    const code = generateWebOtp(fullPhone);
-    setGeneratedOtp(code);
-    setLoading(false);
-    setStep("otp");
-    if (Platform.OS !== "web") {
-      Alert.alert(
-        "رمز التحقق",
-        `رمزك هو: ${code}\n\nاحتفظ به ولا تشاركه مع أحد`,
-        [{ text: "حسناً" }]
-      );
+    } catch (e: any) {
+      const msg = String(e?.message || e);
+      let friendly = "تعذّر إرسال كود التحقق. حاول مرة أخرى.";
+      if (msg.includes("quota")) friendly = "وصلت الحصة اليومية للرسائل. حاول غداً.";
+      else if (msg.includes("invalid-phone")) friendly = "رقم الهاتف غير صحيح";
+      else if (msg.includes("too-many-requests")) friendly = "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة.";
+      else if (msg.includes("network")) friendly = "تعذّر الاتصال بالإنترنت";
+      setError(friendly);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ---------- Real OTP verify ----------
   const handleVerifyOtp = async () => {
-    if (otp.length < 4) return;
+    if (otp.length < 4 || !confirmRef.current) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     setError("");
-
-    if (isDemo) {
-      if (otp !== "1234") {
-        setLoading(false);
-        setError("كود التحقق غير صحيح. للحسابات التجريبية استخدم 1234");
-        return;
+    try {
+      const result = await confirmRef.current.confirm(otp);
+      const verifiedPhone = result.phoneNumber || e164Phone;
+      const existing = findCustomerByPhone(verifiedPhone);
+      if (existing) {
+        await finishLogin(existing.name, existing.role as any, { ...existing, phone: verifiedPhone });
+      } else {
+        // Always store new accounts under E.164
+        setStep("name");
       }
-      const demo = DEMO_ACCOUNTS[phone];
-      const existingDemo = findCustomerByPhone(phone);
-      const demoUser = existingDemo
-        ? { ...existingDemo }
-        : { id: demo.id, phone, name: demo.name, role: demo.role, permissions: demo.permissions };
-      await finishLogin(demoUser.name, demoUser.role as any, demoUser);
-      return;
-    }
-
-    if (!verifyWebOtp(fullPhone, otp)) {
+    } catch (e: any) {
+      const msg = String(e?.message || e);
+      let friendly = "كود التحقق غير صحيح";
+      if (msg.includes("expired") || msg.includes("session-expired")) {
+        friendly = "انتهت صلاحية الكود. أعد إرساله.";
+      }
+      setError(friendly);
+    } finally {
       setLoading(false);
-      setError("كود التحقق غير صحيح");
-      return;
-    }
-
-    setLoading(false);
-    const existing = findCustomerByPhone(phone);
-    if (existing) {
-      setReturningUser(existing);
-      await finishLogin(existing.name, existing.role as any, existing);
-    } else {
-      setStep("name");
     }
   };
 
+  const handleResendOtp = async () => {
+    setOtp("");
+    setError("");
+    await handleSendOtp();
+  };
+
+  // ---------- New customer name ----------
   const handleNameSubmit = async () => {
     const trimmed = name.trim();
     if (trimmed.length < 2) return;
     const newUser = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      phone,
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
+      phone: e164Phone,
       name: trimmed,
       role: "customer" as const,
       registeredAt: new Date().toISOString(),
@@ -137,6 +135,40 @@ export default function LoginScreen() {
     await finishLogin(trimmed, "customer", newUser);
   };
 
+  // ---------- Hidden admin bypass ----------
+  const handleLogoLongPress = () => {
+    if (!ADMIN_BYPASS_PASSWORD) {
+      Alert.alert("غير متاح", "لم يتم إعداد كلمة سر الأدمن في هذا البناء.");
+      return;
+    }
+    setError("");
+    setBypassPhone("");
+    setBypassPassword("");
+    setStep("adminBypass");
+  };
+
+  const handleAdminBypassSubmit = async () => {
+    const phoneKey = bypassPhone.trim().startsWith("+")
+      ? bypassPhone.trim()
+      : `+20${bypassPhone.trim().replace(/^0+/, "")}`;
+    const account = ADMIN_BYPASS_ACCOUNTS[phoneKey];
+    if (!account) {
+      setError("رقم الأدمن غير معروف");
+      return;
+    }
+    if (bypassPassword !== ADMIN_BYPASS_PASSWORD) {
+      setError("كلمة السر غير صحيحة");
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const existing = findCustomerByPhone(phoneKey);
+    const userObj = existing
+      ? { ...existing, phone: phoneKey, role: "admin" as const }
+      : { id: account.id, phone: phoneKey, name: account.name, role: "admin" as const };
+    await finishLogin(userObj.name, "admin", userObj);
+  };
+
+  // ---------- Finish login (shared) ----------
   const finishLogin = async (
     displayName: string,
     role: "admin" | "supervisor" | "merchant" | "employee" | "customer",
@@ -144,18 +176,20 @@ export default function LoginScreen() {
   ) => {
     setLoading(true);
     const sessionToken = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const phoneToUse = existingUser?.phone || e164Phone;
 
-    const existingRecord = findCustomerByPhone(existingUser?.phone || phone);
+    const existingRecord = findCustomerByPhone(phoneToUse);
     const resolvedRole = existingRecord?.role || existingUser?.role || role;
     const resolvedPerms = existingRecord?.permissions || existingUser?.permissions;
     const resolvedVip = existingRecord?.vip || existingUser?.vip;
 
     const userToSet = {
       ...(existingUser ?? {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        phone,
+        id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
+        phone: phoneToUse,
         name: displayName,
       }),
+      phone: phoneToUse,
       role: resolvedRole,
       permissions: resolvedPerms,
       vip: resolvedVip,
@@ -169,24 +203,6 @@ export default function LoginScreen() {
     await setUser(userToSet);
     setLoading(false);
     router.replace("/(tabs)");
-  };
-
-  const handleResendOtp = async () => {
-    setOtp("");
-    setError("");
-    setLoading(true);
-
-    if (isDemo) {
-      await new Promise((r) => setTimeout(r, 800));
-      setGeneratedOtp("1234");
-      setLoading(false);
-      return;
-    }
-
-    await new Promise((r) => setTimeout(r, 600));
-    const code = generateWebOtp(fullPhone);
-    setGeneratedOtp(code);
-    setLoading(false);
   };
 
   return (
@@ -203,11 +219,13 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Image
-            source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
-            style={styles.logoImg}
-            resizeMode="contain"
-          />
+          <Pressable onLongPress={handleLogoLongPress} delayLongPress={1500}>
+            <Image
+              source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
+              style={styles.logoImg}
+              resizeMode="contain"
+            />
+          </Pressable>
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
             SHAMS TEX
           </Text>
@@ -241,11 +259,16 @@ export default function LoginScreen() {
                     { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
                   ]}
                 >
-                  <View style={[styles.countryCodeBox, { borderLeftColor: colors.border }]}>
-                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 15 }}>
-                      {countryCode}
+                  <Pressable
+                    onPress={() => setShowCountryPicker(true)}
+                    style={[styles.countryCodeBox, { borderLeftColor: colors.border }]}
+                  >
+                    <Text style={{ fontSize: 18 }}>{country.flag}</Text>
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                      {country.dial}
                     </Text>
-                  </View>
+                    <Icon name="chevron-down" size={14} color={colors.mutedForeground} />
+                  </Pressable>
                   <TextInput
                     style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
                     placeholder={t("phone")}
@@ -274,7 +297,7 @@ export default function LoginScreen() {
                 label={t("sendOtp")}
                 onPress={handleSendOtp}
                 loading={loading}
-                disabled={!isValidPhone(phone)}
+                disabled={!phoneValid}
                 style={{ width: "100%" }}
               />
 
@@ -282,20 +305,13 @@ export default function LoginScreen() {
               <Text style={[styles.newCustomerNote, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
                 {t("newCustomer")}
               </Text>
-
-              <View style={[styles.demoBox, { backgroundColor: colors.gold + "08", borderColor: colors.gold + "22" }]}>
-                <Icon name="info" size={13} color={colors.gold} />
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10, flex: 1, textAlign: "right", lineHeight: 16 }}>
-                  حسابات تجريبية: مدير 0000000001 | تاجر 0000000002 | موظف 0000000003 | مشرف 0000000004 (كود: 1234)
-                </Text>
-              </View>
             </>
           )}
 
           {step === "otp" && (
             <>
               <View style={styles.backRow}>
-                <Pressable onPress={() => { setStep("phone"); setOtp(""); setError(""); confirmResultRef.current = null; }}>
+                <Pressable onPress={() => { setStep("phone"); setOtp(""); setError(""); confirmRef.current = null; }}>
                   <Icon name="arrow-right" size={20} color={colors.foreground} />
                 </Pressable>
               </View>
@@ -306,16 +322,8 @@ export default function LoginScreen() {
                 {t("otpTitle")}
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {`${t("otpSentTo")} ${isDemo ? phone : fullPhone}`}
+                {`${t("otpSentTo")} ${e164Phone}`}
               </Text>
-              {generatedOtp ? (
-                <View style={[styles.otpDisplay, { backgroundColor: colors.gold + "15", borderColor: colors.gold + "44" }]}>
-                  <Icon name="key" size={16} color={colors.gold} />
-                  <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 20, letterSpacing: 6 }}>
-                    {generatedOtp}
-                  </Text>
-                </View>
-              ) : null}
 
               <View
                 style={[
@@ -326,7 +334,7 @@ export default function LoginScreen() {
                 <Icon name="lock" size={18} color={colors.mutedForeground} />
                 <TextInput
                   style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 8 }]}
-                  placeholder="_ _ _ _"
+                  placeholder="_ _ _ _ _ _"
                   placeholderTextColor={colors.mutedForeground}
                   value={otp}
                   onChangeText={(val) => { setOtp(val); setError(""); }}
@@ -417,8 +425,87 @@ export default function LoginScreen() {
               </View>
             </>
           )}
+
+          {step === "adminBypass" && (
+            <>
+              <View style={styles.backRow}>
+                <Pressable onPress={() => { setStep("phone"); setError(""); }}>
+                  <Icon name="arrow-right" size={20} color={colors.foreground} />
+                </Pressable>
+              </View>
+              <View style={styles.stepIcon}>
+                <Icon name="shield" size={28} color={colors.gold} />
+              </View>
+              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                دخول الأدمن
+              </Text>
+              <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                للأدمن فقط — أدخل رقمك وكلمة السر
+              </Text>
+
+              <View
+                style={[
+                  styles.inputWrapper,
+                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
+                ]}
+              >
+                <TextInput
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+                  placeholder="رقم الأدمن (+20...)"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={bypassPhone}
+                  onChangeText={(v) => { setBypassPhone(v); setError(""); }}
+                  keyboardType="phone-pad"
+                  textAlign="right"
+                />
+              </View>
+
+              <View
+                style={[
+                  styles.inputWrapper,
+                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
+                ]}
+              >
+                <TextInput
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
+                  placeholder="كلمة السر"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={bypassPassword}
+                  onChangeText={(v) => { setBypassPassword(v); setError(""); }}
+                  secureTextEntry
+                  textAlign="right"
+                  onSubmitEditing={handleAdminBypassSubmit}
+                />
+              </View>
+
+              {error ? (
+                <View style={[styles.errorBox, { backgroundColor: "#E74C3C11", borderColor: "#E74C3C44" }]}>
+                  <Icon name="alert-circle" size={14} color="#E74C3C" />
+                  <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }}>
+                    {error}
+                  </Text>
+                </View>
+              ) : null}
+
+              <GoldButton
+                label="دخول"
+                onPress={handleAdminBypassSubmit}
+                loading={loading}
+                disabled={!bypassPhone || !bypassPassword}
+                style={{ width: "100%" }}
+              />
+            </>
+          )}
         </View>
       </ScrollView>
+
+      <CountryPicker
+        visible={showCountryPicker}
+        selected={country}
+        onClose={() => setShowCountryPicker(false)}
+        onSelect={(c) => setCountry(c)}
+      />
+
     </KeyboardAvoidingView>
   );
 }
@@ -444,11 +531,14 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 16, height: "100%" },
   countryCodeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     borderLeftWidth: 1,
-    paddingLeft: 12,
+    paddingLeft: 8,
+    paddingRight: 4,
     marginLeft: 4,
     height: 30,
-    justifyContent: "center",
   },
   backRow: { flexDirection: "row-reverse", marginBottom: -4 },
   divider: { borderTopWidth: 1, marginVertical: 4 },
@@ -468,23 +558,6 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 10,
     borderRadius: 8,
-    borderWidth: 1,
-  },
-  demoBox: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  otpDisplay: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 14,
-    borderRadius: 10,
     borderWidth: 1,
   },
 });

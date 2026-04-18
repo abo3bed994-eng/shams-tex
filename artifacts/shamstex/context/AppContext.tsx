@@ -664,7 +664,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const findCustomerByPhone = useCallback(
-    (phone: string): User | undefined => registeredCustomers.find((c) => c.phone === phone),
+    (phone: string): User | undefined => {
+      if (!phone) return undefined;
+      // Exact match
+      const exact = registeredCustomers.find((c) => c.phone === phone);
+      if (exact) return exact;
+      // Format-agnostic match: compare digits only and also try with/without country prefix.
+      const digits = phone.replace(/\D/g, "");
+      return registeredCustomers.find((c) => {
+        const cd = (c.phone || "").replace(/\D/g, "");
+        if (cd === digits) return true;
+        // E.164 vs local: e.g. +201221131138 ↔ 01221131138
+        if (cd.length > digits.length && cd.endsWith(digits.replace(/^0+/, ""))) return true;
+        if (digits.length > cd.length && digits.endsWith(cd.replace(/^0+/, ""))) return true;
+        return false;
+      });
+    },
     [registeredCustomers]
   );
 

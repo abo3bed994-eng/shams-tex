@@ -1,14 +1,9 @@
-// ⚠️  IMPORTANT — DO NOT DEPLOY THESE RULES YET ⚠️
-// These rules require Firebase Phone Authentication to be wired (signInWithPhoneNumber).
-// The current app uses a fake client-side OTP, so request.auth will be null and ALL
-// requests will be denied if you deploy this.
+// Shams Tex Firestore Security Rules
+// Deploy with: firebase deploy --only firestore:rules
 //
-// Deploy ONLY after:
-//   1. Real Firebase Phone Auth is implemented in app/auth/login.tsx
-//   2. Phone numbers are stored as E.164 (+20...) in Firestore doc IDs
-//      (or these rules updated to match the local format used in app)
-//
-// Until then, keep Firebase console rules in test/permissive mode.
+// Phone numbers are stored as E.164 (+20...) for new accounts. Legacy accounts
+// in local format are still allowed read access by the same authenticated phone
+// (digit-suffix match) until they re-authenticate and get migrated to E.164.
 
 rules_version = '2';
 

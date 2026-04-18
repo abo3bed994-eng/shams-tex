@@ -317,8 +317,14 @@ export default function AdminUsersScreen() {
     setEditingNameValue("");
   };
 
-  const PRIMARY_ADMIN_PHONE = "0000000001";
-  const PROTECTED_PHONES = ["0000000001", "01221131138"];
+  const PRIMARY_ADMIN_PHONE = "+201221131138";
+  // Both legacy local format and new E.164 format to protect existing accounts during migration.
+  const PROTECTED_PHONES = [
+    "+201221131138",
+    "01221131138",
+    "0000000001",
+    "+200000000001",
+  ];
 
   const handleDeleteCustomer = (u: User) => {
     Alert.alert(
