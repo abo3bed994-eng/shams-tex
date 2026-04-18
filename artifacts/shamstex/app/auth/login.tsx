@@ -164,8 +164,10 @@ export default function LoginScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const existing = findCustomerByPhone(PRIMARY_ADMIN.phone);
     const userObj = existing
-      ? { ...existing, phone: PRIMARY_ADMIN.phone, role: "admin" as const }
-      : { ...PRIMARY_ADMIN };
+      ? { ...existing, phone: PRIMARY_ADMIN.phone, role: "admin" as const, permissions: [] }
+      : { ...PRIMARY_ADMIN, permissions: [] as any };
+    // Persist the admin role first so finishLogin's lookup sees role=admin (not stale customer)
+    await registerCustomer(userObj as any);
     await finishLogin(userObj.name, "admin", userObj);
   };
 
