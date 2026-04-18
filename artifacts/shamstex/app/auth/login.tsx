@@ -42,7 +42,7 @@ const ADMIN_VERIFY_CODE =
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUser, findCustomerByPhone, registerCustomer, settings } = useApp();
+  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings } = useApp();
   const { t } = useTranslation();
 
   const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
@@ -166,8 +166,12 @@ export default function LoginScreen() {
     const userObj = existing
       ? { ...existing, phone: PRIMARY_ADMIN.phone, role: "admin" as const, permissions: [] }
       : { ...PRIMARY_ADMIN, permissions: [] as any };
-    // Persist the admin role first so finishLogin's lookup sees role=admin (not stale customer)
-    await registerCustomer(userObj as any);
+    // Force-update the registry record so role becomes admin (registerCustomer would preserve old role)
+    if (existing) {
+      updateRegisteredCustomer(userObj as any);
+    } else {
+      await registerCustomer(userObj as any);
+    }
     await finishLogin(userObj.name, "admin", userObj);
   };
 
@@ -182,9 +186,10 @@ export default function LoginScreen() {
     const phoneToUse = existingUser?.phone || e164Phone;
 
     const existingRecord = findCustomerByPhone(phoneToUse);
-    const resolvedRole = existingRecord?.role || existingUser?.role || role;
-    const resolvedPerms = existingRecord?.permissions || existingUser?.permissions;
-    const resolvedVip = existingRecord?.vip || existingUser?.vip;
+    // Prefer the explicit caller-provided role (handles admin bypass overriding stale registry).
+    const resolvedRole = existingUser?.role || existingRecord?.role || role;
+    const resolvedPerms = existingUser?.permissions ?? existingRecord?.permissions;
+    const resolvedVip = existingUser?.vip ?? existingRecord?.vip;
 
     const userToSet = {
       ...(existingUser ?? {
