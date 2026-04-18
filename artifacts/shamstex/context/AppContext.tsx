@@ -1179,6 +1179,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
       FS.saveNotification(notification).catch(() => {});
+
+      // Trigger phone notification tray + elegant sound for the current device.
+      // Targeted notifications only fire locally if they're for current user (or broadcast).
+      const currentUser = userRef.current;
+      const isForMe =
+        !notification.targetUserId ||
+        notification.targetUserId === "self" ||
+        notification.targetUserId === currentUser?.id;
+      if (isForMe) {
+        playNotificationAlert();
+        if (Platform.OS !== "web") {
+          try {
+            const Notif = await import("expo-notifications");
+            await Notif.scheduleNotificationAsync({
+              content: {
+                title: notification.title,
+                body: notification.body,
+                sound: "notification.wav",
+                data: { id: notification.id },
+              },
+              trigger: null,
+            });
+          } catch {}
+        }
+      }
     },
     []
   );
