@@ -74,13 +74,17 @@ export default function LoginScreen() {
       confirmRef.current = conf;
       setStep("otp");
     } catch (e: any) {
+      const code = e?.code || "";
       const msg = String(e?.message || e);
-      let friendly = "تعذّر إرسال كود التحقق. حاول مرة أخرى.";
+      console.log("[PhoneAuth ERROR]", { code, msg, e164Phone, raw: e });
+      let friendly = `تعذّر إرسال الكود [${code || "؟"}]`;
       if (msg.includes("quota")) friendly = "وصلت الحصة اليومية للرسائل. حاول غداً.";
-      else if (msg.includes("invalid-phone")) friendly = "رقم الهاتف غير صحيح";
-      else if (msg.includes("too-many-requests")) friendly = "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة.";
-      else if (msg.includes("network")) friendly = "تعذّر الاتصال بالإنترنت";
-      setError(friendly);
+      else if (code.includes("invalid-phone") || msg.includes("invalid-phone")) friendly = "رقم الهاتف غير صحيح";
+      else if (code.includes("too-many-requests") || msg.includes("too-many-requests")) friendly = "محاولات كثيرة. انتظر قليلاً.";
+      else if (code.includes("missing-client-identifier") || msg.includes("missing-client-identifier")) friendly = "إعدادات Firebase ناقصة (SHA-1 أو App Check). جرّب رقم تجريبي.";
+      else if (code.includes("app-not-authorized") || msg.includes("app-not-authorized")) friendly = "التطبيق غير مصرّح في Firebase. تحقق من SHA-1 أو استخدم رقم تجريبي.";
+      else if (msg.includes("network") || msg.includes("Network")) friendly = "تعذّر الاتصال بالإنترنت";
+      setError(friendly + (code ? ` (${code})` : ""));
     } finally {
       setLoading(false);
     }
