@@ -4,6 +4,7 @@ export function filterNotificationsForUser(notifications: Notification[], user: 
   if (!user) return [];
 
   return notifications.filter((n) => {
+    if (n.sourceUserId && n.sourceUserId === user.id) return false;
     if (user.role === "admin") {
       if (n.targetUserId) return n.targetUserId === user.id;
       return true;

@@ -148,8 +148,9 @@ export interface Notification {
   body: string;
   createdAt: string;
   read: boolean;
-  targetRole?: UserRole;
+  targetRole?: UserRole | "staff";
   targetUserId?: string;
+  sourceUserId?: string;
   actionType?: "upgrade_request";
   actionUserId?: string;
   linkedOrderId?: string;
@@ -310,6 +311,7 @@ interface AppContextType {
   language: AppLanguage;
   setLanguage: (lang: AppLanguage) => Promise<void>;
   isLoading: boolean;
+  roleSwitching: string | null;
   showToast: (message: string, type?: "success" | "error") => void;
   toast: { message: string; type: "success" | "error"; visible: boolean };
 }
@@ -434,6 +436,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>("dark");
   const [language, setLanguageState] = useState<AppLanguage>("ar");
   const [isLoading, setIsLoading] = useState(true);
+  const [roleSwitching, setRoleSwitching] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
   const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -485,6 +488,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const newOnes = freshNotifs.filter((n) => !prevIds.has(n.id));
           const forMe = newOnes.filter((n) => {
             if (n.targetUserId === "self") return false;
+            if (me && n.sourceUserId === me.id) return false;
             if (n.targetUserId && me && n.targetUserId === me.id) return true;
             if (n.targetRole === "staff" && isStaff) return true;
             if (n.targetRole && me && n.targetRole === me.role) return true;
@@ -645,25 +649,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           admin: "مدير",
         };
         const roleName = roleNames[freshRecord.role] || freshRecord.role;
-        if (Platform.OS === "web") {
-          setTimeout(() => {
-            window.alert(`تم تغيير دورك إلى: ${roleName}\nسيتم إعادة تحميل التطبيق لتحديث الأسعار`);
-            window.location.reload();
-          }, 300);
-        } else {
-          Alert.alert(
-            "تم تغيير دورك",
-            `تم تغيير دورك إلى: ${roleName}\nسيتم إعادة تسجيل الدخول لتحديث الأسعار`,
-            [{
-              text: "حسناً",
-              onPress: async () => {
-                await persistUserSafe(synced);
-                setUserState(null);
-                setTimeout(() => setUserState(synced), 500);
-              },
-            }]
-          );
-        }
+        setRoleSwitching(`جارٍ تحديث حسابك إلى ${roleName}…`);
+        (async () => {
+          try {
+            await persistUserSafe(synced);
+            if (Platform.OS === "web") {
+              setTimeout(() => window.location.reload(), 1000);
+              return;
+            }
+            try {
+              const Updates = await import("expo-updates");
+              await new Promise((r) => setTimeout(r, 900));
+              await (Updates as any).reloadAsync();
+              return;
+            } catch {}
+            setUserState(null);
+            await new Promise((r) => setTimeout(r, 350));
+            setUserState(synced);
+            await new Promise((r) => setTimeout(r, 250));
+            try {
+              const { router } = await import("expo-router");
+              router.replace("/" as any);
+            } catch {}
+          } finally {
+            setTimeout(() => setRoleSwitching(null), 800);
+          }
+        })();
       }
     }
   }, [registeredCustomers]);
@@ -873,12 +884,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const ordersRef = useRef<Order[]>([]);
   ordersRef.current = orders;
 
+  const saveOrderReliable = async (order: Order): Promise<boolean> => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await FS.saveOrder(order);
+        return true;
+      } catch (err) {
+        console.warn(`saveOrder attempt ${attempt + 1} failed:`, err);
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+      }
+    }
+    try {
+      const pendingRaw = await AsyncStorage.getItem("pendingOrderSaves");
+      const pending: Order[] = pendingRaw ? JSON.parse(pendingRaw) : [];
+      const filtered = pending.filter((o) => o.id !== order.id);
+      filtered.push(order);
+      await AsyncStorage.setItem("pendingOrderSaves", JSON.stringify(filtered));
+    } catch {}
+    return false;
+  };
+
+  useEffect(() => {
+    const flushPending = async () => {
+      try {
+        const pendingRaw = await AsyncStorage.getItem("pendingOrderSaves");
+        if (!pendingRaw) return;
+        const pending: Order[] = JSON.parse(pendingRaw);
+        if (!pending.length) return;
+        const remaining: Order[] = [];
+        for (const o of pending) {
+          try { await FS.saveOrder(o); } catch { remaining.push(o); }
+        }
+        await AsyncStorage.setItem("pendingOrderSaves", JSON.stringify(remaining));
+      } catch {}
+    };
+    flushPending();
+    const id = setInterval(flushPending, 30000);
+    return () => clearInterval(id);
+  }, []);
+
   const addOrder = useCallback(
     async (order: Order) => {
       const updated = [...ordersRef.current, order];
       setOrdersState(updated);
+      ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
-      FS.saveOrder(order).catch(() => {});
+      await saveOrderReliable(order);
       const staffNotif: Notification = {
         id: `notif_order_new_${order.id}`,
         title: "🛍️ طلب جديد",
@@ -886,6 +937,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         read: false,
         targetRole: "staff",
+        sourceUserId: order.userId,
         linkedOrderId: order.id,
       };
       FS.saveNotification(staffNotif).catch(() => {});
@@ -1101,7 +1153,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (updatedOrder) {
-        FS.saveOrder(updatedOrder).catch(() => {});
+        const ok = await saveOrderReliable(updatedOrder);
+        if (!ok) {
+          throw new Error("save_failed");
+        }
         if (!staffEdit) {
           const assignedStaffId = updatedOrder.assignedTo;
           const staffNotif: Notification = {
@@ -1110,6 +1165,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             body: `العميل ${updatedOrder.userName} عدّل طلبه #${orderId.slice(0, 8)} — يرجى مراجعة التعديلات ومتابعة التجهيز`,
             createdAt: new Date().toISOString(),
             read: false,
+            sourceUserId: updatedOrder.userId,
             ...(assignedStaffId ? { targetUserId: assignedStaffId } : { targetRole: "employee" as any }),
             linkedOrderId: orderId,
           };
@@ -1379,6 +1435,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         language,
         setLanguage,
         isLoading,
+        roleSwitching,
         showToast,
         toast,
       }}

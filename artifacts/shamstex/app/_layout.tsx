@@ -20,6 +20,7 @@ import SplashScreenComponent from "@/components/SplashScreenComponent";
 import Toast from "@/components/Toast";
 import NotificationBanner from "@/components/NotificationBanner";
 import OfflineBanner from "@/components/OfflineBanner";
+import RoleSwitchOverlay from "@/components/RoleSwitchOverlay";
 import { registerForPushNotifications } from "@/lib/pushService";
 
 if (Platform.OS !== "web") {
@@ -121,6 +122,7 @@ function RootLayoutNav() {
       <Toast />
       <NotificationBanner />
       <OfflineBanner />
+      <RoleSwitchOverlay />
     </>
   );
 }
