@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, User, UserRole, EmployeePermission } from "@/context/AppContext";
 import { notifyUserByPhone } from "@/lib/pushService";
+import { FS } from "@/lib/firebase";
 import GoldHeader from "@/components/GoldHeader";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
@@ -205,6 +206,18 @@ export default function AdminUsersScreen() {
 
       saveCustomerChange({ ...updated, role: newRole, permissions: perms, upgradeStatus: undefined });
 
+      if (user) {
+        FS.appendAuditLog({
+          actorId: user.id,
+          actorName: user.name ?? "—",
+          actorRole: user.role,
+          action: "user.role_change",
+          targetId: updated.id,
+          targetType: "user",
+          details: { phone: updated.phone, fromRole: updated.role, toRole: newRole },
+        }).catch(() => {});
+      }
+
       const notifications: Record<string, { title: string; body: string }> = {
         merchant: { title: "🎉 تمت ترقيتك إلى تاجر!", body: "تم تفعيل حسابك كتاجر. سيتم تحديث حسابك تلقائياً خلال لحظات للاستفادة من أسعار الجملة." },
         employee: { title: "تم تعيينك كموظف 🛠️", body: "تم تفعيل حسابك كموظف. يمكنك الآن الوصول إلى لوحة الإدارة." },
@@ -250,6 +263,17 @@ export default function AdminUsersScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const target = staffList.find((u) => u.id === userId);
     if (!target) return;
+    if (user) {
+      FS.appendAuditLog({
+        actorId: user.id,
+        actorName: user.name ?? "—",
+        actorRole: user.role,
+        action: "staff.role_change",
+        targetId: target.id,
+        targetType: "user",
+        details: { phone: target.phone, fromRole: target.role, toRole: newRole },
+      }).catch(() => {});
+    }
     if (newRole === "admin") {
       saveStaffMember({ ...target, role: "admin", permissions: [] });
       addNotification({

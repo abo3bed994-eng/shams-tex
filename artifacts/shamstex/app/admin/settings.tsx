@@ -831,6 +831,65 @@ export default function AdminSettingsScreen() {
             />
           </View>
         </Card>
+
+        <Card title="🔄 التحديث الإجباري">
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
+            عند تعيين رقم نسخة هنا، أي مستخدم نسخته أقدم سيُمنع من استخدام التطبيق ويظهر له طلب التحديث.
+          </Text>
+          <Field
+            label="الحد الأدنى للنسخة (مثل 1.1.0)"
+            value={draft.minVersion ?? ""}
+            onChange={(v) => setDraft((d) => ({ ...d, minVersion: v.trim() }))}
+            placeholder="اتركه فارغاً للتعطيل"
+          />
+          <Field
+            label="رابط متجر التحديث"
+            value={draft.updateUrl ?? ""}
+            onChange={(v) => setDraft((d) => ({ ...d, updateUrl: v.trim() }))}
+            placeholder="https://play.google.com/store/apps/details?id=com.shamstex.app"
+          />
+        </Card>
+
+        <Card title="🕶️ الأيقونة المخفية (للمدير)">
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
+            يبدّل أيقونة التطبيق على شاشة الجوال إلى هيئة بديلة. مفيد للخصوصية.
+          </Text>
+          <Pressable
+            onPress={async () => {
+              const next = !draft.stealthIconEnabled;
+              setDraft((d) => ({ ...d, stealthIconEnabled: next }));
+              try {
+                const Mod: any = await import("expo-alternate-app-icons");
+                const fn = Mod.setAlternateAppIcon ?? Mod.default?.setAlternateAppIcon;
+                if (fn) await fn(next ? "Stealth" : null);
+              } catch (e) {
+                Alert.alert("غير متاح", "تبديل الأيقونة يعمل فقط في الإصدار المبني (APK).");
+              }
+            }}
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: 14,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
+            }}
+          >
+            <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
+              {draft.stealthIconEnabled ? "مفعّلة" : "معطّلة"}
+            </Text>
+            <View style={{
+              width: 50, height: 28, borderRadius: 14,
+              backgroundColor: draft.stealthIconEnabled ? colors.gold : colors.border,
+              padding: 3,
+              alignItems: draft.stealthIconEnabled ? "flex-end" : "flex-start",
+            }}>
+              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#FFF" }} />
+            </View>
+          </Pressable>
+        </Card>
       </ScrollView>
 
       <View

@@ -69,10 +69,26 @@
         {
           "icon": "./assets/images/icon-new.png",
           "color": "#C9A84C",
-          "sounds": ["./assets/sounds/notification.mp3"]
+          "sounds": [
+            "./assets/sounds/notification.mp3"
+          ]
         }
+      ],
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Stealth",
+            "ios": "./assets/images/icon-new.png",
+            "android": {
+              "foregroundImage": "./assets/images/adaptive-icon.png",
+              "backgroundColor": "#0A0A0A"
+            }
+          }
+        ]
       ]
     ],
+    "runtimeVersion": "1.1.0",
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

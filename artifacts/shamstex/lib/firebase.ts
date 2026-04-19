@@ -12,9 +12,13 @@ import {
   query,
   orderBy,
   limit,
+  where,
+  runTransaction,
   Unsubscribe,
   memoryLocalCache,
   writeBatch,
+  addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import {
   getAuth,
@@ -160,6 +164,88 @@ export const FS = {
         // Fallback: subscribe without ordering
         unsub = onSnapshot(
           collection(db, "orders"),
+          (snap) => callback(snap.docs.map((d) => d.data())),
+          () => {}
+        );
+      }
+    );
+    return () => unsub();
+  },
+
+  // Privacy-aware: customers see only their own orders; staff see all.
+  subscribeOrdersForUser(
+    userId: string,
+    isStaff: boolean,
+    callback: (orders: any[]) => void
+  ): Unsubscribe {
+    if (isStaff) {
+      return FS.subscribeOrders(callback);
+    }
+    let unsub = onSnapshot(
+      query(collection(db, "orders"), where("userId", "==", userId), orderBy("createdAt", "desc")),
+      (snap) => callback(snap.docs.map((d) => d.data())),
+      (_err) => {
+        unsub = onSnapshot(
+          query(collection(db, "orders"), where("userId", "==", userId)),
+          (snap) => callback(snap.docs.map((d) => d.data())),
+          () => {}
+        );
+      }
+    );
+    return () => unsub();
+  },
+
+  // Atomic claim: prevents two staff from receiving the same order at once.
+  async claimOrder(orderId: string, staffId: string, staffName: string): Promise<{ ok: boolean; reason?: string; takenBy?: string }> {
+    try {
+      const result = await runTransaction(db, async (tx) => {
+        const ref = doc(db, "orders", orderId);
+        const snap = await tx.get(ref);
+        if (!snap.exists()) return { ok: false, reason: "not_found" } as const;
+        const data = snap.data() as any;
+        if (data.assignedTo && data.assignedTo !== staffId) {
+          return { ok: false, reason: "already_taken", takenBy: data.assignedToName ?? data.assignedTo } as const;
+        }
+        tx.update(ref, {
+          status: "received",
+          assignedTo: staffId,
+          assignedToName: staffName,
+        });
+        return { ok: true } as const;
+      });
+      return result;
+    } catch (e) {
+      return { ok: false, reason: "tx_failed" };
+    }
+  },
+
+  async appendAuditLog(entry: {
+    actorId: string;
+    actorName: string;
+    actorRole: string;
+    action: string;
+    targetId?: string;
+    targetType?: string;
+    details?: Record<string, any>;
+  }): Promise<void> {
+    try {
+      await addDoc(collection(db, "audit_log"), {
+        ...entry,
+        createdAt: new Date().toISOString(),
+        ts: serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn("audit log failed:", e);
+    }
+  },
+
+  subscribeAuditLog(callback: (entries: any[]) => void, max = 200): Unsubscribe {
+    let unsub = onSnapshot(
+      query(collection(db, "audit_log"), orderBy("createdAt", "desc"), limit(max)),
+      (snap) => callback(snap.docs.map((d) => d.data())),
+      (_err) => {
+        unsub = onSnapshot(
+          query(collection(db, "audit_log"), limit(max)),
           (snap) => callback(snap.docs.map((d) => d.data())),
           () => {}
         );

@@ -201,6 +201,9 @@ export interface AppSettings {
   workingHours?: WorkingDay[];
   payment?: PaymentSettings;
   logoUri?: string;
+  minVersion?: string;
+  updateUrl?: string;
+  stealthIconEnabled?: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -452,12 +455,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Real-time Firestore listeners — update UI instantly without reloading
   useEffect(() => {
-    const unsubOrders = FS.subscribeOrders((freshOrders) => {
-      // Always sync — even if list becomes empty (e.g. all orders deleted)
-      setOrdersState(freshOrders);
-      AsyncStorage.setItem("orders", JSON.stringify(freshOrders)).catch(() => {});
-    });
-
     const unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
       if (freshCustomers.length > 0) {
         // Deduplicate by phone — keep the most recently updated record per phone
@@ -534,7 +531,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      unsubOrders();
       unsubCustomers();
       unsubNotifications();
       unsubReturns();
@@ -544,6 +540,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const userRef = React.useRef<User | null>(null);
   userRef.current = user;
+
+  // Role-aware orders subscription: customers see only their own orders,
+  // staff see all. Re-subscribes when user identity/role changes.
+  useEffect(() => {
+    if (!user?.id) {
+      setOrdersState([]);
+      return;
+    }
+    const isStaff = user.role !== "customer" && user.role !== "merchant";
+    const unsub = FS.subscribeOrdersForUser(user.id, isStaff, (freshOrders) => {
+      setOrdersState(freshOrders);
+      AsyncStorage.setItem("orders", JSON.stringify(freshOrders)).catch(() => {});
+    });
+    return () => unsub();
+  }, [user?.id, user?.role]);
 
   // Real-time single-device session enforcement.
   // When the same phone signs in on another device, Firestore session token changes.
@@ -948,6 +959,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => {
+      // Atomic claim path: prevent two staff from grabbing the same order.
+      if (status === "received" && assignedToId) {
+        const claim = await FS.claimOrder(orderId, assignedToId, assignedToName ?? "موظف");
+        if (!claim.ok) {
+          if (claim.reason === "already_taken") {
+            Alert.alert("الطلب محجوز", `استلم هذا الطلب الموظف ${claim.takenBy ?? ""} قبل قليل.`);
+          } else {
+            Alert.alert("خطأ", "تعذّر استلام الطلب. حاول مرة أخرى.");
+          }
+          return;
+        }
+      }
       const patch: Partial<Order> = { status };
       if (status === "received" && assignedToId) {
         patch.assignedTo = assignedToId;
@@ -1001,11 +1024,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteOrder = useCallback(
     async (orderId: string) => {
+      const target = ordersRef.current.find((o) => o.id === orderId);
       const updated = ordersRef.current.filter((o) => o.id !== orderId);
       setOrdersState(updated);
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       FS.deleteOrder(orderId).catch(() => {});
+      const me = userRef.current;
+      if (me) {
+        FS.appendAuditLog({
+          actorId: me.id,
+          actorName: me.name ?? "—",
+          actorRole: me.role,
+          action: "order.delete",
+          targetId: orderId,
+          targetType: "order",
+          details: target ? { customerName: target.userName, total: target.total } : {},
+        }).catch(() => {});
+      }
     },
     []
   );

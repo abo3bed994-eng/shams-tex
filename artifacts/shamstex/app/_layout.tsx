@@ -21,7 +21,9 @@ import Toast from "@/components/Toast";
 import NotificationBanner from "@/components/NotificationBanner";
 import OfflineBanner from "@/components/OfflineBanner";
 import RoleSwitchOverlay from "@/components/RoleSwitchOverlay";
+import ForceUpdateScreen from "@/components/ForceUpdateScreen";
 import { registerForPushNotifications } from "@/lib/pushService";
+import { isUpdateRequired } from "@/lib/version";
 
 if (Platform.OS !== "web") {
   I18nManager.allowRTL(false);
@@ -33,7 +35,8 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const { user, isLoading } = useApp();
+  const { user, isLoading, settings } = useApp();
+  const updateRequired = isUpdateRequired((settings as any)?.minVersion);
   const [splashDone, setSplashDone] = useState(false);
   const navigated = useRef(false);
   const pushRegistered = useRef<string | null>(null);
@@ -96,6 +99,10 @@ function RootLayoutNav() {
 
   if (!splashDone) {
     return <SplashScreenComponent onFinish={() => setSplashDone(true)} />;
+  }
+
+  if (updateRequired) {
+    return <ForceUpdateScreen />;
   }
 
   return (
