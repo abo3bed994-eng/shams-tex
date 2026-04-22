@@ -5,6 +5,7 @@ import { Alert, Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
 import { playNotificationAlert } from "@/lib/notificationSound";
+import { canonicalPhone, samePhone } from "@/lib/phoneUtils";
 
 export type UserRole = "customer" | "merchant" | "employee" | "supervisor" | "admin";
 export type ProductUnit = "meter" | "kilo";
@@ -460,19 +461,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
       if (freshCustomers.length > 0) {
-        // Deduplicate by phone — keep the most recently updated record per phone
+        // Group RAW Firestore snapshot by canonical phone so we can both dedup
+        // for the UI AND actively heal twin docs that exist on the server.
+        const groupsByCanon = new Map<string, any[]>();
+        for (const c of freshCustomers) {
+          const k = canonicalPhone(c.phone) || c.id || c.phone || "_";
+          const arr = groupsByCanon.get(k);
+          if (arr) arr.push(c);
+          else groupsByCanon.set(k, [c]);
+        }
+        // Deduplicate by CANONICAL phone — same person resolves to same key even if
+        // stored under different formats (with/without country code, with/without leading 0).
         const dedupMap = new Map<string, any>();
         for (const c of freshCustomers) {
-          const existing = dedupMap.get(c.phone);
+          const key = canonicalPhone(c.phone) || c.id || c.phone;
+          const existing = dedupMap.get(key);
           const cTime = c.lastUpdated || c.registeredAt || "";
           const eTime = existing ? (existing.lastUpdated || existing.registeredAt || "") : "";
-          if (!existing || cTime > eTime) {
-            dedupMap.set(c.phone, c);
+          if (!existing) {
+            dedupMap.set(key, c);
+          } else {
+            // STRICT recency-first policy:
+            //   - If EITHER record has a timestamp, the one with the newer timestamp wins
+            //     (a missing timestamp is treated as oldest, so a timestamped record always
+            //     beats an untimestamped twin → fresh demotion is never masked).
+            //   - Role rank is used ONLY as a tiebreaker when BOTH records lack any timestamp.
+            if (cTime || eTime) {
+              if ((cTime || "") > (eTime || "")) dedupMap.set(key, c);
+            } else {
+              const roleRank: Record<string, number> = { admin: 5, supervisor: 4, employee: 3, merchant: 2, customer: 1 };
+              if ((roleRank[c.role] ?? 0) > (roleRank[existing.role] ?? 0)) dedupMap.set(key, c);
+            }
           }
         }
         const deduped = [...dedupMap.values()];
         setRegisteredCustomersState(deduped);
         AsyncStorage.setItem("registered_customers", JSON.stringify(deduped)).catch(() => {});
+
+        // Active healing: for any canonical group with >1 raw Firestore docs,
+        // re-save the WINNING record under its phone key and hard-delete every
+        // OTHER doc under a different phone format. This guarantees twin
+        // cleanup from the source of truth (not just in-memory state).
+        for (const [key, group] of groupsByCanon) {
+          if (group.length <= 1) continue;
+          const winner = dedupMap.get(key);
+          if (!winner) continue;
+          for (const doc of group) {
+            if (doc.phone && doc.phone !== winner.phone) {
+              FS.deleteCustomer(doc.phone).catch(() => {});
+            }
+          }
+        }
       }
     });
 
@@ -640,7 +679,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const syncUserWithRecords = useCallback(() => {
     const currentUser = userRef.current;
     if (!currentUser || !currentUser.phone) return;
-    const freshRecord = registeredCustomers.find((c) => c.phone === currentUser.phone);
+    const freshRecord = registeredCustomers.find((c) => samePhone(c.phone, currentUser.phone));
     if (!freshRecord) return;
     const roleChanged = freshRecord.role !== currentUser.role;
     const changed =
@@ -793,56 +832,105 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const findCustomerByPhone = useCallback(
     (phone: string): User | undefined => {
       if (!phone) return undefined;
-      // Exact match
+      // Exact match first (fast path)
       const exact = registeredCustomers.find((c) => c.phone === phone);
       if (exact) return exact;
-      // Format-agnostic match: compare digits only and also try with/without country prefix.
-      const digits = phone.replace(/\D/g, "");
-      return registeredCustomers.find((c) => {
-        const cd = (c.phone || "").replace(/\D/g, "");
-        if (cd === digits) return true;
-        // E.164 vs local: e.g. +201221131138 ↔ 01221131138
-        if (cd.length > digits.length && cd.endsWith(digits.replace(/^0+/, ""))) return true;
-        if (digits.length > cd.length && digits.endsWith(cd.replace(/^0+/, ""))) return true;
-        return false;
-      });
+      // Country-aware canonical matching ONLY — no permissive raw-suffix heuristics
+      // (avoids cross-account misidentification during OTP login).
+      return registeredCustomers.find((c) => samePhone(c.phone, phone));
     },
     [registeredCustomers]
   );
 
   const registerCustomer = useCallback(async (newUser: User) => {
-    const existing = registeredCustomers.find((c) => c.phone === newUser.phone);
-    const userToSave = existing
-      ? { ...newUser, id: existing.id, role: existing.role, permissions: existing.permissions ?? newUser.permissions, vip: existing.vip ?? newUser.vip }
+    // Match canonically so a re-registration under a different phone format
+    // (legacy local vs E.164) updates the existing record instead of forking it.
+    const matches = registeredCustomers.filter((c) => samePhone(c.phone, newUser.phone));
+    const existing = matches[0];
+    // Prefer the existing canonical phone format as the authoritative key —
+    // prevents creating a second Firestore doc under a new format.
+    const authoritativePhone = existing?.phone ?? newUser.phone;
+    const userToSave: User = existing
+      ? {
+          ...newUser,
+          id: existing.id,
+          phone: authoritativePhone,
+          role: existing.role,
+          permissions: existing.permissions ?? newUser.permissions,
+          vip: existing.vip ?? newUser.vip,
+        }
       : newUser;
-    const updated = [...registeredCustomers.filter((c) => c.phone !== newUser.phone), userToSave];
+    // Drop ALL canonical twins, then add the merged record.
+    const updated = [
+      ...registeredCustomers.filter((c) => !samePhone(c.phone, newUser.phone)),
+      userToSave,
+    ];
     setRegisteredCustomersState(updated);
     await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
     FS.saveCustomer(userToSave).catch(() => {});
+    // Hard-delete any orphan Firestore docs stored under a different phone format.
+    for (const m of matches) {
+      if (m.phone && m.phone !== authoritativePhone) {
+        FS.deleteCustomer(m.phone).catch(() => {});
+      }
+    }
   }, [registeredCustomers]);
 
   const updateRegisteredCustomer = useCallback((updatedUser: User) => {
+    const targetCanon = canonicalPhone(updatedUser.phone);
     setRegisteredCustomersState((prev) => {
-      const updated = prev.map((c) => c.phone === updatedUser.phone ? updatedUser : c);
+      // Match by canonical phone. If a duplicate exists under another format,
+      // collapse them into one record (the updated one).
+      const matches = prev.filter((c) => samePhone(c.phone, updatedUser.phone));
+      let updated: User[];
+      if (matches.length === 0) {
+        updated = [...prev, updatedUser];
+      } else {
+        // Drop ALL existing matches, then add the single merged updated record.
+        const merged: User = matches.reduce((acc, m) => ({ ...m, ...acc }), updatedUser as User);
+        updated = prev.filter((c) => !samePhone(c.phone, updatedUser.phone)).concat(merged);
+        // If the existing matches included docs with different phone strings,
+        // schedule cleanup of the orphan Firestore docs.
+        for (const m of matches) {
+          if (m.phone && m.phone !== updatedUser.phone) {
+            FS.deleteCustomer(m.phone).catch(() => {});
+          }
+        }
+      }
       AsyncStorage.setItem("registered_customers", JSON.stringify(updated)).catch(() => {});
       return updated;
     });
     const currentUser = userRef.current;
-    if (currentUser && currentUser.phone === updatedUser.phone) {
+    if (currentUser && samePhone(currentUser.phone, updatedUser.phone)) {
       const synced = { ...currentUser, ...updatedUser };
       setUserState(synced);
       persistUserSafe(synced).catch(() => {});
     }
     FS.saveCustomer(updatedUser).catch(() => {});
+    // Touch tag for canonical map consumers
+    void targetCanon;
   }, []);
 
   const deleteRegisteredCustomer = useCallback((phone: string) => {
     setRegisteredCustomersState((prev) => {
-      const updated = prev.filter((c) => c.phone !== phone);
+      // Delete ALL records that match canonically (handles legacy/E.164 twins).
+      const toDelete = prev.filter((c) => samePhone(c.phone, phone));
+      const updated = prev.filter((c) => !samePhone(c.phone, phone));
       AsyncStorage.setItem("registered_customers", JSON.stringify(updated)).catch(() => {});
+      // Delete every distinct Firestore phone-key found.
+      const seenKeys = new Set<string>();
+      for (const t of toDelete) {
+        if (t.phone && !seenKeys.has(t.phone)) {
+          seenKeys.add(t.phone);
+          FS.deleteCustomer(t.phone).catch(() => {});
+        }
+      }
+      // Always also try the literal phone the caller passed (in case it isn't in local state).
+      if (!seenKeys.has(phone)) {
+        FS.deleteCustomer(phone).catch(() => {});
+      }
       return updated;
     });
-    FS.deleteCustomer(phone).catch(() => {});
   }, []);
 
   const setProducts = useCallback(async (prods: Product[]) => {

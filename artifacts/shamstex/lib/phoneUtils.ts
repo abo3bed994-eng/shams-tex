@@ -54,3 +54,50 @@ export function migrateLocalToE164(stored: string, defaultCountry: Country = DEF
 }
 
 export { COUNTRIES, DEFAULT_COUNTRY, findCountryByDial };
+
+// Canonical phone form for matching/keying purposes.
+// Strategy (country-aware to avoid cross-country collisions):
+//   1. Demo/admin-bypass placeholders (mostly zeros) are kept as-is.
+//   2. If the input is already E.164 ("+..."), return its full digits.
+//   3. Otherwise migrate to E.164 using the default country and return those digits.
+// This preserves country uniqueness — +201221131138 (Egypt) and +12012213113 (US)
+// canonicalize to "201221131138" vs "12012213113", which do NOT collide.
+export function canonicalPhone(p: string | undefined | null): string {
+  if (!p) return "";
+  const trimmed = String(p).trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+  // Demo/admin-bypass placeholders (e.g. 0000000001) stay as-is.
+  if (/^0{6,}\d{0,4}$/.test(digits)) return digits;
+  // Already E.164 → use its full digits as the canonical key.
+  if (trimmed.startsWith("+")) return digits;
+  // Legacy local format → migrate to E.164 (defaults to Egypt) and use those digits.
+  const e164 = migrateLocalToE164(trimmed);
+  if (e164.startsWith("+")) return e164.replace(/\D/g, "");
+  // Unknown format → use the digit string as a last-resort key.
+  return digits;
+}
+
+// Returns true when two phone strings refer to the same person.
+// Robust to mixed formats (E.164 vs legacy local) but country-safe.
+export function samePhone(a: string | undefined | null, b: string | undefined | null): boolean {
+  const ca = canonicalPhone(a);
+  const cb = canonicalPhone(b);
+  if (!ca || !cb) return false;
+  if (ca === cb) return true;
+  // Suffix-match safety net for ambiguous legacy inputs from unknown countries:
+  // accept only when the longer string ends with the shorter AND the leading
+  // remainder is a plausible country code (1–4 digits). This avoids the
+  // "last-10-digits" cross-country collision risk while still catching the
+  // common Egyptian "+201221131138" ↔ "01221131138" equivalence.
+  const longer = ca.length >= cb.length ? ca : cb;
+  const shorter = ca.length >= cb.length ? cb : ca;
+  if (shorter.length < 7) return false; // too short to be a real phone match
+  const shorterNoLead = shorter.replace(/^0+/, "");
+  if (!shorterNoLead) return false;
+  if (longer.endsWith(shorterNoLead)) {
+    const prefix = longer.slice(0, longer.length - shorterNoLead.length);
+    if (prefix.length >= 1 && prefix.length <= 4) return true;
+  }
+  return false;
+}

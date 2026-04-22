@@ -17,6 +17,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, User, UserRole, EmployeePermission } from "@/context/AppContext";
 import { notifyUserByPhone } from "@/lib/pushService";
 import { FS } from "@/lib/firebase";
+import { canonicalPhone, samePhone } from "@/lib/phoneUtils";
 import GoldHeader from "@/components/GoldHeader";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
@@ -117,25 +118,46 @@ export default function AdminUsersScreen() {
   const [confirmAction, setConfirmAction] = useState<{ userId: string; action: string; newRole?: UserRole } | null>(null);
   const [deletedStaffPhones, setDeletedStaffPhones] = useState<string[]>([]);
 
-  const staffList: User[] = DEMO_STAFF
-    .filter((demo) => !deletedStaffPhones.includes(demo.phone))
-    .map((demo) => {
-      const fromRegistry = registeredCustomers.find((c) => c.phone === demo.phone);
-      return fromRegistry ? { ...demo, ...fromRegistry } : demo;
-    })
-    .concat(
-      registeredCustomers.filter(
-        (c) =>
-          (c.role === "admin" || c.role === "employee" || c.role === "supervisor") &&
-          !DEMO_STAFF.some((d) => d.phone === c.phone) &&
-          !deletedStaffPhones.includes(c.phone)
-      )
-    );
+  const isDeletedStaff = (phone: string) =>
+    deletedStaffPhones.some((d) => samePhone(d, phone));
+
+  // Build staff list with canonical-phone deduplication so the same person never
+  // appears twice (e.g., once as "01221131138" demo seed and once as "+201221131138" registry).
+  const rawStaff: User[] = [
+    ...DEMO_STAFF
+      .filter((demo) => !isDeletedStaff(demo.phone))
+      .map((demo) => {
+        const fromRegistry = registeredCustomers.find((c) => samePhone(c.phone, demo.phone));
+        return fromRegistry ? { ...demo, ...fromRegistry } : demo;
+      }),
+    ...registeredCustomers.filter(
+      (c) =>
+        (c.role === "admin" || c.role === "employee" || c.role === "supervisor") &&
+        !DEMO_STAFF.some((d) => samePhone(d.phone, c.phone)) &&
+        !isDeletedStaff(c.phone)
+    ),
+  ];
+  const staffMap = new Map<string, User>();
+  for (const u of rawStaff) {
+    const key = canonicalPhone(u.phone) || u.id;
+    const existing = staffMap.get(key);
+    if (!existing) {
+      staffMap.set(key, u);
+    } else {
+      // Merge: prefer the more-privileged role and keep the latest non-empty fields.
+      const rank: Record<string, number> = { admin: 5, supervisor: 4, employee: 3, merchant: 2, customer: 1 };
+      const winner = (rank[u.role] ?? 0) > (rank[existing.role] ?? 0) ? u : existing;
+      const loser = winner === u ? existing : u;
+      staffMap.set(key, { ...loser, ...winner, name: winner.name || loser.name });
+    }
+  }
+  const staffList: User[] = [...staffMap.values()];
 
   const saveStaffMember = (updatedUser: User) => {
-    const exists = registeredCustomers.find((c) => c.phone === updatedUser.phone);
+    const exists = registeredCustomers.find((c) => samePhone(c.phone, updatedUser.phone));
     if (exists) {
-      updateRegisteredCustomer(updatedUser);
+      // Use the existing registry phone format as the primary key so we don't fork docs.
+      updateRegisteredCustomer({ ...exists, ...updatedUser, phone: exists.phone });
     } else {
       registerCustomer(updatedUser);
     }
@@ -143,13 +165,21 @@ export default function AdminUsersScreen() {
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const customerList = [
-    ...new Map(
-      registeredCustomers
-        .filter((c) => c.role === "customer" || c.role === "merchant")
-        .map((c) => [c.phone, c])
-    ).values(),
-  ];
+  // Customers list deduplicated by canonical phone too.
+  const customerMap = new Map<string, User>();
+  for (const c of registeredCustomers) {
+    if (c.role !== "customer" && c.role !== "merchant") continue;
+    const key = canonicalPhone(c.phone) || c.id;
+    const existing = customerMap.get(key);
+    if (!existing) {
+      customerMap.set(key, c);
+    } else {
+      const cTime = (c as any).lastUpdated || c.registeredAt || "";
+      const eTime = (existing as any).lastUpdated || existing.registeredAt || "";
+      if (cTime > eTime) customerMap.set(key, c);
+    }
+  }
+  const customerList = [...customerMap.values()];
   const pendingUpgrades = customerList.filter((u) => u.upgradeStatus === "pending");
   const activeCustomers = customerList.filter((u) => u.upgradeStatus !== "pending");
 
@@ -198,7 +228,9 @@ export default function AdminUsersScreen() {
 
   const handleChangeCustomerRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const updated = customerList.find((u) => u.id === userId) || customerList.find((u) => u.phone === userId);
+    const updated =
+      customerList.find((u) => u.id === userId) ||
+      customerList.find((u) => samePhone(u.phone, userId));
     if (updated) {
       let perms: EmployeePermission[] | undefined = undefined;
       if (newRole === "employee") perms = ["view_orders", "view_products"];
@@ -370,7 +402,7 @@ export default function AdminUsersScreen() {
   };
 
   const handleDeleteStaff = (u: User) => {
-    if (PROTECTED_PHONES.includes(u.phone)) return;
+    if (PROTECTED_PHONES.some((p) => samePhone(p, u.phone))) return;
     Alert.alert(
       "حذف عضو الفريق",
       `هل أنت متأكد من حذف "${u.name}" من الفريق؟\n\nسيتم حذف بياناته نهائياً.`,

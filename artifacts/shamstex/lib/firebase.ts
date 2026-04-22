@@ -28,6 +28,15 @@ import {
   Auth,
 } from "firebase/auth";
 import { Platform } from "react-native";
+import { canonicalPhone } from "./phoneUtils";
+
+// Canonical Firestore doc key for a phone number. Strips formatting and prefers
+// the canonical (last 10 digits) form so the same person resolves to the same
+// document regardless of how the phone was typed (legacy local vs E.164).
+function sessionKey(phone: string): string {
+  const c = canonicalPhone(phone);
+  return c || (phone || "").replace(/[^0-9A-Za-z]/g, "_") || "_";
+}
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyD9tLziFlwyRBpSgMj0Pa_qfNG--XP2csQ",
@@ -317,17 +326,22 @@ export const FS = {
   },
 
   async saveSession(phone: string, token: string) {
-    await setDoc(doc(db, "sessions", phone), { token, updatedAt: new Date().toISOString() });
+    // Sessions are keyed by canonical phone so the same person on a new device
+    // always invalidates the prior session, regardless of phone format used at login.
+    const key = sessionKey(phone);
+    await setDoc(doc(db, "sessions", key), { token, phone, updatedAt: new Date().toISOString() });
   },
 
   async getSession(phone: string): Promise<string | null> {
-    const snap = await getDoc(doc(db, "sessions", phone));
+    const key = sessionKey(phone);
+    const snap = await getDoc(doc(db, "sessions", key));
     return snap.exists() ? snap.data().token : null;
   },
 
   subscribeSession(phone: string, callback: (token: string | null) => void): Unsubscribe {
+    const key = sessionKey(phone);
     return onSnapshot(
-      doc(db, "sessions", phone),
+      doc(db, "sessions", key),
       (snap) => callback(snap.exists() ? (snap.data().token as string) : null),
       () => {}
     );
