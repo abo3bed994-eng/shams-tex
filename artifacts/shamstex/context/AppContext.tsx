@@ -122,6 +122,9 @@ export interface ReturnRequest {
   status: ReturnStatus;
   createdAt: string;
   invoiceImage?: string;
+  cancelReason?: string;
+  cancelledAt?: string;
+  cancelledByName?: string;
 }
 
 export interface WorkingDay {
@@ -1279,7 +1282,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const cancelReturnRequest = useCallback(
     async (reqId: string, reason?: string) => {
-      const updated = returnRequests.map((r) => (r.id === reqId ? { ...r, status: "cancelled" as ReturnStatus } : r));
+      const nowIso = new Date().toISOString();
+      const updated = returnRequests.map((r) =>
+        r.id === reqId
+          ? {
+              ...r,
+              status: "cancelled" as ReturnStatus,
+              cancelReason: reason || "",
+              cancelledAt: nowIso,
+              cancelledByName: userRef.current?.name || "موظف",
+            }
+          : r
+      );
       setReturnRequests(updated);
       await AsyncStorage.setItem("returnRequests", JSON.stringify(updated));
       const req = updated.find((r) => r.id === reqId);

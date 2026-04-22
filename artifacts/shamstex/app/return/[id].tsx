@@ -195,6 +195,32 @@ export default function ReturnDetailScreen() {
           </Text>
         </View>
 
+        {isCancelled && ret.cancelReason && (
+          <View style={[styles.infoCard, {
+            backgroundColor: "#E74C3C11",
+            borderColor: "#E74C3C44",
+            borderRadius: colors.radius,
+          }]}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <Icon name="x-circle" size={16} color="#E74C3C" />
+              <Text style={{ color: "#E74C3C", fontFamily: "Inter_700Bold", fontSize: 15, textAlign: "right" }}>
+                سبب إلغاء طلب الاسترجاع
+              </Text>
+            </View>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14, textAlign: "right", lineHeight: 22 }}>
+              {ret.cancelReason}
+            </Text>
+            {ret.cancelledByName && (
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
+                بواسطة: {ret.cancelledByName}
+                {ret.cancelledAt
+                  ? ` — ${new Date(ret.cancelledAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}`
+                  : ""}
+              </Text>
+            )}
+          </View>
+        )}
+
         {ret.items && ret.items.length > 0 && (
           <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>

@@ -41,6 +41,8 @@ const PREV_ACTION: Partial<Record<OrderStatus, { prev: OrderStatus; label: strin
   delivered: { prev: "ready",     label: "رجوع لجاهز" },
 };
 
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
 async function pickImage(): Promise<string | null> {
   return new Promise((resolve) => {
     Alert.alert(
@@ -95,7 +97,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, setOrderInvoiceImage, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, setOrderInvoiceImage, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder } = useApp();
   const [showMsgInput, setShowMsgInput] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -727,17 +729,19 @@ export default function OrderDetailScreen() {
         {isStaff && order.status !== "cancelled" && (() => {
           const nextAction = NEXT_ACTION[order.status];
           const prevAction = PREV_ACTION[order.status];
+          // Fix 6: staff can revert ANY non-final stage; once delivered, only admin can revert
+          const canStaffRevert = isAdmin || (isStaff && order.status !== "delivered");
           return (
             <View style={styles.actionRow}>
-              {(isAdmin || (isStaff && (user?.permissions ?? []).includes("edit_orders"))) && prevAction && (
+              {canStaffRevert && prevAction && (
                 <Pressable
                   onPress={() => {
                     Alert.alert(
-                      "تأكيد",
-                      `هل تريد ${prevAction.label}؟`,
+                      "تأكيد الرجوع للمرحلة السابقة",
+                      `هل تريد بالتأكيد "${prevAction.label}"؟ سيتم إعلام العميل بتغير حالة الطلب.`,
                       [
                         { text: "إلغاء", style: "cancel" },
-                        { text: "نعم", onPress: () => updateOrderStatus(order.id, prevAction.prev) },
+                        { text: "نعم، ارجع", style: "destructive", onPress: () => updateOrderStatus(order.id, prevAction.prev) },
                       ]
                     );
                   }}
@@ -753,6 +757,14 @@ export default function OrderDetailScreen() {
                 <GoldButton
                   label={nextAction.label}
                   onPress={() => {
+                    // Fix 5: block "تأكيد التسليم" if no invoice photo (admin bypass)
+                    if (nextAction.next === "delivered" && !order.invoiceImage && !isAdmin) {
+                      Alert.alert(
+                        "صورة الفاتورة مطلوبة",
+                        "لا يمكن تأكيد تسليم الطلب قبل رفع صورة الفاتورة. يرجى رفع الصورة أولاً ثم المحاولة مرة أخرى."
+                      );
+                      return;
+                    }
                     Alert.alert(
                       "تأكيد",
                       `هل تريد "${nextAction.label}"؟`,
@@ -806,13 +818,24 @@ export default function OrderDetailScreen() {
         {isStaff && order.status === "preparing" && !isLockedByOther && (
           <Pressable
             onPress={() => {
-              setOrderEditable(order.id, !order.editable);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              // Fix 3: confirmation before opening/closing edit-order mode
+              const opening = !order.editable;
               Alert.alert(
-                order.editable ? "تم إغلاق التعديل" : "تم السماح بالتعديل",
-                order.editable
-                  ? "لن يستطيع العميل تعديل الطلب الآن"
-                  : "يمكن للعميل الآن تعديل الطلب واختيار بديل"
+                opening ? "السماح للعميل بتعديل الطلب" : "إغلاق تعديل العميل",
+                opening
+                  ? "هل أنت متأكد؟ سيصل إشعار للعميل بأن خامة غير متوفرة ويمكنه اختيار بديل أو تعديل الكميات. تأكد قبل الإرسال."
+                  : "هل تريد إغلاق صلاحية التعديل؟ لن يستطيع العميل تعديل الطلب بعد ذلك.",
+                [
+                  { text: "تراجع", style: "cancel" },
+                  {
+                    text: opening ? "نعم، اسمح بالتعديل" : "نعم، أغلق التعديل",
+                    style: opening ? "default" : "destructive",
+                    onPress: () => {
+                      setOrderEditable(order.id, opening);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    },
+                  },
+                ]
               );
             }}
             style={[styles.editableBtn, {
@@ -886,6 +909,51 @@ export default function OrderDetailScreen() {
             )}
           </View>
         )}
+
+        {/* Fix 2: customer can cancel within 5 minutes from order detail page */}
+        {isCustomer && order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime() < FIVE_MINUTES_MS) && (() => {
+          const elapsedMs = Date.now() - new Date(order.createdAt).getTime();
+          const remainingMin = Math.max(0, Math.ceil((FIVE_MINUTES_MS - elapsedMs) / 60000));
+          return (
+            <Pressable
+              onPress={() => {
+                Alert.alert(
+                  "إلغاء الطلب",
+                  "هل أنت متأكد من إلغاء هذا الطلب؟ لن يمكنك التراجع.",
+                  [
+                    { text: "تراجع", style: "cancel" },
+                    {
+                      text: "نعم، ألغِ الطلب",
+                      style: "destructive",
+                      onPress: async () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        await cancelOrder(order.id);
+                        router.back();
+                      },
+                    },
+                  ]
+                );
+              }}
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: colors.radius,
+                borderWidth: 1,
+                borderColor: "#E74C3C66",
+                backgroundColor: "#E74C3C14",
+              }}
+            >
+              <Icon name="x-circle" size={18} color="#E74C3C" />
+              <Text style={{ color: "#E74C3C", fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                إلغاء الطلب (متبقي ~{remainingMin} {remainingMin === 1 ? "دقيقة" : "دقائق"})
+              </Text>
+            </Pressable>
+          );
+        })()}
 
         {isCustomer && order.editable && (
           <View style={[styles.editableCustomerCard, { backgroundColor: "#F39C1218", borderColor: "#F39C12", borderRadius: colors.radius }]}>

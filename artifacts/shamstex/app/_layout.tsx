@@ -63,8 +63,13 @@ function RootLayoutNav() {
         sub = Notifications.addNotificationResponseReceivedListener((response) => {
           const data = response.notification.request.content.data as Record<string, any>;
           let path = "/notifications";
-          if (data?.orderId && (data?.type === "new_order" || data?.type === "order_status" || data?.type === "order_editable" || data?.type === "order_message" || data?.type === "order_edited")) {
-            path = `/order/${data.orderId}`;
+          // Any notification carrying an orderId (or linkedOrderId) takes the user straight to the order page.
+          const orderId = data?.orderId || data?.linkedOrderId;
+          const returnId = data?.returnId || data?.linkedReturnId;
+          if (orderId) {
+            path = `/order/${orderId}`;
+          } else if (returnId) {
+            path = `/return/${returnId}`;
           }
           if (appReady) {
             router.push(path as any);
