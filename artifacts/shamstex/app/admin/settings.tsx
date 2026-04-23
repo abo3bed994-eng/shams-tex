@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, AppSettings, ContactEntry, SocialEntry, WorkingDay, PaymentSettings } from "@/context/AppContext";
+import { useApp, AppSettings, ContactEntry, SocialEntry, WorkingDay, PaymentSettings, WalletEntry, InstapayEntry } from "@/context/AppContext";
 import { persistImageUri } from "@/utils/persistImage";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
@@ -150,19 +150,6 @@ export default function AdminSettingsScreen() {
 
   const removeVideo = (idx: number) => {
     setDraft((d) => ({ ...d, bannerVideoUris: (d.bannerVideoUris ?? []).filter((_, i) => i !== idx) }));
-  };
-
-  const pickLogo = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.9, allowsEditing: true, aspect: [1, 1] });
-    if (!result.canceled && result.assets[0]) {
-      setMediaLoading(true);
-      const uri = await persistImageUri(result.assets[0].uri);
-      setDraft((d) => ({ ...d, logoUri: uri }));
-      setMediaLoading(false);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
   };
 
   const clearBanner = () => {
@@ -749,23 +736,55 @@ export default function AdminSettingsScreen() {
             </View>
 
             <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
-              المحفظة الإلكترونية
+              المحافظ الإلكترونية (يمكن إضافة أكثر من رقم)
             </Text>
+            {(() => {
+              const wallets: WalletEntry[] = (draft.payment?.ewallets && draft.payment.ewallets.length > 0)
+                ? draft.payment.ewallets
+                : (draft.payment?.ewalletNumber
+                    ? [{ id: "_legacy", number: draft.payment.ewalletNumber, name: draft.payment.ewalletName ?? "", provider: "" }]
+                    : []);
+              const updateWallet = (id: string, field: keyof WalletEntry, value: string) => {
+                setDraft((d) => {
+                  const list: WalletEntry[] = (d.payment?.ewallets ?? wallets).map((w) =>
+                    w.id === id ? { ...w, [field]: value } : w
+                  );
+                  return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewallets: list, ewalletNumber: undefined, ewalletName: undefined } };
+                });
+              };
+              const removeWallet = (id: string) => {
+                setDraft((d) => {
+                  const list = (d.payment?.ewallets ?? wallets).filter((w) => w.id !== id);
+                  return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewallets: list, ewalletNumber: undefined, ewalletName: undefined } };
+                });
+              };
+              const addWallet = () => {
+                setDraft((d) => {
+                  const list = [...((d.payment?.ewallets ?? wallets)), { id: `w_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, number: "", name: "", provider: "" }];
+                  return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewallets: list, ewalletNumber: undefined, ewalletName: undefined } };
+                });
+              };
+              return (
+                <View style={{ gap: 10 }}>
+                  {wallets.map((w, idx) => (
+                    <View key={w.id} style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, gap: 8, backgroundColor: colors.surface }}>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>محفظة #{idx + 1}</Text>
+                        <Pressable onPress={() => removeWallet(w.id)} style={{ padding: 6 }}>
+                          <Icon name="trash-2" size={16} color="#E74C3C" />
+                        </Pressable>
+                      </View>
+                      <Field label="مزود الخدمة (اختياري)" value={w.provider ?? ""} onChange={(v) => updateWallet(w.id, "provider", v)} placeholder="فودافون كاش / أورنج / اتصالات / WE" />
+                      <Field label="رقم المحفظة" value={w.number} onChange={(v) => updateWallet(w.id, "number", v)} placeholder="01000000001" keyboardType="phone-pad" />
+                      <Field label="اسم صاحب المحفظة" value={w.name} onChange={(v) => updateWallet(w.id, "name", v)} placeholder="شمس تكس" />
+                    </View>
+                  ))}
+                  <GoldButton label="+ إضافة محفظة جديدة" onPress={addWallet} variant="outline" size="sm" style={{ width: "100%" }} />
+                </View>
+              );
+            })()}
             <Field
-              label="رقم المحفظة"
-              value={draft.payment?.ewalletNumber ?? ""}
-              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewalletNumber: v } }))}
-              placeholder="01000000001"
-              keyboardType="phone-pad"
-            />
-            <Field
-              label="اسم صاحب المحفظة"
-              value={draft.payment?.ewalletName ?? ""}
-              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), ewalletName: v } }))}
-              placeholder="شمس تكس"
-            />
-            <Field
-              label="نسبة الرسوم (%)"
+              label="نسبة الرسوم على المحفظة (%)"
               value={String(draft.payment?.ewalletFeePercent ?? 1)}
               onChange={(v) => {
                 const num = Math.max(0, Math.min(100, Number(v) || 0));
@@ -778,21 +797,52 @@ export default function AdminSettingsScreen() {
             <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
 
             <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
-              انستاباي
+              حسابات انستاباي (يمكن إضافة أكثر من حساب)
             </Text>
-            <Field
-              label="رقم الانستاباي"
-              value={draft.payment?.instapayNumber ?? ""}
-              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapayNumber: v } }))}
-              placeholder="01000000001"
-              keyboardType="phone-pad"
-            />
-            <Field
-              label="اسم الحساب"
-              value={draft.payment?.instapayName ?? ""}
-              onChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapayName: v } }))}
-              placeholder="شمس تكس"
-            />
+            {(() => {
+              const ips: InstapayEntry[] = (draft.payment?.instapays && draft.payment.instapays.length > 0)
+                ? draft.payment.instapays
+                : (draft.payment?.instapayNumber
+                    ? [{ id: "_legacy", handle: draft.payment.instapayNumber, name: draft.payment.instapayName ?? "" }]
+                    : []);
+              const updateIp = (id: string, field: keyof InstapayEntry, value: string) => {
+                setDraft((d) => {
+                  const list: InstapayEntry[] = (d.payment?.instapays ?? ips).map((x) =>
+                    x.id === id ? { ...x, [field]: value } : x
+                  );
+                  return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapays: list, instapayNumber: undefined, instapayName: undefined } };
+                });
+              };
+              const removeIp = (id: string) => {
+                setDraft((d) => {
+                  const list = (d.payment?.instapays ?? ips).filter((x) => x.id !== id);
+                  return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapays: list, instapayNumber: undefined, instapayName: undefined } };
+                });
+              };
+              const addIp = () => {
+                setDraft((d) => {
+                  const list = [...((d.payment?.instapays ?? ips)), { id: `ip_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, handle: "", name: "" }];
+                  return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapays: list, instapayNumber: undefined, instapayName: undefined } };
+                });
+              };
+              return (
+                <View style={{ gap: 10 }}>
+                  {ips.map((ip, idx) => (
+                    <View key={ip.id} style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, gap: 8, backgroundColor: colors.surface }}>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>انستاباي #{idx + 1}</Text>
+                        <Pressable onPress={() => removeIp(ip.id)} style={{ padding: 6 }}>
+                          <Icon name="trash-2" size={16} color="#E74C3C" />
+                        </Pressable>
+                      </View>
+                      <Field label="الانستاباي (رقم أو @ipa)" value={ip.handle} onChange={(v) => updateIp(ip.id, "handle", v)} placeholder="01000000001 أو name@instapay" />
+                      <Field label="اسم صاحب الحساب" value={ip.name} onChange={(v) => updateIp(ip.id, "name", v)} placeholder="شمس تكس" />
+                    </View>
+                  ))}
+                  <GoldButton label="+ إضافة حساب انستاباي جديد" onPress={addIp} variant="outline" size="sm" style={{ width: "100%" }} />
+                </View>
+              );
+            })()}
 
             <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
 

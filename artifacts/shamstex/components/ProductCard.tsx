@@ -141,6 +141,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
   },
+  categoryText: { fontSize: 11 },
   categoryBadge: {
     position: "absolute",
     top: 10,

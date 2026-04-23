@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { Platform, Alert } from "react-native";
 
 function getExtension(uri: string): string {

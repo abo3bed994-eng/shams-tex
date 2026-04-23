@@ -244,16 +244,37 @@ export default function CartScreen() {
                 </View>
               )}
 
-              {selectedPayment === "ewallet" && pm && (
+              {selectedPayment === "ewallet" && pm && (() => {
+                const wallets = (pm.ewallets && pm.ewallets.length > 0)
+                  ? pm.ewallets
+                  : (pm.ewalletNumber ? [{ id: "_legacy", number: pm.ewalletNumber, name: pm.ewalletName ?? "", provider: undefined }] : []);
+                return (
                 <View style={styles.paymentInfoSection}>
                   <View style={[styles.paymentInfoBanner, { backgroundColor: "#9B59B6" + "15", borderColor: "#9B59B6" + "33", borderRadius: colors.radius - 4 }]}>
                     <Icon name="smartphone" size={20} color="#9B59B6" />
                     <Text style={{ color: "#9B59B6", fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1, textAlign: "right" }}>
-                      حوّل على الرقم التالي ثم اضغط "تأكيد الطلب"
+                      اختر رقم المحفظة وحوّل عليه ثم اضغط "تأكيد الطلب"
                     </Text>
                   </View>
-                  {renderCopyRow("رقم المحفظة", pm.ewalletNumber, "wallet")}
-                  {renderCopyRow("الاسم", pm.ewalletName, "walletName")}
+                  {wallets.length === 0 && (
+                    <Text style={{ color: colors.mutedForeground, fontSize: 13, textAlign: "center", padding: 16 }}>
+                      لم يضِف المدير أي رقم محفظة بعد
+                    </Text>
+                  )}
+                  {wallets.map((w, idx) => (
+                    <View key={w.id} style={{ gap: 6, marginBottom: 10, padding: 10, borderWidth: 1, borderColor: "#9B59B6" + "33", backgroundColor: "#9B59B6" + "08", borderRadius: colors.radius - 4 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, backgroundColor: "#9B59B6" + "22", borderRadius: 6 }}>
+                          <Text style={{ color: "#9B59B6", fontFamily: "Inter_700Bold", fontSize: 11 }}>{idx + 1}</Text>
+                        </View>
+                        {w.provider ? (
+                          <Text style={{ color: "#9B59B6", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>{w.provider}</Text>
+                        ) : null}
+                      </View>
+                      {renderCopyRow("رقم المحفظة", w.number, `wallet_${w.id}`)}
+                      {w.name ? renderCopyRow("الاسم", w.name, `walletName_${w.id}`) : null}
+                    </View>
+                  ))}
 
                   <View style={[styles.amountBox, { backgroundColor: "#9B59B6" + "11", borderColor: "#9B59B6" + "33", borderRadius: colors.radius - 4 }]}>
                     <View style={styles.feeBreakdown}>
@@ -273,18 +294,37 @@ export default function CartScreen() {
                     </View>
                   </View>
                 </View>
-              )}
+                );
+              })()}
 
-              {selectedPayment === "instapay" && pm && (
+              {selectedPayment === "instapay" && pm && (() => {
+                const instapays = (pm.instapays && pm.instapays.length > 0)
+                  ? pm.instapays
+                  : (pm.instapayNumber ? [{ id: "_legacy", handle: pm.instapayNumber, name: pm.instapayName ?? "" }] : []);
+                return (
                 <View style={styles.paymentInfoSection}>
                   <View style={[styles.paymentInfoBanner, { backgroundColor: "#2ECC71" + "15", borderColor: "#2ECC71" + "33", borderRadius: colors.radius - 4 }]}>
                     <Icon name="zap" size={20} color="#2ECC71" />
                     <Text style={{ color: "#2ECC71", fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1, textAlign: "right" }}>
-                      حوّل عبر انستاباي ثم اضغط "تأكيد الطلب"
+                      اختر حساب انستاباي وحوّل عليه ثم اضغط "تأكيد الطلب"
                     </Text>
                   </View>
-                  {renderCopyRow("رقم الانستاباي", pm.instapayNumber, "instapay")}
-                  {renderCopyRow("الاسم", pm.instapayName, "instapayName")}
+                  {instapays.length === 0 && (
+                    <Text style={{ color: colors.mutedForeground, fontSize: 13, textAlign: "center", padding: 16 }}>
+                      لم يضِف المدير أي حساب انستاباي بعد
+                    </Text>
+                  )}
+                  {instapays.map((ip, idx) => (
+                    <View key={ip.id} style={{ gap: 6, marginBottom: 10, padding: 10, borderWidth: 1, borderColor: "#2ECC71" + "33", backgroundColor: "#2ECC71" + "08", borderRadius: colors.radius - 4 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, backgroundColor: "#2ECC71" + "22", borderRadius: 6 }}>
+                          <Text style={{ color: "#2ECC71", fontFamily: "Inter_700Bold", fontSize: 11 }}>{idx + 1}</Text>
+                        </View>
+                      </View>
+                      {renderCopyRow("الانستاباي", ip.handle, `instapay_${ip.id}`)}
+                      {ip.name ? renderCopyRow("الاسم", ip.name, `instapayName_${ip.id}`) : null}
+                    </View>
+                  ))}
 
                   <View style={[styles.amountBox, { backgroundColor: "#2ECC71" + "11", borderColor: "#2ECC71" + "33", borderRadius: colors.radius - 4 }]}>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>المبلغ المطلوب</Text>
@@ -295,7 +335,8 @@ export default function CartScreen() {
                     </View>
                   </View>
                 </View>
-              )}
+                );
+              })()}
             </ScrollView>
 
             <View style={[styles.modalFooter, { borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 16) }]}>

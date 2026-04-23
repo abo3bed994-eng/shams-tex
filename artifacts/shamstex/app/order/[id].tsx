@@ -993,12 +993,13 @@ export default function OrderDetailScreen() {
         )}
 
         {(() => {
-          const contactPhone = (isCustomer || order.orderType === "pieces")
+          const hasPieces = order.items.some((i) => i.orderType === "pieces");
+          const contactPhone = (isCustomer || hasPieces)
             ? settings.contacts?.find((c) => c.label.includes("مبيعات") || c.label.includes("عملاء"))?.number
             : (user?.role === "merchant")
               ? settings.contacts?.find((c) => c.label.includes("جملة") || c.label.includes("تاجر"))?.number
               : null;
-          const contactLabel = (isCustomer || order.orderType === "pieces") ? "مسؤول المبيعات" : "مسؤول الجملة";
+          const contactLabel = (isCustomer || hasPieces) ? "مسؤول المبيعات" : "مسؤول الجملة";
 
           if (!contactPhone || isStaff) return null;
           return (

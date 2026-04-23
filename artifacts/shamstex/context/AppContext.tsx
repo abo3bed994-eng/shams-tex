@@ -181,11 +181,26 @@ export interface SocialEntry {
 export type AppTheme = "dark" | "light";
 export type AppLanguage = "ar" | "en";
 
+export interface WalletEntry {
+  id: string;
+  number: string;
+  name: string;
+  provider?: string;
+}
+
+export interface InstapayEntry {
+  id: string;
+  handle: string;
+  name: string;
+}
+
 export interface PaymentSettings {
-  ewalletNumber: string;
-  ewalletName: string;
-  instapayNumber: string;
-  instapayName: string;
+  ewallets?: WalletEntry[];
+  instapays?: InstapayEntry[];
+  ewalletNumber?: string;
+  ewalletName?: string;
+  instapayNumber?: string;
+  instapayName?: string;
   bankName: string;
   bankAccountName: string;
   bankAccountNumber: string;
@@ -248,10 +263,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     { day: "الجمعة", enabled: false, from: "00:00", to: "00:00" },
   ],
   payment: {
-    ewalletNumber: "01000000001",
-    ewalletName: "شمس تكس",
-    instapayNumber: "01000000001",
-    instapayName: "شمس تكس",
+    ewallets: [
+      { id: "w_default_vf", number: "01000000001", name: "شمس تكس", provider: "فودافون كاش" },
+    ],
+    instapays: [
+      { id: "ip_default", handle: "01000000001", name: "شمس تكس" },
+    ],
     bankName: "البنك الأهلي المصري",
     bankAccountName: "شمس تكس للأقمشة",
     bankAccountNumber: "1234567890123",
@@ -471,8 +488,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Real-time Firestore listeners — update UI instantly without reloading
   useEffect(() => {
+    let isFirstCustomersLoad = true;
     const unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
-      if (freshCustomers.length > 0) {
+      // Skip ONLY the very first empty snapshot to avoid wiping AsyncStorage cache
+      // before Firestore reconnects. Subsequent empty snapshots are real deletions.
+      if (freshCustomers.length === 0 && isFirstCustomersLoad) {
+        isFirstCustomersLoad = false;
+        return;
+      }
+      isFirstCustomersLoad = false;
+      {
         // Group RAW Firestore snapshot by canonical phone so we can both dedup
         // for the UI AND actively heal twin docs that exist on the server.
         const groupsByCanon = new Map<string, any[]>();
@@ -529,7 +554,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let isFirstNotifLoad = true;
     const unsubNotifications = FS.subscribeNotifications((freshNotifs) => {
-      if (freshNotifs.length > 0) {
+      if (freshNotifs.length === 0 && isFirstNotifLoad) {
+        isFirstNotifLoad = false;
+        return;
+      }
+      {
         const prevIds = new Set(notificationsRef.current.map((n) => n.id));
         setNotifications(freshNotifs);
         AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
@@ -569,19 +598,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    let isFirstReturnsLoad = true;
     const unsubReturns = FS.subscribeReturnRequests((freshReqs) => {
-      if (freshReqs.length > 0) {
-        setReturnRequests(freshReqs);
-        AsyncStorage.setItem("returnRequests", JSON.stringify(freshReqs)).catch(() => {});
+      if (freshReqs.length === 0 && isFirstReturnsLoad) {
+        isFirstReturnsLoad = false;
+        return;
       }
+      isFirstReturnsLoad = false;
+      setReturnRequests(freshReqs);
+      AsyncStorage.setItem("returnRequests", JSON.stringify(freshReqs)).catch(() => {});
     });
 
+    let isFirstProductsLoad = true;
     const unsubProducts = FS.subscribeProducts((freshProducts) => {
-      if (freshProducts.length > 0) {
-        const sorted = [...freshProducts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        setProductsState(sorted);
-        AsyncStorage.setItem("products", JSON.stringify(sorted)).catch(() => {});
+      if (freshProducts.length === 0 && isFirstProductsLoad) {
+        isFirstProductsLoad = false;
+        return;
       }
+      isFirstProductsLoad = false;
+      const sorted = [...freshProducts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      setProductsState(sorted);
+      AsyncStorage.setItem("products", JSON.stringify(sorted)).catch(() => {});
     });
 
     return () => {
