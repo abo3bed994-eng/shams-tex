@@ -266,7 +266,7 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Image
-            source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
+            source={require("../../assets/images/logo.png")}
             style={styles.logoImg}
             resizeMode="contain"
           />

@@ -63,7 +63,7 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
         ]}
       >
         <Image
-          source={settings.logoUri ? { uri: settings.logoUri } : require("../assets/images/logo.png")}
+          source={require("../assets/images/logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />

@@ -51,7 +51,7 @@ export default function ContactScreen() {
       >
         <View style={styles.logoSection}>
           <Image
-            source={settings.logoUri ? { uri: settings.logoUri } : require("../../assets/images/logo.png")}
+            source={require("../../assets/images/logo.png")}
             style={styles.logoImg}
             resizeMode="contain"
           />
