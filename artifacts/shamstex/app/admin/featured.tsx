@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Platform,
@@ -22,25 +22,53 @@ export default function AdminFeaturedScreen() {
   useAdminGuard("edit_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, settings, setSettings } = useApp();
+  const { products, settings, setSettings, showToast } = useApp();
 
-  const [featuredIds, setFeaturedIds] = useState<string[]>(settings.featuredProductIds);
+  const [featuredIds, setFeaturedIds] = useState<string[]>(settings.featuredProductIds ?? []);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  // Re-sync local selection when settings change from elsewhere (e.g. another
+  // device or first cloud load), but only if the user hasn't started editing.
+  useEffect(() => {
+    if (!dirty) {
+      setFeaturedIds(settings.featuredProductIds ?? []);
+    }
+  }, [settings.featuredProductIds, dirty]);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const toggle = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDirty(true);
     setFeaturedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
   const handleSave = async () => {
+    if (saving) return;
     setSaving(true);
-    await setSettings({ ...settings, featuredProductIds: featuredIds });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setSaving(false);
+    try {
+      await setSettings({ ...settings, featuredProductIds: featuredIds });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDirty(false);
+      showToast(
+        featuredIds.length > 0
+          ? `تم حفظ ${featuredIds.length} منتج مميز ✓`
+          : "تم إلغاء جميع المنتجات المميزة ✓",
+        "success"
+      );
+      // Brief delay so the toast is visible, then return to the previous screen.
+      setTimeout(() => {
+        try { router.back(); } catch {}
+      }, 700);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showToast("تعذّر الحفظ — تأكد من اتصال الإنترنت ثم حاول مجدداً", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
