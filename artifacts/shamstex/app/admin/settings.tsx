@@ -682,9 +682,24 @@ export default function AdminSettingsScreen() {
               )}
             </View>
           ))}
-          <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
-            الطلبات خارج ساعات العمل تبقى بحالة "معلق" حتى بداية الدوام
-          </Text>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, marginTop: 4, borderTopWidth: 1, borderColor: colors.border }}>
+            <View style={{ flex: 1, marginEnd: 12 }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
+                تعليق الطلبات خارج أوقات العمل
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular", marginTop: 2 }}>
+                {draft.suspendOrdersOutsideHours !== false
+                  ? "العميل يستطيع الطلب لكن يصل الطاقم تلقائياً عند بدء الدوام"
+                  : "كل الطلبات تصل الطاقم فوراً (24/7)"}
+              </Text>
+            </View>
+            <Switch
+              value={draft.suspendOrdersOutsideHours !== false}
+              onValueChange={(v) => setDraft((d) => ({ ...d, suspendOrdersOutsideHours: v }))}
+              trackColor={{ false: colors.border, true: colors.gold + "66" }}
+              thumbColor={draft.suspendOrdersOutsideHours !== false ? colors.gold : colors.mutedForeground}
+            />
+          </View>
         </Card>
 
         <Card title="روابط التواصل الاجتماعي">

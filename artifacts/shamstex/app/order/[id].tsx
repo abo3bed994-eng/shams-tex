@@ -20,6 +20,7 @@ const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
 ];
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
+  scheduled: "#D4A017",
   pending: "#9B59B6",
   received: "#3498DB",
   preparing: "#F39C12",
@@ -124,7 +125,8 @@ export default function OrderDetailScreen() {
   const isLockedByOther = order?.assignedTo && !isAssignedToMe && !isAdmin;
 
   const isCancelled = order?.status === "cancelled";
-  const currentStep = isCancelled ? 0 : STATUS_STEPS.findIndex((s) => s.key === order?.status);
+  const isScheduled = order?.status === "scheduled";
+  const currentStep = isCancelled || isScheduled ? 0 : STATUS_STEPS.findIndex((s) => s.key === order?.status);
 
   if (!order) {
     return (
@@ -159,13 +161,18 @@ export default function OrderDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
         <View style={[styles.statusCard, { backgroundColor: activeColor + "11", borderColor: activeColor + "44", borderRadius: colors.radius }]}>
-          <Icon name={isCancelled ? "x-circle" : STATUS_STEPS[currentStep].icon as any} size={28} color={activeColor} />
+          <Icon name={isCancelled ? "x-circle" : isScheduled ? "moon" : STATUS_STEPS[currentStep].icon as any} size={28} color={activeColor} />
           <Text style={[styles.statusLabel, { color: activeColor, fontFamily: "Inter_700Bold" }]}>
-            {isCancelled ? "تم إلغاء الطلب" : STATUS_STEPS[currentStep].label}
+            {isCancelled ? "تم إلغاء الطلب" : isScheduled ? "معلّق — خارج أوقات العمل" : STATUS_STEPS[currentStep].label}
           </Text>
           <Text style={[styles.orderDate, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {date}
           </Text>
+          {isScheduled && order.scheduledFor && (
+            <Text style={{ color: activeColor, fontFamily: "Inter_600SemiBold", fontSize: 13, marginTop: 8, textAlign: "center" }}>
+              سيُفتح للطاقم {new Date(order.scheduledFor).toLocaleString("ar-EG", { weekday: "long", hour: "2-digit", minute: "2-digit" })}
+            </Text>
+          )}
         </View>
 
         {order.edited && isStaff && (
@@ -911,9 +918,11 @@ export default function OrderDetailScreen() {
         )}
 
         {/* Fix 2: customer can cancel within 5 minutes from order detail page */}
-        {isCustomer && order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime() < FIVE_MINUTES_MS) && (() => {
+        {isCustomer && (order.status === "scheduled" || (order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime() < FIVE_MINUTES_MS))) && (() => {
           const elapsedMs = Date.now() - new Date(order.createdAt).getTime();
-          const remainingMin = Math.max(0, Math.ceil((FIVE_MINUTES_MS - elapsedMs) / 60000));
+          const remainingMin = order.status === "scheduled"
+            ? -1
+            : Math.max(0, Math.ceil((FIVE_MINUTES_MS - elapsedMs) / 60000));
           return (
             <Pressable
               onPress={() => {
@@ -949,7 +958,9 @@ export default function OrderDetailScreen() {
             >
               <Icon name="x-circle" size={18} color="#E74C3C" />
               <Text style={{ color: "#E74C3C", fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                إلغاء الطلب (متبقي ~{remainingMin} {remainingMin === 1 ? "دقيقة" : "دقائق"})
+                {remainingMin < 0
+                  ? "إلغاء الطلب المعلّق"
+                  : `إلغاء الطلب (متبقي ~${remainingMin} ${remainingMin === 1 ? "دقيقة" : "دقائق"})`}
               </Text>
             </Pressable>
           );

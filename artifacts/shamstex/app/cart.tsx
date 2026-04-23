@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import { isWithinWorkingHours, nextWorkingTime, formatNextOpenTime } from "@/lib/workingHours";
 
 const PAYMENT_METHODS: { key: PaymentMethod; short: string; desc: string }[] = [
   { key: "cash", short: "كاش", desc: "الدفع عند استلام البضاعة" },
@@ -135,6 +136,10 @@ export default function CartScreen() {
           { text: "عرض الطلب", onPress: () => router.replace(`/order/${editOrderId}`) },
         ]);
       } else {
+        const suspendEnabled = settings?.suspendOrdersOutsideHours !== false;
+        const inHours = isWithinWorkingHours(settings?.workingHours);
+        const willSchedule = suspendEnabled && !inHours;
+        const nextOpen = willSchedule ? nextWorkingTime(settings?.workingHours) : null;
         const order: Order = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           userId: user?.id ?? "guest",
@@ -142,20 +147,30 @@ export default function CartScreen() {
           userPhone: user?.phone ?? "",
           items: [...cart],
           total: totalPrice,
-          status: "pending",
+          status: willSchedule ? "scheduled" : "pending",
           createdAt: new Date().toISOString(),
           notes,
           paymentMethod: selectedPayment ?? "cash",
           paymentFee: feeAmount,
           totalWithFee: totalWithFee,
+          scheduledFor: willSchedule && nextOpen ? nextOpen.toISOString() : undefined,
         };
         await addOrder(order);
         clearCart();
         setSelectedPayment(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
-          { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
-        ]);
+        if (willSchedule) {
+          const when = formatNextOpenTime(nextOpen);
+          Alert.alert(
+            "تم استلام طلبك ✓",
+            `طلبك خارج أوقات العمل، تم تعليقه وسيصل تلقائياً لفريق العمل عند بدء الدوام (${when}).\n\nسيصلك إشعار فور بدء العمل عليه.`,
+            [{ text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) }]
+          );
+        } else {
+          Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
+            { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
+          ]);
+        }
       }
     } catch {
       Alert.alert("خطأ", "تعذّر إرسال الطلب. يُرجى المحاولة مرة أخرى.");

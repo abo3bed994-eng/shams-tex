@@ -17,7 +17,7 @@ import { useApp, Order, OrderStatus } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
 import OrderCard from "@/components/OrderCard";
 
-type FilterType = "all" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled" | "returns";
+type FilterType = "all" | "scheduled" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled" | "returns";
 
 
 export default function OrdersScreen() {
@@ -66,6 +66,7 @@ export default function OrdersScreen() {
     : [];
 
   const canCancelOrder = (order: Order) => {
+    if (order.status === "scheduled") return true;
     const created = new Date(order.createdAt).getTime();
     return Date.now() - created < 5 * 60 * 1000;
   };
@@ -74,6 +75,7 @@ export default function OrdersScreen() {
 
   const FILTERS: { key: FilterType; label: string; count?: number }[] = [
     { key: "all", label: t("all"), count: myOrders.length },
+    { key: "scheduled", label: "معلّق", count: myOrders.filter((o) => o.status === "scheduled").length },
     { key: "pending", label: t("newOrder"), count: myOrders.filter((o) => o.status === "pending").length },
     { key: "received", label: t("received"), count: myOrders.filter((o) => o.status === "received").length },
     { key: "preparing", label: t("preparing"), count: myOrders.filter((o) => o.status === "preparing").length },
@@ -419,7 +421,7 @@ export default function OrdersScreen() {
                     : undefined
                 }
               />
-              {!isStaff && order.status === "pending" && canCancelOrder(order) && (
+              {!isStaff && (order.status === "pending" || order.status === "scheduled") && canCancelOrder(order) && (
                 <Pressable
                   onPress={() => handleCancelOrder(order)}
                   style={[

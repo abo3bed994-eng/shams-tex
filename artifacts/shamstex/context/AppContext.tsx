@@ -6,6 +6,7 @@ import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
 import { playNotificationAlert } from "@/lib/notificationSound";
 import { canonicalPhone, samePhone } from "@/lib/phoneUtils";
+import { isWithinWorkingHours } from "@/lib/workingHours";
 
 export type UserRole = "customer" | "merchant" | "employee" | "supervisor" | "admin";
 export type ProductUnit = "meter" | "kilo";
@@ -69,7 +70,7 @@ export interface CartItem {
   unit?: ProductUnit;
 }
 
-export type OrderStatus = "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled";
+export type OrderStatus = "scheduled" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled";
 
 export type PaymentMethod = "cash" | "bank_transfer" | "ewallet" | "instapay";
 
@@ -108,6 +109,8 @@ export interface Order {
   totalWithFee?: number;
   paymentConfirmed?: boolean;
   invoiceImage?: string;
+  scheduledFor?: string;
+  releasedAt?: string;
 }
 
 export type ReturnStatus = "pending" | "returned" | "settled" | "cancelled";
@@ -208,6 +211,7 @@ export interface AppSettings {
   minVersion?: string;
   updateUrl?: string;
   stealthIconEnabled?: boolean;
+  suspendOrdersOutsideHours?: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -253,6 +257,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     bankIBAN: "EG000012345678901234567890",
     ewalletFeePercent: 1,
   },
+  suspendOrdersOutsideHours: true,
   globalColors: [
     { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
     { name: "أسود", hex: "#0A0A0A", quantity: 50 },
@@ -1025,6 +1030,72 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, []);
 
+  // Auto-release scheduled orders when working hours start.
+  // Runs every 60 seconds; idempotent — safe to run on multiple devices.
+  useEffect(() => {
+    const releaseDueScheduled = async () => {
+      try {
+        const wh = settings.workingHours;
+        if (!wh || wh.length === 0) return;
+        if (!isWithinWorkingHours(wh)) return;
+        const due = ordersRef.current.filter((o) => o.status === "scheduled");
+        if (due.length === 0) return;
+        const nowIso = new Date().toISOString();
+        const released: Order[] = due.map((o) => ({
+          ...o,
+          status: "pending" as OrderStatus,
+          releasedAt: nowIso,
+        }));
+        const updated = ordersRef.current.map((o) => {
+          const r = released.find((x) => x.id === o.id);
+          return r ?? o;
+        });
+        setOrdersState(updated);
+        ordersRef.current = updated;
+        await AsyncStorage.setItem("orders", JSON.stringify(updated));
+        for (const order of released) {
+          // Persist the new status to Firestore so all devices converge.
+          FS.saveOrder(order).catch(() => {});
+          // Notify staff (push + in-app).
+          const staffNotif: Notification = {
+            id: `notif_order_released_${order.id}`,
+            title: "🛍️ طلب جديد (مجدول)",
+            body: `طلب من ${order.userName} (${order.userPhone}) — كان مجدولاً والآن جاهز`,
+            createdAt: nowIso,
+            read: false,
+            targetRole: "staff",
+            sourceUserId: order.userId,
+            linkedOrderId: order.id,
+          };
+          FS.saveNotification(staffNotif).catch(() => {});
+          notifyStaffNewOrder(order.id, order.userName).catch(() => {});
+          // Notify customer that work has begun on their order.
+          const custNotif: Notification = {
+            id: `notif_release_cust_${order.id}`,
+            title: "✅ بدأ العمل على طلبك",
+            body: `طلبك #${order.id.slice(0, 8)} وصل إلى فريق العمل وجارٍ مراجعته الآن`,
+            createdAt: nowIso,
+            read: false,
+            targetUserId: order.userId,
+            linkedOrderId: order.id,
+          };
+          FS.saveNotification(custNotif).catch(() => {});
+          if (order.userPhone) {
+            notifyUserByPhone(
+              order.userPhone,
+              "✅ بدأ العمل على طلبك",
+              `طلبك #${order.id.slice(0, 8)} وصل إلى فريق العمل`,
+              { type: "order_released", orderId: order.id }
+            ).catch(() => {});
+          }
+        }
+      } catch {}
+    };
+    releaseDueScheduled();
+    const id = setInterval(releaseDueScheduled, 60000);
+    return () => clearInterval(id);
+  }, [settings.workingHours]);
+
   const addOrder = useCallback(
     async (order: Order) => {
       const updated = [...ordersRef.current, order];
@@ -1032,6 +1103,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       await saveOrderReliable(order);
+      // Suppress staff notification for scheduled orders — they'll be notified at release time.
+      if (order.status === "scheduled") {
+        return;
+      }
       const staffNotif: Notification = {
         id: `notif_order_new_${order.id}`,
         title: "🛍️ طلب جديد",

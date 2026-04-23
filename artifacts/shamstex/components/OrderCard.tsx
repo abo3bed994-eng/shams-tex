@@ -14,6 +14,7 @@ interface OrderCardProps {
 }
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: string }> = {
+  scheduled: { label: "معلّق — خارج الدوام", color: "#D4A017", icon: "moon" },
   pending: { label: "بانتظار الاستلام", color: "#9B59B6", icon: "clock" },
   received: { label: "تم استلام الطلب", color: "#3498DB", icon: "inbox" },
   preparing: { label: "جاري التجهيز", color: "#F39C12", icon: "package" },
