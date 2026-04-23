@@ -277,43 +277,6 @@ export default function AdminSettingsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Card title="الشعار (اللوجو)">
-          <View style={{ alignItems: "center", gap: 12 }}>
-            {draft.logoUri ? (
-              <Image
-                source={{ uri: draft.logoUri }}
-                style={{ width: 100, height: 100, borderRadius: 20, borderWidth: 1, borderColor: colors.border }}
-                resizeMode="cover"
-              />
-            ) : (
-              <Image
-                source={require("../../assets/images/logo.png")}
-                style={{ width: 100, height: 100, borderRadius: 20 }}
-                resizeMode="contain"
-              />
-            )}
-            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
-              <Pressable
-                onPress={pickLogo}
-                style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.gold + "15", borderColor: colors.gold + "44", borderWidth: 1, borderRadius: 8 }}
-              >
-                <Icon name="upload" size={14} color={colors.gold} />
-                <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                  {draft.logoUri ? "تغيير الشعار" : "رفع شعار مخصص"}
-                </Text>
-              </Pressable>
-              {draft.logoUri && (
-                <Pressable
-                  onPress={() => setDraft((d) => ({ ...d, logoUri: undefined }))}
-                  style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: "#C0392B11", borderColor: "#C0392B44", borderWidth: 1, borderRadius: 8 }}
-                >
-                  <Text style={{ color: "#C0392B", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>إزالة</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </Card>
-
 
         <Card title="النبذة التعريفية">
           <Field
@@ -865,46 +828,6 @@ export default function AdminSettingsScreen() {
           />
         </Card>
 
-        <Card title="🕶️ الأيقونة المخفية (للمدير)">
-          <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
-            يبدّل أيقونة التطبيق على شاشة الجوال إلى هيئة بديلة. مفيد للخصوصية.
-          </Text>
-          <Pressable
-            onPress={async () => {
-              const next = !draft.stealthIconEnabled;
-              setDraft((d) => ({ ...d, stealthIconEnabled: next }));
-              try {
-                const Mod: any = await import("expo-alternate-app-icons");
-                const fn = Mod.setAlternateAppIcon ?? Mod.default?.setAlternateAppIcon;
-                if (fn) await fn(next ? "Stealth" : null);
-              } catch (e) {
-                Alert.alert("غير متاح", "تبديل الأيقونة يعمل فقط في الإصدار المبني (APK).");
-              }
-            }}
-            style={{
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: 14,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-            }}
-          >
-            <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: "Inter_600SemiBold" }}>
-              {draft.stealthIconEnabled ? "مفعّلة" : "معطّلة"}
-            </Text>
-            <View style={{
-              width: 50, height: 28, borderRadius: 14,
-              backgroundColor: draft.stealthIconEnabled ? colors.gold : colors.border,
-              padding: 3,
-              alignItems: draft.stealthIconEnabled ? "flex-end" : "flex-start",
-            }}>
-              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#FFF" }} />
-            </View>
-          </Pressable>
-        </Card>
       </ScrollView>
 
       <View
