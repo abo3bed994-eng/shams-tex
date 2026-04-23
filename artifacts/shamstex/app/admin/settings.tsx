@@ -77,6 +77,32 @@ const fieldStyles = StyleSheet.create({
   },
 });
 
+const Card = React.memo(function Card({ children, title }: { children: React.ReactNode; title: string }) {
+  const colors = useColors();
+  return (
+    <View style={[cardStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[cardStyles.cardTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+        {title}
+      </Text>
+      {children}
+    </View>
+  );
+});
+
+const cardStyles = StyleSheet.create({
+  card: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  cardTitle: {
+    fontSize: 14,
+    textAlign: "right",
+    marginBottom: 4,
+  },
+});
+
 export default function AdminSettingsScreen() {
   useAdminGuard();
   const colors = useColors();
@@ -256,15 +282,6 @@ export default function AdminSettingsScreen() {
       },
     }));
   };
-
-  const Card = ({ children, title }: { children: React.ReactNode; title: string }) => (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Text style={[styles.cardTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-        {title}
-      </Text>
-      {children}
-    </View>
-  );
 
   const editableCategories = draft.categories.filter((c) => c !== "الكل");
 
