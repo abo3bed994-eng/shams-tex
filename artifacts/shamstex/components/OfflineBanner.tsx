@@ -8,7 +8,7 @@ export default function OfflineBanner() {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    if (Platform.OS !== "native") return;
+    if (Platform.OS === "web") return;
 
     let unsub: (() => void) | null = null;
     (async () => {
