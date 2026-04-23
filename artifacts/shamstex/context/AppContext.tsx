@@ -212,6 +212,7 @@ export interface AppSettings {
   updateUrl?: string;
   stealthIconEnabled?: boolean;
   suspendOrdersOutsideHours?: boolean;
+  notificationTemplates?: { id: string; title: string; body: string }[];
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -258,6 +259,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     ewalletFeePercent: 1,
   },
   suspendOrdersOutsideHours: true,
+  notificationTemplates: [
+    { id: "tmpl_offers", title: "عروض جديدة", body: "تصفح أحدث العروض والخصومات الحصرية على أقمشتنا المميزة!" },
+    { id: "tmpl_arrivals", title: "وصول بضاعة جديدة", body: "تم وصول تشكيلة جديدة من الأقمشة. زوروا المعرض أو تصفحوا التطبيق!" },
+    { id: "tmpl_update", title: "تحديث مهم", body: "يرجى مراجعة طلباتكم الحالية للاطلاع على آخر التحديثات." },
+    { id: "tmpl_maint", title: "صيانة مجدولة", body: "سيتم إجراء صيانة مجدولة على النظام. نعتذر عن أي إزعاج." },
+  ],
   globalColors: [
     { name: "أبيض", hex: "#FFFFFF", quantity: 50 },
     { name: "أسود", hex: "#0A0A0A", quantity: 50 },

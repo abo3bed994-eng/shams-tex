@@ -3,6 +3,7 @@ import {
   Alert,
   Animated,
   FlatList,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -53,18 +54,72 @@ const ROLE_COLOR: Record<string, string> = {
   admin: "#C0392B",
 };
 
-const QUICK_TEMPLATES = [
-  { title: "عروض جديدة", body: "تصفح أحدث العروض والخصومات الحصرية على أقمشتنا المميزة!" },
-  { title: "وصول بضاعة جديدة", body: "تم وصول تشكيلة جديدة من الأقمشة. زوروا المعرض أو تصفحوا التطبيق!" },
-  { title: "تحديث مهم", body: "يرجى مراجعة طلباتكم الحالية للاطلاع على آخر التحديثات." },
-  { title: "صيانة مجدولة", body: "سيتم إجراء صيانة مجدولة على النظام. نعتذر عن أي إزعاج." },
+const FALLBACK_TEMPLATES = [
+  { id: "tmpl_offers", title: "عروض جديدة", body: "تصفح أحدث العروض والخصومات الحصرية على أقمشتنا المميزة!" },
+  { id: "tmpl_arrivals", title: "وصول بضاعة جديدة", body: "تم وصول تشكيلة جديدة من الأقمشة. زوروا المعرض أو تصفحوا التطبيق!" },
+  { id: "tmpl_update", title: "تحديث مهم", body: "يرجى مراجعة طلباتكم الحالية للاطلاع على آخر التحديثات." },
+  { id: "tmpl_maint", title: "صيانة مجدولة", body: "سيتم إجراء صيانة مجدولة على النظام. نعتذر عن أي إزعاج." },
 ];
 
 export default function AdminNotificationsScreen() {
   useAdminGuard("send_notifications");
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { addNotification, notifications, registeredCustomers, user } = useApp();
+  const { addNotification, notifications, registeredCustomers, user, settings, setSettings } = useApp();
+  const templates = settings.notificationTemplates ?? FALLBACK_TEMPLATES;
+  const [tmplModalOpen, setTmplModalOpen] = useState(false);
+  const [tmplEditing, setTmplEditing] = useState<{ id: string; title: string; body: string } | null>(null);
+  const [tmplTitle, setTmplTitle] = useState("");
+  const [tmplBody, setTmplBody] = useState("");
+
+  const openNewTemplate = () => {
+    setTmplEditing(null);
+    setTmplTitle("");
+    setTmplBody("");
+    setTmplModalOpen(true);
+  };
+  const openEditTemplate = (t: { id: string; title: string; body: string }) => {
+    setTmplEditing(t);
+    setTmplTitle(t.title);
+    setTmplBody(t.body);
+    setTmplModalOpen(true);
+  };
+  const saveTemplate = async () => {
+    const titleT = tmplTitle.trim();
+    const bodyT = tmplBody.trim();
+    if (!titleT || !bodyT) {
+      Alert.alert("خطأ", "العنوان والنص مطلوبان");
+      return;
+    }
+    const list = templates.slice();
+    if (tmplEditing) {
+      const idx = list.findIndex((x) => x.id === tmplEditing.id);
+      if (idx >= 0) list[idx] = { ...tmplEditing, title: titleT, body: bodyT };
+    } else {
+      list.push({
+        id: `tmpl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        title: titleT,
+        body: bodyT,
+      });
+    }
+    await setSettings({ ...settings, notificationTemplates: list });
+    setTmplModalOpen(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+  const deleteTemplate = (t: { id: string; title: string; body: string }) => {
+    Alert.alert("حذف القالب", `هل تريد حذف "${t.title}"؟`, [
+      { text: "تراجع", style: "cancel" },
+      {
+        text: "حذف",
+        style: "destructive",
+        onPress: async () => {
+          const list = templates.filter((x) => x.id !== t.id);
+          await setSettings({ ...settings, notificationTemplates: list });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        },
+      },
+    ]);
+  };
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [notifType, setNotifType] = useState<NotifType>(
@@ -493,33 +548,82 @@ export default function AdminNotificationsScreen() {
           </View>
 
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <View style={styles.sectionHeader}>
-              <Icon name="zap" size={16} color={colors.gold} />
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                قوالب جاهزة
-              </Text>
+            <View style={[styles.sectionHeader, { justifyContent: "space-between" }]}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <Icon name="zap" size={16} color={colors.gold} />
+                <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                  قوالب جاهزة
+                </Text>
+              </View>
+              <Pressable
+                onPress={openNewTemplate}
+                style={({ pressed }) => ({
+                  flexDirection: "row-reverse", alignItems: "center", gap: 4,
+                  paddingHorizontal: 10, paddingVertical: 6,
+                  backgroundColor: pressed ? colors.gold + "30" : colors.gold + "18",
+                  borderColor: colors.gold + "55", borderWidth: 1,
+                  borderRadius: 8,
+                })}
+              >
+                <Icon name="plus" size={14} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                  قالب جديد
+                </Text>
+              </Pressable>
             </View>
             <View style={styles.templatesGrid}>
-              {QUICK_TEMPLATES.map((tmpl, i) => (
-                <Pressable
-                  key={i}
-                  onPress={() => handleTemplate(tmpl)}
-                  style={({ pressed }) => [
+              {templates.length === 0 && (
+                <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center", fontFamily: "Inter_400Regular", paddingVertical: 12 }}>
+                  لا توجد قوالب — اضغط "قالب جديد" لإنشاء واحد
+                </Text>
+              )}
+              {templates.map((tmpl) => (
+                <View
+                  key={tmpl.id}
+                  style={[
                     styles.templateCard,
                     {
-                      backgroundColor: pressed ? colors.gold + "15" : colors.surface,
+                      backgroundColor: colors.surface,
                       borderColor: colors.border,
                       borderRadius: colors.radius - 4,
                     },
                   ]}
                 >
-                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: "right" }} numberOfLines={1}>
-                    {tmpl.title}
-                  </Text>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", lineHeight: 16 }} numberOfLines={2}>
-                    {tmpl.body}
-                  </Text>
-                </Pressable>
+                  <Pressable onPress={() => handleTemplate(tmpl)} style={{ flex: 1, gap: 4 }}>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12, textAlign: "right" }} numberOfLines={1}>
+                      {tmpl.title}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", lineHeight: 16 }} numberOfLines={2}>
+                      {tmpl.body}
+                    </Text>
+                  </Pressable>
+                  <View style={{ flexDirection: "row-reverse", gap: 6, marginTop: 8, justifyContent: "flex-start" }}>
+                    <Pressable
+                      onPress={() => openEditTemplate(tmpl)}
+                      style={({ pressed }) => ({
+                        flexDirection: "row-reverse", alignItems: "center", gap: 4,
+                        paddingHorizontal: 10, paddingVertical: 5,
+                        backgroundColor: pressed ? "#3498DB30" : "#3498DB15",
+                        borderColor: "#3498DB55", borderWidth: 1, borderRadius: 6,
+                      })}
+                    >
+                      <Icon name="edit-2" size={11} color="#3498DB" />
+                      <Text style={{ color: "#3498DB", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>تعديل</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => deleteTemplate(tmpl)}
+                      style={({ pressed }) => ({
+                        flexDirection: "row-reverse", alignItems: "center", gap: 4,
+                        paddingHorizontal: 10, paddingVertical: 5,
+                        backgroundColor: pressed ? "#E74C3C30" : "#E74C3C15",
+                        borderColor: "#E74C3C55", borderWidth: 1, borderRadius: 6,
+                      })}
+                    >
+                      <Icon name="trash-2" size={11} color="#E74C3C" />
+                      <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>حذف</Text>
+                    </Pressable>
+                  </View>
+                </View>
               ))}
             </View>
           </View>
@@ -610,6 +714,78 @@ export default function AdminNotificationsScreen() {
           )}
         </View>
       )}
+
+      <Modal visible={tmplModalOpen} transparent animationType="fade" onRequestClose={() => setTmplModalOpen(false)}>
+        <Pressable
+          onPress={() => setTmplModalOpen(false)}
+          style={{ flex: 1, backgroundColor: "#000A", justifyContent: "center", padding: 20 }}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius, padding: 20, gap: 14 }}
+          >
+            <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: "right" }}>
+              {tmplEditing ? "تعديل القالب" : "قالب جديد"}
+            </Text>
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>العنوان</Text>
+              <TextInput
+                value={tmplTitle}
+                onChangeText={setTmplTitle}
+                placeholder="مثال: عرض خاص"
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+                style={{
+                  borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+                  paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+                  color: colors.foreground, backgroundColor: colors.input, fontFamily: "Inter_400Regular",
+                }}
+              />
+            </View>
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>النص</Text>
+              <TextInput
+                value={tmplBody}
+                onChangeText={setTmplBody}
+                placeholder="نص الإشعار..."
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={4}
+                textAlign="right"
+                textAlignVertical="top"
+                style={{
+                  borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+                  paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+                  color: colors.foreground, backgroundColor: colors.input, fontFamily: "Inter_400Regular",
+                  minHeight: 90,
+                }}
+              />
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 4 }}>
+              <Pressable
+                onPress={saveTemplate}
+                style={({ pressed }) => ({
+                  flex: 1, paddingVertical: 12, borderRadius: 10,
+                  backgroundColor: pressed ? colors.gold + "DD" : colors.gold,
+                  alignItems: "center",
+                })}
+              >
+                <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 14 }}>حفظ</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setTmplModalOpen(false)}
+                style={({ pressed }) => ({
+                  flex: 1, paddingVertical: 12, borderRadius: 10,
+                  backgroundColor: pressed ? colors.surface : "transparent",
+                  borderWidth: 1, borderColor: colors.border, alignItems: "center",
+                })}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>إلغاء</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
