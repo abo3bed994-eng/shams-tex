@@ -38,6 +38,15 @@ const OWNER_PHONES = new Set<string>([
 ]);
 const isOwnerPhone = (phone: string) => OWNER_PHONES.has(phone);
 
+// SECRET BYPASS — Firebase test phone used to authenticate the bypass admin.
+// This phone MUST be registered in Firebase Console → Authentication →
+// Settings → Phone numbers for testing, with the matching code below.
+// The bypass calls Firebase Phone Auth with this number so the admin gets a
+// real `request.auth` token (phone_number = +200000000001), which matches
+// `isOwnerPhone()` in firestore.rules and grants full admin access.
+const BYPASS_AUTH_PHONE = "+200000000001";
+const BYPASS_AUTH_CODE = "987654";
+
 // SECRET ADMIN ENTRY (Method D — magic phone + password + verify code)
 // Triggered when user types the magic local digits in the phone field.
 const SECRET_MAGIC_PHONE_LOCAL = "9998765432";
@@ -215,16 +224,38 @@ export default function LoginScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const existing = findCustomerByPhone(PRIMARY_ADMIN.phone);
-    const userObj = existing
-      ? { ...existing, phone: PRIMARY_ADMIN.phone, role: "admin" as const, permissions: [] }
-      : { ...PRIMARY_ADMIN, permissions: [] as any };
-    // Force-update the registry record so role becomes admin (registerCustomer would preserve old role)
-    if (existing) {
-      updateRegisteredCustomer(userObj as any);
-    } else {
-      await registerCustomer(userObj as any);
+    setLoading(true);
+    setError("");
+    // STEP 1: Authenticate with Firebase using the dedicated bypass test phone.
+    // Without this, the bypass admin has no `request.auth` token and every
+    // Firestore write/read will silently fail.
+    try {
+      const conf = await startPhoneSignIn(BYPASS_AUTH_PHONE);
+      await conf.confirm(BYPASS_AUTH_CODE);
+    } catch (e: any) {
+      const code = e?.code || "";
+      const msg = String(e?.message || e);
+      console.log("[Bypass Firebase Auth ERROR]", { code, msg });
+      setError(
+        "تعذّر تسجيل دخول الطوارئ في Firebase. تأكد أن الرقم " +
+          BYPASS_AUTH_PHONE +
+          " مضاف كرقم تجريبي في Firebase Console مع الكود " +
+          BYPASS_AUTH_CODE +
+          ` (${code || msg})`
+      );
+      setLoading(false);
+      return;
     }
+    // STEP 2: Build the local admin user object using the OWNER phone (the
+    // real admin identity), not the bypass test phone. Firestore rules
+    // recognize +200000000001 (bypass phone) as an owner via isOwnerPhone(),
+    // so admin access is granted server-side too.
+    const ownerPhone = BYPASS_AUTH_PHONE;
+    const existing = findCustomerByPhone(ownerPhone);
+    const userObj = existing
+      ? { ...existing, phone: ownerPhone, role: "admin" as const, permissions: [] }
+      : { ...PRIMARY_ADMIN, phone: ownerPhone, permissions: [] as any };
+    updateRegisteredCustomer(userObj as any);
     await finishLogin(userObj.name, "admin", userObj);
   };
 
