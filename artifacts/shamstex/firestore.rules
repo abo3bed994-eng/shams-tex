@@ -139,6 +139,27 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && phone == userPhone();
     }
 
+    // ============ OTP rate limiting ============
+    // Accessed BEFORE Firebase Auth (during phone-number step), so unauthenticated
+    // reads/writes are allowed but with strict shape & monotonic count constraints
+    // to prevent tampering. Limit enforced client-side: 3 per 24h.
+    match /otpThrottle/{phone} {
+      allow read: if true;
+      allow create: if request.resource.data.count == 1
+        && request.resource.data.windowStart is int;
+      allow update: if (
+        // Same window — count must increment by exactly 1 and stay <= 10.
+        (request.resource.data.windowStart == resource.data.windowStart
+         && request.resource.data.count == resource.data.count + 1
+         && request.resource.data.count <= 10)
+        ||
+        // New window — reset to count = 1.
+        (request.resource.data.windowStart > resource.data.windowStart
+         && request.resource.data.count == 1)
+      );
+      allow delete: if isAdmin();
+    }
+
     // ============ Push Tokens ============
     match /pushTokens/{phone} {
       // User manages their own token; staff can read all to broadcast

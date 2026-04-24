@@ -398,4 +398,37 @@ export const FS = {
       callback(snap.docs.map((d) => d.data() as any));
     });
   },
+
+  // OTP rate limiting — keyed by canonical phone. Returns whether the request
+  // is allowed AND a retry-after message if blocked. Uses a transaction so
+  // concurrent requests cannot bypass the limit.
+  async checkOtpThrottle(
+    phone: string,
+    options: { maxPerWindow?: number; windowMs?: number } = {}
+  ): Promise<{ allowed: boolean; retryAfterMs?: number; remaining?: number }> {
+    const max = options.maxPerWindow ?? 3;
+    const win = options.windowMs ?? 24 * 60 * 60 * 1000; // 24h
+    const key = sessionKey(phone);
+    const ref = doc(db, "otpThrottle", key);
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      if (!snap.exists()) {
+        tx.set(ref, { count: 1, windowStart: now, phone });
+        return { allowed: true, remaining: max - 1 };
+      }
+      const data = snap.data() as any;
+      const elapsed = now - (data.windowStart || 0);
+      if (elapsed >= win) {
+        // Window expired — reset.
+        tx.set(ref, { count: 1, windowStart: now, phone });
+        return { allowed: true, remaining: max - 1 };
+      }
+      if ((data.count || 0) >= max) {
+        return { allowed: false, retryAfterMs: win - elapsed };
+      }
+      tx.update(ref, { count: (data.count || 0) + 1 });
+      return { allowed: true, remaining: max - 1 - (data.count || 0) };
+    });
+  },
 };

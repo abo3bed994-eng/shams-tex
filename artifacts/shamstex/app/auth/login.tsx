@@ -113,6 +113,25 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     setError("");
+    // Rate-limit OTP requests: 3 per phone per 24 hours. Owner phones are exempt.
+    if (!isOwnerPhone(e164Phone)) {
+      try {
+        const { FS } = await import("@/lib/firebase");
+        const result = await FS.checkOtpThrottle(e164Phone);
+        if (!result.allowed) {
+          const hours = Math.ceil((result.retryAfterMs || 0) / (60 * 60 * 1000));
+          setError(
+            `وصلت الحد الأقصى لطلبات الكود (3 محاولات خلال 24 ساعة). حاول مرة أخرى بعد ${hours} ساعة.`
+          );
+          setLoading(false);
+          return;
+        }
+      } catch (throttleErr: any) {
+        // If throttle check itself fails (e.g. network), let the request through
+        // rather than blocking legitimate users — Firebase has its own quotas.
+        console.warn("[OTP throttle] check failed:", throttleErr?.message || throttleErr);
+      }
+    }
     try {
       const conf = await startPhoneSignIn(e164Phone);
       confirmRef.current = conf;
