@@ -29,6 +29,15 @@ type Step = "phone" | "otp" | "name" | "adminBypass";
 // Primary admin account (the one signed in when secret bypass is used)
 const PRIMARY_ADMIN = { id: "u0", phone: "+201221131138", name: "المدير", role: "admin" as const };
 
+// Phones that should ALWAYS be treated as admin, even if their Firestore record
+// says otherwise (e.g. owner registered earlier as a customer). Must match the
+// `isOwnerPhone()` whitelist in firestore.rules.
+const OWNER_PHONES = new Set<string>([
+  "+201221131138",
+  "+200000000001",
+]);
+const isOwnerPhone = (phone: string) => OWNER_PHONES.has(phone);
+
 // SECRET ADMIN ENTRY (Method D — magic phone + password + verify code)
 // Triggered when user types the magic local digits in the phone field.
 const SECRET_MAGIC_PHONE_LOCAL = "9998765432";
@@ -178,15 +187,21 @@ export default function LoginScreen() {
   const handleNameSubmit = async () => {
     const trimmed = name.trim();
     if (trimmed.length < 2) return;
+    const isOwner = isOwnerPhone(e164Phone);
     const newUser = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
       phone: e164Phone,
       name: trimmed,
-      role: "customer" as const,
+      role: (isOwner ? "admin" : "customer") as "admin" | "customer",
       registeredAt: new Date().toISOString(),
     };
-    await registerCustomer(newUser);
-    await finishLogin(trimmed, "customer", newUser);
+    if (isOwner) {
+      // Force-update so an old customer record gets upgraded.
+      updateRegisteredCustomer(newUser as any);
+    } else {
+      await registerCustomer(newUser);
+    }
+    await finishLogin(trimmed, newUser.role, newUser);
   };
 
   // ---------- Secret admin bypass (Method D) ----------
@@ -224,8 +239,12 @@ export default function LoginScreen() {
     const phoneToUse = existingUser?.phone || e164Phone;
 
     const existingRecord = findCustomerByPhone(phoneToUse);
+    const ownerOverride = isOwnerPhone(phoneToUse);
     // Prefer the explicit caller-provided role (handles admin bypass overriding stale registry).
-    const resolvedRole = existingUser?.role || existingRecord?.role || role;
+    // Owner phones are ALWAYS upgraded to admin, regardless of any stale "customer" record.
+    const resolvedRole = ownerOverride
+      ? ("admin" as const)
+      : (existingUser?.role || existingRecord?.role || role);
     const resolvedPerms = existingUser?.permissions ?? existingRecord?.permissions;
     const resolvedVip = existingUser?.vip ?? existingRecord?.vip;
 
@@ -245,7 +264,13 @@ export default function LoginScreen() {
       const { FS } = await import("@/lib/firebase");
       await FS.saveSession(userToSet.phone, sessionToken);
     } catch {}
-    await registerCustomer(userToSet);
+    if (ownerOverride) {
+      // updateRegisteredCustomer overwrites role; registerCustomer would preserve
+      // the stale "customer" role and silently keep the owner downgraded.
+      updateRegisteredCustomer(userToSet);
+    } else {
+      await registerCustomer(userToSet);
+    }
     await setUser(userToSet);
     setLoading(false);
     router.replace("/(tabs)");
