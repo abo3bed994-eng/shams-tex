@@ -56,9 +56,6 @@ export default function ContactScreen() {
             resizeMode="contain"
           />
           <Text style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-            SHAMS TEX
-          </Text>
-          <Text style={[styles.tagline, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {t("tagline")}
           </Text>
         </View>

@@ -73,19 +73,11 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
         <Text
           style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}
         >
-          SHAMS TEX
+          {language === "ar" ? "تعانق الجودة كل خيط" : "Quality embraces every thread"}
         </Text>
         <Animated.View
           style={[styles.line, { backgroundColor: colors.gold, width: lineWidth }]}
         />
-        <Text
-          style={[
-            styles.tagline,
-            { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-          ]}
-        >
-          {settings.logoUri ? "SHAMS TEX" : (language === "ar" ? "تعانق الجودة كل خيط" : "Quality embraces every thread")}
-        </Text>
       </Animated.View>
     </View>
   );

@@ -271,9 +271,6 @@ export default function LoginScreen() {
             resizeMode="contain"
           />
           <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-            SHAMS TEX
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {t("tagline")}
           </Text>
         </View>
