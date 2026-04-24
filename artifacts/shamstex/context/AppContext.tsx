@@ -1628,7 +1628,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setSettings = useCallback(async (s: AppSettings) => {
     setSettingsState(s);
     await AsyncStorage.setItem("settings", JSON.stringify(s));
-    FS.saveSettings(s).catch(() => {});
+    try {
+      await FS.saveSettings(s);
+    } catch (e: any) {
+      console.warn("[Settings] Firebase save failed:", e?.code || e?.message || e);
+      throw new Error(
+        "تعذّر حفظ الإعدادات على السيرفر — تأكد من تسجيل الدخول كأدمن. سيتم حفظها على هذا الجهاز فقط."
+      );
+    }
   }, []);
 
   const setTheme = useCallback(async (t: AppTheme) => {

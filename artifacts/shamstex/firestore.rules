@@ -28,12 +28,22 @@ service cloud.firestore {
       return isSignedIn() && getRole(userPhone()) == role;
     }
 
+    // Owner phone numbers — auto-recognized as admin even without a Firestore doc.
+    // This ensures the owner can always manage settings and orders, even on first login.
+    function isOwnerPhone() {
+      return isSignedIn() && (
+        request.auth.token.phone_number == '+201221131138' ||
+        request.auth.token.phone_number == '+200000000001'
+      );
+    }
+
     function isAdmin() {
-      return hasRole('admin');
+      return hasRole('admin') || isOwnerPhone();
     }
 
     function isStaff() {
       return isSignedIn() && (
+        isOwnerPhone() ||
         getRole(userPhone()) == 'admin' ||
         getRole(userPhone()) == 'supervisor' ||
         getRole(userPhone()) == 'employee'
