@@ -1146,7 +1146,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
-      await saveOrderReliable(order);
+      const saved = await saveOrderReliable(order);
+      if (!saved) {
+        Alert.alert(
+          "تنبيه",
+          "تم استلام طلبك محلياً، لكن لم يصل للسيرفر بعد. سنحاول إعادة الإرسال تلقائياً عند توفّر الإنترنت."
+        );
+      }
       // Suppress staff notification for scheduled orders — they'll be notified at release time.
       if (order.status === "scheduled") {
         return;

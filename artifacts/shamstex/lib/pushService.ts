@@ -173,7 +173,7 @@ export async function notifyStaffNewOrder(
   customerName: string
 ): Promise<void> {
   try {
-    const tokens = await FS.getPushTokensByRoles(["employee", "supervisor"]);
+    const tokens = await FS.getPushTokensByRoles(["admin", "employee", "supervisor"]);
     await sendExpoPush(
       tokens,
       "🛍️ طلب جديد!",
