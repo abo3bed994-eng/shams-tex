@@ -1,6 +1,6 @@
 import { Suspense, useRef, useState, useMemo } from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
-import { OrbitControls, Environment, ContactShadows } from "@react-three/drei";
+import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import { TextureLoader, RepeatWrapping } from "three";
 
@@ -271,7 +271,6 @@ export function RealisticView() {
           <directionalLight position={[-3, 2, -3]} intensity={0.3} color="#d4af37" />
           <Suspense fallback={null}>
             <GarmentScene garment={garment} fabric={fabric} />
-            <Environment preset="warehouse" />
             <ContactShadows
               position={[0, -1.4, 0]}
               opacity={0.55}
