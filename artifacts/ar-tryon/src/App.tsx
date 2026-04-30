@@ -64,6 +64,7 @@ export default function App() {
   const [garment, setGarment] = useState<GarmentKey>("suit");
   const [showHelp, setShowHelp] = useState(true);
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [aiReady, setAiReady] = useState(false);
 
   // Load chosen fabric image into ref
   useEffect(() => {
@@ -75,45 +76,90 @@ export default function App() {
     };
   }, [fabric]);
 
-  // Initialize MediaPipe + camera
-  const start = useCallback(async () => {
+  // Try to create MediaPipe task with GPU first, fall back to CPU
+  const createPoseWithFallback = async (vision: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>) => {
+    const baseConfig = {
+      runningMode: "VIDEO" as const,
+      numPoses: 1,
+      minPoseDetectionConfidence: 0.5,
+      minPosePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    };
     try {
-      setStatus({ kind: "loading", msg: "جارٍ تحميل محرك الذكاء الاصطناعي..." });
+      return await PoseLandmarker.createFromOptions(vision, {
+        ...baseConfig,
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+          delegate: "GPU",
+        },
+      });
+    } catch {
+      return await PoseLandmarker.createFromOptions(vision, {
+        ...baseConfig,
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+          delegate: "CPU",
+        },
+      });
+    }
+  };
 
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm",
-      );
+  const createSegmenterWithFallback = async (vision: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>) => {
+    const baseConfig = {
+      runningMode: "VIDEO" as const,
+      outputCategoryMask: true,
+      outputConfidenceMasks: false,
+    };
+    try {
+      return await ImageSegmenter.createFromOptions(vision, {
+        ...baseConfig,
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+          delegate: "GPU",
+        },
+      });
+    } catch {
+      return await ImageSegmenter.createFromOptions(vision, {
+        ...baseConfig,
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+          delegate: "CPU",
+        },
+      });
+    }
+  };
 
-      const [poseLandmarker, segmenter] = await Promise.all([
-        PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numPoses: 1,
-          minPoseDetectionConfidence: 0.5,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        }),
-        ImageSegmenter.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          outputCategoryMask: true,
-          outputConfidenceMasks: false,
-        }),
-      ]);
+  // Initialize: camera FIRST (immediate visual feedback), then AI engine in background
+  const start = useCallback(async () => {
+    // Sanity checks before anything else
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStatus({
+        kind: "error",
+        msg: "متصفحك لا يدعم الكاميرا. جرب من Safari (آيفون) أو Chrome (أندرويد).",
+      });
+      return;
+    }
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol !== "https:" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1"
+    ) {
+      setStatus({
+        kind: "error",
+        msg: "الكاميرا تتطلب اتصال آمن HTTPS. افتح الموقع برابط https://",
+      });
+      return;
+    }
 
-      poseLandmarkerRef.current = poseLandmarker;
-      segmenterRef.current = segmenter;
-
+    try {
       setStatus({ kind: "loading", msg: "جارٍ فتح الكاميرا..." });
 
+      // 1) Open camera FIRST so user sees something immediately
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
@@ -125,43 +171,78 @@ export default function App() {
 
       const video = videoRef.current!;
       video.srcObject = stream;
-      await new Promise<void>((res) => {
+      await new Promise<void>((res, rej) => {
+        const t = setTimeout(() => rej(new Error("video metadata timeout")), 8000);
         video.onloadedmetadata = () => {
-          video.play();
-          res();
+          clearTimeout(t);
+          video.play().then(res).catch(rej);
         };
       });
 
+      // 2) Show live view immediately (just plain video while AI loads)
       setStatus({ kind: "live" });
       requestAnimationFrame(loop);
+
+      // 3) Load MediaPipe in background — fabric overlay appears once ready
+      (async () => {
+        try {
+          const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm",
+          );
+          const [poseLandmarker, segmenter] = await Promise.all([
+            createPoseWithFallback(vision),
+            createSegmenterWithFallback(vision),
+          ]);
+          poseLandmarkerRef.current = poseLandmarker;
+          segmenterRef.current = segmenter;
+          setAiReady(true);
+        } catch (e) {
+          console.error("MediaPipe load failed:", e);
+        }
+      })();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      const lower = msg.toLowerCase();
       const isPermission =
-        msg.toLowerCase().includes("permission") ||
-        msg.toLowerCase().includes("notallowed");
-      setStatus({
-        kind: "error",
-        msg: isPermission
-          ? "فضلاً اسمح للموقع باستخدام الكاميرا من إعدادات المتصفح ثم أعد المحاولة"
-          : `حدث خطأ: ${msg}`,
-      });
+        lower.includes("permission") ||
+        lower.includes("notallowed") ||
+        lower.includes("denied");
+      const isInUse =
+        lower.includes("notreadable") || lower.includes("trackstart");
+      const isNoDevice =
+        lower.includes("notfound") || lower.includes("devicenotfound");
+      let friendly: string;
+      if (isPermission) {
+        friendly =
+          "تم رفض إذن الكاميرا. من إعدادات المتصفح اسمح بالكاميرا لهذا الموقع ثم أعد المحاولة.";
+      } else if (isInUse) {
+        friendly = "الكاميرا مستخدمة في تطبيق آخر. أغلق التطبيقات الأخرى وأعد المحاولة.";
+      } else if (isNoDevice) {
+        friendly = "ما لقيت كاميرا في الجهاز.";
+      } else {
+        friendly = `حدث خطأ في فتح الكاميرا: ${msg}`;
+      }
+      setStatus({ kind: "error", msg: friendly });
     }
   }, []);
 
-  // Render loop: pose detect + segment + draw fabric overlay
+  // Render loop: always draw mirrored video; add AI overlay once models are loaded
   const loop = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const pose = poseLandmarkerRef.current;
     const segmenter = segmenterRef.current;
 
-    if (!video || !canvas || !pose || !segmenter || video.readyState < 2) {
+    if (!video || !canvas || video.readyState < 2) {
       rafRef.current = requestAnimationFrame(loop);
       return;
     }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      rafRef.current = requestAnimationFrame(loop);
+      return;
+    }
 
     // Match canvas to video aspect
     if (
@@ -174,34 +255,42 @@ export default function App() {
 
     if (lastVideoTimeRef.current !== video.currentTime) {
       lastVideoTimeRef.current = video.currentTime;
-      const ts = performance.now();
 
-      const poseResult = pose.detectForVideo(video, ts);
-      const segResult = segmenter.segmentForVideo(video, ts);
-
-      // Draw mirrored video first
+      // Always draw mirrored video first so user sees themselves immediately
       ctx.save();
       ctx.scale(-1, 1);
       ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
       ctx.restore();
 
-      const landmarks = poseResult.landmarks?.[0];
-      const mask = segResult.categoryMask;
+      // If AI is ready, run pose + segmentation and overlay the fabric
+      if (pose && segmenter) {
+        const ts = performance.now();
+        try {
+          const poseResult = pose.detectForVideo(video, ts);
+          const segResult = segmenter.segmentForVideo(video, ts);
 
-      if (landmarks && fabricImgRef.current) {
-        drawGarment(
-          ctx,
-          canvas.width,
-          canvas.height,
-          landmarks,
-          fabricImgRef.current,
-          garment,
-          mask ? maskToImageData(mask, canvas.width, canvas.height) : null,
-        );
-      }
+          const landmarks = poseResult.landmarks?.[0];
+          const mask = segResult.categoryMask;
 
-      if (mask) {
-        mask.close();
+          if (landmarks && fabricImgRef.current) {
+            drawGarment(
+              ctx,
+              canvas.width,
+              canvas.height,
+              landmarks,
+              fabricImgRef.current,
+              garment,
+              mask ? maskToImageData(mask, canvas.width, canvas.height) : null,
+            );
+          }
+
+          if (mask) {
+            mask.close();
+          }
+        } catch (e) {
+          // swallow per-frame AI errors so the camera keeps flowing
+          console.warn("AI frame error:", e);
+        }
       }
     }
 
@@ -627,8 +716,27 @@ export default function App() {
           </div>
         )}
 
-        {/* Live: hint badge */}
-        {status.kind === "live" && showHelp && (
+        {/* Live: AI loading indicator */}
+        {status.kind === "live" && !aiReady && (
+          <div
+            className="absolute top-3 left-3 right-3 px-4 py-2.5 rounded-xl text-xs text-center flex items-center justify-center gap-2"
+            style={{
+              background: "rgba(10, 8, 4, 0.9)",
+              border: "1px solid rgba(212, 175, 55, 0.4)",
+              color: "#f4d27a",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <span
+              className="inline-block w-3 h-3 rounded-full animate-spin"
+              style={{ border: "2px solid #2a2418", borderTopColor: "#d4af37" }}
+            />
+            جارٍ تحميل الذكاء الاصطناعي... القماش هيبان عليك بعد قليل
+          </div>
+        )}
+
+        {/* Live: hint badge (only after AI ready) */}
+        {status.kind === "live" && aiReady && showHelp && (
           <div
             onClick={() => setShowHelp(false)}
             className="absolute top-3 left-3 right-3 px-4 py-2.5 rounded-xl text-xs text-center"
