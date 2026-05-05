@@ -1,576 +1,308 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  PoseLandmarker,
-  ImageSegmenter,
-  FilesetResolver,
-  type NormalizedLandmark,
-} from "@mediapipe/tasks-vision";
+import { Suspense, useRef, useState, useMemo, useEffect } from "react";
+import { Canvas, useFrame, useLoader } from "@react-three/fiber";
+import { OrbitControls, ContactShadows, Environment } from "@react-three/drei";
+import * as THREE from "three";
+import { TextureLoader, RepeatWrapping } from "three";
 
 const BASE = import.meta.env.BASE_URL;
 
+type GarmentKey = "suit" | "shirt" | "pants" | "thobe";
 type FabricKey = "black" | "navy" | "burgundy";
-type GarmentKey = "suit" | "shirt" | "thobe" | "pants";
 
-interface Fabric {
-  label: string;
-  src: string;
-  swatchTint: string;
-}
-
-const FABRICS: Record<FabricKey, Fabric> = {
+const FABRICS: Record<
+  FabricKey,
+  { label: string; src: string; tone: string; arabicTone: string }
+> = {
   black: {
     label: "أسود ملكي",
     src: `${BASE}images/fabric-classic-black.png`,
-    swatchTint: "#1a1a1a",
+    tone: "#1a1a1a",
+    arabicTone: "صوف فاخر",
   },
   navy: {
     label: "كحلي مخطط",
     src: `${BASE}images/fabric-navy-herringbone.png`,
-    swatchTint: "#1a2540",
+    tone: "#1a2540",
+    arabicTone: "هيرنج بون",
   },
   burgundy: {
     label: "خمري ملكي",
     src: `${BASE}images/fabric-burgundy-silk.png`,
-    swatchTint: "#3d1820",
+    tone: "#3d1820",
+    arabicTone: "حرير ملكي",
   },
 };
 
 const GARMENTS: Record<GarmentKey, { label: string; emoji: string }> = {
   suit: { label: "بدلة", emoji: "🤵" },
   shirt: { label: "قميص", emoji: "👔" },
-  thobe: { label: "جلابية", emoji: "🧕" },
   pants: { label: "بنطلون", emoji: "👖" },
+  thobe: { label: "جلابية", emoji: "🧕" },
 };
 
-type Status =
-  | { kind: "idle" }
-  | { kind: "loading"; msg: string }
-  | { kind: "needsCamera" }
-  | { kind: "live" }
-  | { kind: "error"; msg: string };
+// ----- Fabric material with high-detail texture (anisotropy + finer repeat for zoom) -----
+function useFabricMaterial(textureSrc: string) {
+  const texture = useLoader(TextureLoader, textureSrc);
+  return useMemo(() => {
+    texture.wrapS = RepeatWrapping;
+    texture.wrapT = RepeatWrapping;
+    texture.repeat.set(3, 4);
+    texture.anisotropy = 16;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.78,
+      metalness: 0.04,
+      side: THREE.DoubleSide,
+    });
+  }, [texture]);
+}
+
+// Higher poly counts for smooth zoom-in
+const SEG = 48;
+
+function SuitModel({ material }: { material: THREE.Material }) {
+  return (
+    <group position={[0, -0.2, 0]}>
+      {/* Torso */}
+      <mesh position={[0, 0.5, 0]} material={material} castShadow receiveShadow>
+        <boxGeometry args={[1.4, 1.6, 0.45, 8, 8, 4]} />
+      </mesh>
+      {/* Shoulders */}
+      <mesh position={[0, 1.25, 0]} material={material} castShadow>
+        <boxGeometry args={[1.7, 0.25, 0.5, 8, 4, 4]} />
+      </mesh>
+      {/* Lapels */}
+      <mesh
+        position={[-0.3, 0.85, 0.24]}
+        rotation={[0, 0, 0.15]}
+        material={material}
+        castShadow
+      >
+        <boxGeometry args={[0.35, 1.1, 0.04]} />
+      </mesh>
+      <mesh
+        position={[0.3, 0.85, 0.24]}
+        rotation={[0, 0, -0.15]}
+        material={material}
+        castShadow
+      >
+        <boxGeometry args={[0.35, 1.1, 0.04]} />
+      </mesh>
+      {/* Sleeves */}
+      <mesh
+        position={[-1.05, 0.45, 0]}
+        rotation={[0, 0, 0.1]}
+        material={material}
+        castShadow
+      >
+        <cylinderGeometry args={[0.22, 0.2, 1.6, SEG]} />
+      </mesh>
+      <mesh
+        position={[1.05, 0.45, 0]}
+        rotation={[0, 0, -0.1]}
+        material={material}
+        castShadow
+      >
+        <cylinderGeometry args={[0.22, 0.2, 1.6, SEG]} />
+      </mesh>
+      {/* Buttons */}
+      {[0.4, 0.0, -0.4].map((y) => (
+        <mesh key={y} position={[0, y + 0.2, 0.235]} castShadow>
+          <cylinderGeometry args={[0.04, 0.04, 0.02, 24]} />
+          <meshStandardMaterial
+            color="#d4af37"
+            metalness={0.95}
+            roughness={0.18}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function ShirtModel({ material }: { material: THREE.Material }) {
+  return (
+    <group position={[0, -0.2, 0]}>
+      <mesh position={[0, 0.5, 0]} material={material} castShadow receiveShadow>
+        <boxGeometry args={[1.3, 1.5, 0.4, 8, 8, 4]} />
+      </mesh>
+      <mesh position={[0, 1.3, 0.18]} material={material} castShadow>
+        <boxGeometry args={[0.5, 0.18, 0.08]} />
+      </mesh>
+      <mesh position={[0, 1.18, 0]} material={material} castShadow>
+        <boxGeometry args={[1.55, 0.2, 0.45]} />
+      </mesh>
+      <mesh
+        position={[-0.95, 0.7, 0]}
+        rotation={[0, 0, 0.1]}
+        material={material}
+        castShadow
+      >
+        <cylinderGeometry args={[0.2, 0.18, 1.0, SEG]} />
+      </mesh>
+      <mesh
+        position={[0.95, 0.7, 0]}
+        rotation={[0, 0, -0.1]}
+        material={material}
+        castShadow
+      >
+        <cylinderGeometry args={[0.2, 0.18, 1.0, SEG]} />
+      </mesh>
+      {[0.7, 0.4, 0.1, -0.2, -0.5].map((y) => (
+        <mesh key={y} position={[0, y, 0.21]} castShadow>
+          <sphereGeometry args={[0.025, 24, 24]} />
+          <meshStandardMaterial
+            color="#f5f5f0"
+            metalness={0.35}
+            roughness={0.35}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function PantsModel({ material }: { material: THREE.Material }) {
+  return (
+    <group position={[0, -0.2, 0]}>
+      <mesh position={[0, 1.3, 0]} material={material} castShadow>
+        <boxGeometry args={[1.0, 0.4, 0.4, 8, 4, 4]} />
+      </mesh>
+      <mesh position={[-0.27, 0.2, 0]} material={material} castShadow>
+        <cylinderGeometry args={[0.22, 0.19, 1.9, SEG]} />
+      </mesh>
+      <mesh position={[0.27, 0.2, 0]} material={material} castShadow>
+        <cylinderGeometry args={[0.22, 0.19, 1.9, SEG]} />
+      </mesh>
+      <mesh position={[0, 1.5, 0.21]} castShadow>
+        <boxGeometry args={[1.05, 0.06, 0.02]} />
+        <meshStandardMaterial
+          color="#d4af37"
+          metalness={0.9}
+          roughness={0.25}
+        />
+      </mesh>
+      {/* Belt loops */}
+      {[-0.4, 0, 0.4].map((x) => (
+        <mesh key={x} position={[x, 1.5, 0.22]} castShadow>
+          <boxGeometry args={[0.06, 0.12, 0.02]} />
+          <meshStandardMaterial
+            color="#d4af37"
+            metalness={0.9}
+            roughness={0.25}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function ThobeModel({ material }: { material: THREE.Material }) {
+  return (
+    <group position={[0, -0.5, 0]}>
+      <mesh position={[0, 0.6, 0]} material={material} castShadow receiveShadow>
+        <cylinderGeometry args={[0.55, 1.1, 2.6, SEG]} />
+      </mesh>
+      <mesh position={[0, 1.85, 0]} material={material} castShadow>
+        <boxGeometry args={[1.4, 0.25, 0.45]} />
+      </mesh>
+      <mesh
+        position={[-0.95, 1.15, 0]}
+        rotation={[0, 0, 0.18]}
+        material={material}
+        castShadow
+      >
+        <cylinderGeometry args={[0.28, 0.32, 1.6, SEG]} />
+      </mesh>
+      <mesh
+        position={[0.95, 1.15, 0]}
+        rotation={[0, 0, -0.18]}
+        material={material}
+        castShadow
+      >
+        <cylinderGeometry args={[0.28, 0.32, 1.6, SEG]} />
+      </mesh>
+      {/* Neckline gold trim */}
+      <mesh position={[0, 1.95, 0.23]} castShadow>
+        <boxGeometry args={[0.5, 0.04, 0.02]} />
+        <meshStandardMaterial
+          color="#d4af37"
+          metalness={0.95}
+          roughness={0.15}
+        />
+      </mesh>
+      {/* Vertical placket */}
+      <mesh position={[0, 1.4, 0.26]} castShadow>
+        <boxGeometry args={[0.04, 1.0, 0.01]} />
+        <meshStandardMaterial
+          color="#d4af37"
+          metalness={0.85}
+          roughness={0.25}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function GarmentScene({
+  garment,
+  fabric,
+  autoRotate,
+}: {
+  garment: GarmentKey;
+  fabric: FabricKey;
+  autoRotate: boolean;
+}) {
+  const material = useFabricMaterial(FABRICS[fabric].src);
+  const group = useRef<THREE.Group>(null);
+
+  useFrame((_, delta) => {
+    if (autoRotate && group.current) {
+      group.current.rotation.y += delta * 0.25;
+    }
+  });
+
+  return (
+    <group ref={group}>
+      {garment === "suit" && <SuitModel material={material} />}
+      {garment === "shirt" && <ShirtModel material={material} />}
+      {garment === "pants" && <PantsModel material={material} />}
+      {garment === "thobe" && <ThobeModel material={material} />}
+    </group>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div
+      className="absolute inset-0 flex flex-col items-center justify-center"
+      style={{ background: "rgba(10, 8, 4, 0.6)" }}
+    >
+      <div
+        className="w-12 h-12 rounded-full mb-3 animate-spin"
+        style={{
+          border: "3px solid #2a2418",
+          borderTopColor: "#d4af37",
+        }}
+      />
+      <p className="text-xs" style={{ color: "#d4af37" }}>
+        جارٍ تحميل القماشة...
+      </p>
+    </div>
+  );
+}
 
 export default function App() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
-  const segmenterRef = useRef<ImageSegmenter | null>(null);
-  const fabricImgRef = useRef<HTMLImageElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const lastVideoTimeRef = useRef<number>(-1);
-  const offCanvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const [status, setStatus] = useState<Status>({ kind: "idle" });
-  const [fabric, setFabric] = useState<FabricKey>("black");
   const [garment, setGarment] = useState<GarmentKey>("suit");
-  const [showHelp, setShowHelp] = useState(true);
-  const [snapshot, setSnapshot] = useState<string | null>(null);
-  const [aiReady, setAiReady] = useState(false);
+  const [fabric, setFabric] = useState<FabricKey>("black");
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [showHint, setShowHint] = useState(true);
 
-  // Load chosen fabric image into ref
+  // Auto-hide hint after 5s
   useEffect(() => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = FABRICS[fabric].src;
-    img.onload = () => {
-      fabricImgRef.current = img;
-    };
-  }, [fabric]);
-
-  // Try to create MediaPipe task with GPU first, fall back to CPU
-  const createPoseWithFallback = async (vision: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>) => {
-    const baseConfig = {
-      runningMode: "VIDEO" as const,
-      numPoses: 1,
-      minPoseDetectionConfidence: 0.5,
-      minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    };
-    try {
-      return await PoseLandmarker.createFromOptions(vision, {
-        ...baseConfig,
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
-          delegate: "GPU",
-        },
-      });
-    } catch {
-      return await PoseLandmarker.createFromOptions(vision, {
-        ...baseConfig,
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
-          delegate: "CPU",
-        },
-      });
-    }
-  };
-
-  const createSegmenterWithFallback = async (vision: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>) => {
-    const baseConfig = {
-      runningMode: "VIDEO" as const,
-      outputCategoryMask: true,
-      outputConfidenceMasks: false,
-    };
-    try {
-      return await ImageSegmenter.createFromOptions(vision, {
-        ...baseConfig,
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
-          delegate: "GPU",
-        },
-      });
-    } catch {
-      return await ImageSegmenter.createFromOptions(vision, {
-        ...baseConfig,
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
-          delegate: "CPU",
-        },
-      });
-    }
-  };
-
-  // Initialize: camera FIRST (immediate visual feedback), then AI engine in background
-  const start = useCallback(async () => {
-    // Sanity checks before anything else
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setStatus({
-        kind: "error",
-        msg: "متصفحك لا يدعم الكاميرا. جرب من Safari (آيفون) أو Chrome (أندرويد).",
-      });
-      return;
-    }
-    if (
-      typeof window !== "undefined" &&
-      window.location.protocol !== "https:" &&
-      window.location.hostname !== "localhost" &&
-      window.location.hostname !== "127.0.0.1"
-    ) {
-      setStatus({
-        kind: "error",
-        msg: "الكاميرا تتطلب اتصال آمن HTTPS. افتح الموقع برابط https://",
-      });
-      return;
-    }
-
-    try {
-      setStatus({ kind: "loading", msg: "جارٍ فتح الكاميرا..." });
-
-      // 1) Open camera FIRST so user sees something immediately
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 720 },
-          height: { ideal: 1280 },
-        },
-        audio: false,
-      });
-
-      const video = videoRef.current!;
-      video.srcObject = stream;
-      await new Promise<void>((res, rej) => {
-        const t = setTimeout(() => rej(new Error("video metadata timeout")), 8000);
-        video.onloadedmetadata = () => {
-          clearTimeout(t);
-          video.play().then(res).catch(rej);
-        };
-      });
-
-      // 2) Show live view immediately (just plain video while AI loads)
-      setStatus({ kind: "live" });
-      requestAnimationFrame(loop);
-
-      // 3) Load MediaPipe in background — fabric overlay appears once ready
-      (async () => {
-        try {
-          const vision = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm",
-          );
-          const [poseLandmarker, segmenter] = await Promise.all([
-            createPoseWithFallback(vision),
-            createSegmenterWithFallback(vision),
-          ]);
-          poseLandmarkerRef.current = poseLandmarker;
-          segmenterRef.current = segmenter;
-          setAiReady(true);
-        } catch (e) {
-          console.error("MediaPipe load failed:", e);
-        }
-      })();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const lower = msg.toLowerCase();
-      const isPermission =
-        lower.includes("permission") ||
-        lower.includes("notallowed") ||
-        lower.includes("denied");
-      const isInUse =
-        lower.includes("notreadable") || lower.includes("trackstart");
-      const isNoDevice =
-        lower.includes("notfound") || lower.includes("devicenotfound");
-      let friendly: string;
-      if (isPermission) {
-        friendly =
-          "تم رفض إذن الكاميرا. من إعدادات المتصفح اسمح بالكاميرا لهذا الموقع ثم أعد المحاولة.";
-      } else if (isInUse) {
-        friendly = "الكاميرا مستخدمة في تطبيق آخر. أغلق التطبيقات الأخرى وأعد المحاولة.";
-      } else if (isNoDevice) {
-        friendly = "ما لقيت كاميرا في الجهاز.";
-      } else {
-        friendly = `حدث خطأ في فتح الكاميرا: ${msg}`;
-      }
-      setStatus({ kind: "error", msg: friendly });
-    }
-  }, []);
-
-  // Render loop: always draw mirrored video; add AI overlay once models are loaded
-  const loop = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const pose = poseLandmarkerRef.current;
-    const segmenter = segmenterRef.current;
-
-    if (!video || !canvas || video.readyState < 2) {
-      rafRef.current = requestAnimationFrame(loop);
-      return;
-    }
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      rafRef.current = requestAnimationFrame(loop);
-      return;
-    }
-
-    // Match canvas to video aspect
-    if (
-      canvas.width !== video.videoWidth ||
-      canvas.height !== video.videoHeight
-    ) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-    }
-
-    if (lastVideoTimeRef.current !== video.currentTime) {
-      lastVideoTimeRef.current = video.currentTime;
-
-      // Always draw mirrored video first so user sees themselves immediately
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-      ctx.restore();
-
-      // If AI is ready, run pose + segmentation and overlay the fabric
-      if (pose && segmenter) {
-        const ts = performance.now();
-        try {
-          const poseResult = pose.detectForVideo(video, ts);
-          const segResult = segmenter.segmentForVideo(video, ts);
-
-          const landmarks = poseResult.landmarks?.[0];
-          const mask = segResult.categoryMask;
-
-          if (landmarks && fabricImgRef.current) {
-            drawGarment(
-              ctx,
-              canvas.width,
-              canvas.height,
-              landmarks,
-              fabricImgRef.current,
-              garment,
-              mask ? maskToImageData(mask, canvas.width, canvas.height) : null,
-            );
-          }
-
-          if (mask) {
-            mask.close();
-          }
-        } catch (e) {
-          // swallow per-frame AI errors so the camera keeps flowing
-          console.warn("AI frame error:", e);
-        }
-      }
-    }
-
-    rafRef.current = requestAnimationFrame(loop);
-  }, [garment]);
-
-  // Helper: convert MP mask to ImageData (person pixels = alpha 255)
-  function maskToImageData(
-    mask: { getAsUint8Array: () => Uint8Array },
-    w: number,
-    h: number,
-  ): ImageData | null {
-    try {
-      const arr = mask.getAsUint8Array();
-      if (arr.length !== w * h) return null;
-      const data = new Uint8ClampedArray(w * h * 4);
-      for (let i = 0; i < arr.length; i++) {
-        // MediaPipe selfie segmenter: 0 = person, 255 = background
-        const isPerson = arr[i] === 0 ? 255 : 0;
-        const j = i * 4;
-        data[j] = data[j + 1] = data[j + 2] = isPerson;
-        data[j + 3] = isPerson;
-      }
-      return new ImageData(data, w, h);
-    } catch {
-      return null;
-    }
-  }
-
-  // Mirror x because video is mirrored (selfie view)
-  function mx(x: number, w: number) {
-    return w - x * w;
-  }
-  function my(y: number, h: number) {
-    return y * h;
-  }
-
-  function drawGarment(
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    lm: NormalizedLandmark[],
-    fabricImg: HTMLImageElement,
-    garmentKey: GarmentKey,
-    personMask: ImageData | null,
-  ) {
-    // MediaPipe Pose landmark indices
-    const LSHOULDER = 11;
-    const RSHOULDER = 12;
-    const LHIP = 23;
-    const RHIP = 24;
-    const LKNEE = 25;
-    const RKNEE = 26;
-    const LANKLE = 27;
-    const RANKLE = 28;
-
-    // Build off-screen canvas where we paint the garment shape filled with fabric
-    if (!offCanvasRef.current) {
-      offCanvasRef.current = document.createElement("canvas");
-    }
-    const off = offCanvasRef.current;
-    off.width = w;
-    off.height = h;
-    const octx = off.getContext("2d");
-    if (!octx) return;
-    octx.clearRect(0, 0, w, h);
-
-    // Build pattern from fabric texture
-    const pattern = octx.createPattern(fabricImg, "repeat");
-    if (!pattern) return;
-
-    // Scale pattern so it tiles nicely
-    const matrix = new DOMMatrix();
-    matrix.scaleSelf(0.45, 0.45);
-    pattern.setTransform(matrix);
-    octx.fillStyle = pattern;
-
-    // Helpers to get mirrored landmark coords in canvas pixels
-    const p = (i: number) => ({ x: mx(lm[i].x, w), y: my(lm[i].y, h) });
-
-    const ls = p(LSHOULDER);
-    const rs = p(RSHOULDER);
-    const lh = p(LHIP);
-    const rh = p(RHIP);
-    const lk = p(LKNEE);
-    const rk = p(RKNEE);
-    const la = p(LANKLE);
-    const ra = p(RANKLE);
-
-    // Pad outward so garment looks "loose"
-    const shoulderPad = Math.abs(ls.x - rs.x) * 0.18;
-    const hipPad = Math.abs(lh.x - rh.x) * 0.18;
-
-    const TOP_NECK_OFFSET = -Math.abs(ls.y - lh.y) * 0.04;
-    const COLLAR_HEIGHT = Math.abs(ls.y - lh.y) * 0.05;
-
-    const drawTorso = (extendBelow: number) => {
-      // Polygon: shoulders → expanded hips → expanded shoulders
-      const slx = ls.x + shoulderPad;
-      const srx = rs.x - shoulderPad;
-      const sy = ls.y + TOP_NECK_OFFSET;
-      const hlx = lh.x + hipPad;
-      const hrx = rh.x - hipPad;
-      const hy = (lh.y + rh.y) / 2 + extendBelow;
-
-      octx.beginPath();
-      // Start at top-left shoulder
-      octx.moveTo(slx, sy);
-      // Top: subtle V-neck
-      octx.quadraticCurveTo(
-        (slx + srx) / 2,
-        sy + COLLAR_HEIGHT * 2,
-        srx,
-        sy,
-      );
-      // Right side down
-      octx.quadraticCurveTo(srx + 5, (sy + hy) / 2, hrx, hy);
-      // Bottom hem
-      octx.lineTo(hlx, hy);
-      // Left side up
-      octx.quadraticCurveTo(slx - 5, (sy + hy) / 2, slx, sy);
-      octx.closePath();
-      octx.fill();
-    };
-
-    const drawSleeves = (sleeveLengthFrac: number) => {
-      // Approx upper-arm via shoulder anchor; we don't have elbow points reliably so use shoulder + hip
-      const armLen = Math.hypot(ls.x - lh.x, ls.y - lh.y) * sleeveLengthFrac;
-      // Left sleeve
-      drawSleeve(octx, ls.x + shoulderPad * 0.3, ls.y, armLen, "left");
-      // Right sleeve
-      drawSleeve(octx, rs.x - shoulderPad * 0.3, rs.y, armLen, "right");
-    };
-
-    function drawSleeve(
-      c: CanvasRenderingContext2D,
-      sx: number,
-      sy: number,
-      len: number,
-      side: "left" | "right",
-    ) {
-      const dirX = side === "left" ? 1 : -1;
-      const topW = Math.abs(ls.x - rs.x) * 0.18;
-      const wristW = topW * 0.7;
-      const tx = sx + dirX * len * 0.2;
-      const ty = sy + len;
-      c.beginPath();
-      c.moveTo(sx - topW / 2, sy);
-      c.lineTo(sx + topW / 2, sy);
-      c.lineTo(tx + (dirX * wristW) / 2, ty);
-      c.lineTo(tx - (dirX * wristW) / 2, ty);
-      c.closePath();
-      c.fill();
-    }
-
-    const drawPantsLegs = () => {
-      const drawLeg = (
-        hipP: { x: number; y: number },
-        kneeP: { x: number; y: number },
-        ankleP: { x: number; y: number },
-      ) => {
-        const upperW = Math.abs(lh.x - rh.x) * 0.42;
-        const ankleW = upperW * 0.6;
-        octx.beginPath();
-        octx.moveTo(hipP.x - upperW / 2, hipP.y);
-        octx.lineTo(hipP.x + upperW / 2, hipP.y);
-        octx.quadraticCurveTo(
-          kneeP.x + ankleW / 2,
-          kneeP.y,
-          ankleP.x + ankleW / 2,
-          ankleP.y,
-        );
-        octx.lineTo(ankleP.x - ankleW / 2, ankleP.y);
-        octx.quadraticCurveTo(
-          kneeP.x - ankleW / 2,
-          kneeP.y,
-          hipP.x - upperW / 2,
-          hipP.y,
-        );
-        octx.closePath();
-        octx.fill();
-      };
-      drawLeg(lh, lk, la);
-      drawLeg(rh, rk, ra);
-    };
-
-    // Compose by garment type
-    if (garmentKey === "suit") {
-      const hipMid = (lh.y + rh.y) / 2;
-      const shoulderMid = (ls.y + rs.y) / 2;
-      drawTorso((hipMid - shoulderMid) * 0.15);
-      drawSleeves(1.0);
-    } else if (garmentKey === "shirt") {
-      drawTorso(0);
-      drawSleeves(0.55);
-    } else if (garmentKey === "thobe") {
-      // Long flowing robe — extends down to ankles
-      const ankleMid = (la.y + ra.y) / 2;
-      const hipMid = (lh.y + rh.y) / 2;
-      drawTorso(ankleMid - hipMid);
-      drawSleeves(1.1);
-    } else if (garmentKey === "pants") {
-      drawPantsLegs();
-    }
-
-    // Now mask the garment by the person silhouette so it doesn't bleed onto background
-    if (personMask) {
-      const tmp = document.createElement("canvas");
-      tmp.width = w;
-      tmp.height = h;
-      const tctx = tmp.getContext("2d");
-      if (tctx) {
-        tctx.putImageData(personMask, 0, 0);
-        // Mirror the mask to match mirrored video
-        const flipped = document.createElement("canvas");
-        flipped.width = w;
-        flipped.height = h;
-        const fctx = flipped.getContext("2d");
-        if (fctx) {
-          fctx.translate(w, 0);
-          fctx.scale(-1, 1);
-          fctx.drawImage(tmp, 0, 0);
-          octx.globalCompositeOperation = "destination-in";
-          octx.drawImage(flipped, 0, 0);
-          octx.globalCompositeOperation = "source-over";
-        }
-      }
-    }
-
-    // Composite garment onto main canvas with multiply for natural shading
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(off, 0, 0);
-    ctx.restore();
-
-    // Add subtle gold trim/highlights for premium look
-    if (garmentKey === "suit") {
-      ctx.strokeStyle = "rgba(212, 175, 55, 0.45)";
-      ctx.lineWidth = 2;
-      // Lapel V-line
-      ctx.beginPath();
-      const slx = ls.x + shoulderPad;
-      const srx = rs.x - shoulderPad;
-      const cx = (slx + srx) / 2;
-      const sy = ls.y + TOP_NECK_OFFSET;
-      const hipMid = (lh.y + rh.y) / 2;
-      ctx.moveTo(slx, sy);
-      ctx.quadraticCurveTo(cx, sy + 35, cx, hipMid);
-      ctx.moveTo(srx, sy);
-      ctx.quadraticCurveTo(cx, sy + 35, cx, hipMid);
-      ctx.stroke();
-    }
-  }
-
-  const takeSnapshot = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const url = canvas.toDataURL("image/png");
-    setSnapshot(url);
-  }, []);
-
-  const downloadSnapshot = useCallback(() => {
-    if (!snapshot) return;
-    const a = document.createElement("a");
-    a.href = snapshot;
-    a.download = `shams-tex-${Date.now()}.png`;
-    a.click();
-  }, [snapshot]);
-
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      const v = videoRef.current;
-      if (v?.srcObject) {
-        (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
-      }
-      poseLandmarkerRef.current?.close();
-      segmenterRef.current?.close();
-    };
+    const t = setTimeout(() => setShowHint(false), 5000);
+    return () => clearTimeout(t);
   }, []);
 
   return (
@@ -578,167 +310,102 @@ export default function App() {
       dir="rtl"
       className="fixed inset-0 flex flex-col"
       style={{
-        background: "#000",
+        background:
+          "radial-gradient(ellipse at top, #1a1610 0%, #0a0806 60%, #000 100%)",
+        fontFamily: "'Cairo', 'Tajawal', sans-serif",
       }}
     >
       {/* Header */}
-      <header
-        className="flex items-center justify-between px-4 pt-4 pb-2"
-        style={{ zIndex: 30, position: "relative" }}
-      >
+      <header className="px-5 pt-5 pb-3 flex items-start justify-between">
         <div>
           <div
-            className="text-[9px] tracking-[0.3em]"
+            className="text-[9px] tracking-[0.3em] mb-1"
             style={{ color: "#d4af37" }}
           >
             SHAMS TEX • شمس تكس
           </div>
           <h1
-            className="text-xl font-bold leading-tight"
+            className="text-2xl font-bold leading-tight"
             style={{
               background:
                 "linear-gradient(135deg, #f4d27a 0%, #d4af37 50%, #b8941f 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
             }}
           >
-            تجربة القماش بالكاميرا
+            رؤية ثلاثية الأبعاد
           </h1>
+          <p className="text-[11px] mt-1" style={{ color: "#8a7a5c" }}>
+            لف الموديل واقترب لتشاهد تفاصيل القماشة
+          </p>
         </div>
-        {status.kind === "live" && (
-          <button
-            onClick={() => setShowHelp((s) => !s)}
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{
-              border: "1px solid #2a2418",
-              background: "rgba(20, 16, 10, 0.7)",
-              color: "#d4af37",
-            }}
-          >
-            ?
-          </button>
-        )}
       </header>
 
-      {/* Main view */}
-      <div className="flex-1 relative overflow-hidden mx-3 rounded-2xl"
+      {/* 3D Canvas */}
+      <div
+        className="flex-1 mx-3 rounded-2xl overflow-hidden relative"
         style={{
           border: "1px solid #2a2418",
-          background: "linear-gradient(180deg, #0a0806 0%, #050402 100%)",
+          background:
+            "linear-gradient(180deg, rgba(40,32,18,0.4) 0%, rgba(10,8,4,0.95) 100%)",
+          minHeight: 320,
         }}
       >
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          style={{ display: "none" }}
-        />
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full object-cover"
-          style={{ display: status.kind === "live" ? "block" : "none" }}
-        />
-
-        {/* Idle / loading / error overlays */}
-        {status.kind === "idle" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center mb-6 text-5xl"
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(212,175,55,0.2) 0%, transparent 70%)",
-                border: "2px solid #d4af37",
-              }}
-            >
-              📸
-            </div>
-            <h2
-              className="text-2xl font-bold mb-3"
-              style={{ color: "#f4d27a" }}
-            >
-              جربها على نفسك
-            </h2>
-            <p className="text-sm mb-8" style={{ color: "#8a7a5c" }}>
-              افتح الكاميرا، قف قدامها، واختار القماش<br />
-              هتشوف القماشة على جسمك مباشرة
-            </p>
-            <button
-              onClick={start}
-              className="px-8 py-4 rounded-xl font-bold text-base"
-              style={{
-                background:
-                  "linear-gradient(135deg, #d4af37 0%, #b8941f 100%)",
-                color: "#0a0806",
-                boxShadow: "0 8px 30px rgba(212, 175, 55, 0.4)",
-              }}
-            >
-              📷 ابدأ التجربة
-            </button>
-            <p className="text-[10px] mt-6" style={{ color: "#5a4d35" }}>
-              يحتاج إذن للكاميرا • يشتغل أوفلاين بعد التحميل
-            </p>
-          </div>
-        )}
-
-        {status.kind === "loading" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-            <div
-              className="w-16 h-16 rounded-full mb-6 animate-spin"
-              style={{
-                border: "3px solid #2a2418",
-                borderTopColor: "#d4af37",
-              }}
+        <Canvas
+          camera={{ position: [0, 0.5, 4.5], fov: 38 }}
+          gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
+          dpr={[1, 2]}
+          shadows
+        >
+          <color attach="background" args={["#0a0806"]} />
+          <ambientLight intensity={0.35} />
+          <directionalLight
+            position={[3, 5, 5]}
+            intensity={1.3}
+            color="#fff5e0"
+            castShadow
+            shadow-mapSize={[1024, 1024]}
+          />
+          <directionalLight
+            position={[-3, 2, -3]}
+            intensity={0.4}
+            color="#d4af37"
+          />
+          <directionalLight
+            position={[0, -2, 3]}
+            intensity={0.15}
+            color="#fff"
+          />
+          <Suspense fallback={null}>
+            <Environment preset="apartment" />
+            <GarmentScene
+              garment={garment}
+              fabric={fabric}
+              autoRotate={autoRotate}
             />
-            <p style={{ color: "#d4af37" }}>{status.msg}</p>
-            <p className="text-[10px] mt-2" style={{ color: "#5a4d35" }}>
-              قد يأخذ 10-30 ثانية في أول مرة
-            </p>
-          </div>
-        )}
-
-        {status.kind === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-            <div className="text-5xl mb-4">⚠️</div>
-            <p className="text-sm mb-6" style={{ color: "#f4d27a" }}>
-              {status.msg}
-            </p>
-            <button
-              onClick={() => setStatus({ kind: "idle" })}
-              className="px-6 py-3 rounded-xl font-bold"
-              style={{
-                background: "rgba(212, 175, 55, 0.15)",
-                border: "1px solid #d4af37",
-                color: "#d4af37",
-              }}
-            >
-              إعادة المحاولة
-            </button>
-          </div>
-        )}
-
-        {/* Live: AI loading indicator */}
-        {status.kind === "live" && !aiReady && (
-          <div
-            className="absolute top-3 left-3 right-3 px-4 py-2.5 rounded-xl text-xs text-center flex items-center justify-center gap-2"
-            style={{
-              background: "rgba(10, 8, 4, 0.9)",
-              border: "1px solid rgba(212, 175, 55, 0.4)",
-              color: "#f4d27a",
-              backdropFilter: "blur(10px)",
-            }}
-          >
-            <span
-              className="inline-block w-3 h-3 rounded-full animate-spin"
-              style={{ border: "2px solid #2a2418", borderTopColor: "#d4af37" }}
+            <ContactShadows
+              position={[0, -1.4, 0]}
+              opacity={0.55}
+              scale={6}
+              blur={2.5}
+              far={4}
             />
-            جارٍ تحميل الذكاء الاصطناعي... القماش هيبان عليك بعد قليل
-          </div>
-        )}
+          </Suspense>
+          <OrbitControls
+            enablePan={false}
+            minDistance={1.5}
+            maxDistance={8}
+            minPolarAngle={Math.PI / 6}
+            maxPolarAngle={Math.PI / 1.6}
+            onStart={() => setAutoRotate(false)}
+          />
+        </Canvas>
 
-        {/* Live: hint badge (only after AI ready) */}
-        {status.kind === "live" && aiReady && showHelp && (
+        {/* Hint badge */}
+        {showHint && (
           <div
-            onClick={() => setShowHelp(false)}
+            onClick={() => setShowHint(false)}
             className="absolute top-3 left-3 right-3 px-4 py-2.5 rounded-xl text-xs text-center"
             style={{
               background: "rgba(10, 8, 4, 0.85)",
@@ -747,133 +414,165 @@ export default function App() {
               backdropFilter: "blur(10px)",
             }}
           >
-            ✋ قف على بُعد متر تقريباً • اختر القماش والموديل من تحت
+            ✋ اسحب للتدوير • 🔍 قرّب الإصبعين للتكبير
           </div>
         )}
 
-        {/* Snapshot preview */}
-        {snapshot && (
+        {/* Bottom-left fabric tag */}
+        <div
+          className="absolute bottom-3 left-3 px-3 py-2 rounded-xl flex items-center gap-2"
+          style={{
+            background: "rgba(10, 8, 4, 0.85)",
+            border: "1px solid rgba(212, 175, 55, 0.3)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center p-4"
-            style={{ background: "rgba(0,0,0,0.92)" }}
-          >
-            <img
-              src={snapshot}
-              alt="snapshot"
-              className="max-h-[70%] rounded-xl"
-              style={{ border: "1px solid #d4af37" }}
-            />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={downloadSnapshot}
-                className="px-5 py-3 rounded-xl font-bold"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #d4af37 0%, #b8941f 100%)",
-                  color: "#0a0806",
-                }}
-              >
-                💾 احفظ الصورة
-              </button>
-              <button
-                onClick={() => setSnapshot(null)}
-                className="px-5 py-3 rounded-xl font-bold"
-                style={{
-                  background: "rgba(212, 175, 55, 0.1)",
-                  border: "1px solid #d4af37",
-                  color: "#d4af37",
-                }}
-              >
-                ✕ رجوع
-              </button>
+            className="w-7 h-7 rounded-md"
+            style={{
+              backgroundImage: `url(${FABRICS[fabric].src})`,
+              backgroundSize: "cover",
+              border: "1px solid rgba(212, 175, 55, 0.4)",
+            }}
+          />
+          <div>
+            <div
+              className="text-[10px] font-bold leading-tight"
+              style={{ color: "#f4d27a" }}
+            >
+              {FABRICS[fabric].label}
+            </div>
+            <div
+              className="text-[9px] leading-tight"
+              style={{ color: "#8a7a5c" }}
+            >
+              {FABRICS[fabric].arabicTone}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Auto-rotate toggle */}
+        <button
+          onClick={() => setAutoRotate((v) => !v)}
+          className="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center text-base"
+          style={{
+            background: autoRotate
+              ? "rgba(212, 175, 55, 0.2)"
+              : "rgba(10, 8, 4, 0.85)",
+            border: `1px solid ${
+              autoRotate ? "#d4af37" : "rgba(212, 175, 55, 0.3)"
+            }`,
+            color: "#d4af37",
+            backdropFilter: "blur(8px)",
+          }}
+          aria-label="تشغيل/إيقاف الدوران التلقائي"
+        >
+          {autoRotate ? "⏸" : "↻"}
+        </button>
       </div>
 
-      {/* Bottom controls (only when live) */}
-      {status.kind === "live" && !snapshot && (
-        <div className="px-3 pt-3 pb-4">
-          {/* Fabric row */}
-          <div className="flex gap-2 mb-3">
-            {(Object.keys(FABRICS) as FabricKey[]).map((k) => {
-              const f = FABRICS[k];
-              const active = k === fabric;
-              return (
-                <button
-                  key={k}
-                  onClick={() => setFabric(k)}
-                  className="flex-1 rounded-xl py-2 flex flex-col items-center transition-all"
-                  style={{
-                    border: `2px solid ${active ? "#d4af37" : "#2a2418"}`,
-                    background: active
-                      ? "rgba(212, 175, 55, 0.1)"
-                      : "rgba(20, 16, 10, 0.5)",
-                  }}
-                >
-                  <div
-                    className="w-10 h-10 rounded-md mb-1"
-                    style={{
-                      backgroundImage: `url(${f.src})`,
-                      backgroundSize: "cover",
-                      boxShadow: active
-                        ? "0 2px 10px rgba(212,175,55,0.4)"
-                        : "none",
-                    }}
-                  />
-                  <span
-                    className="text-[10px]"
-                    style={{ color: active ? "#d4af37" : "#7a6a4c" }}
-                  >
-                    {f.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {/* Garment row + snapshot */}
-          <div className="flex gap-2 items-stretch">
-            {(Object.keys(GARMENTS) as GarmentKey[]).map((k) => {
-              const g = GARMENTS[k];
-              const active = k === garment;
-              return (
-                <button
-                  key={k}
-                  onClick={() => setGarment(k)}
-                  className="flex-1 rounded-xl py-2 flex flex-col items-center"
-                  style={{
-                    border: `1.5px solid ${active ? "#d4af37" : "#2a2418"}`,
-                    background: active
-                      ? "linear-gradient(180deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.03) 100%)"
-                      : "rgba(20, 16, 10, 0.5)",
-                  }}
-                >
-                  <span className="text-xl">{g.emoji}</span>
-                  <span
-                    className="text-[10px] mt-0.5"
-                    style={{ color: active ? "#f4d27a" : "#7a6a4c" }}
-                  >
-                    {g.label}
-                  </span>
-                </button>
-              );
-            })}
-            <button
-              onClick={takeSnapshot}
-              className="rounded-xl px-4 flex items-center justify-center"
-              style={{
-                background:
-                  "linear-gradient(135deg, #d4af37 0%, #b8941f 100%)",
-                color: "#0a0806",
-                fontWeight: "bold",
-                boxShadow: "0 4px 16px rgba(212, 175, 55, 0.35)",
-              }}
-            >
-              📸
-            </button>
-          </div>
+      {/* Fabric selector */}
+      <div className="px-3 mt-4">
+        <div
+          className="text-[10px] mb-2 tracking-widest"
+          style={{ color: "#8a7a5c" }}
+        >
+          القماش
         </div>
-      )}
+        <div className="flex gap-2.5">
+          {(Object.keys(FABRICS) as FabricKey[]).map((key) => {
+            const f = FABRICS[key];
+            const active = key === fabric;
+            return (
+              <button
+                key={key}
+                onClick={() => setFabric(key)}
+                className="flex-1 rounded-xl overflow-hidden flex flex-col items-center pt-2 pb-2 transition-all"
+                style={{
+                  border: `2px solid ${active ? "#d4af37" : "#2a2418"}`,
+                  background: active
+                    ? "rgba(212, 175, 55, 0.1)"
+                    : "rgba(20, 16, 10, 0.4)",
+                  transform: active ? "translateY(-2px)" : "none",
+                }}
+              >
+                <div
+                  className="w-12 h-12 rounded-lg mb-1.5"
+                  style={{
+                    backgroundImage: `url(${f.src})`,
+                    backgroundSize: "cover",
+                    boxShadow: active
+                      ? "0 4px 12px rgba(212,175,55,0.35)"
+                      : "none",
+                  }}
+                />
+                <span
+                  className="text-[10px] font-medium"
+                  style={{ color: active ? "#d4af37" : "#7a6a4c" }}
+                >
+                  {f.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Garment selector */}
+      <div className="px-3 mt-3 mb-3">
+        <div
+          className="text-[10px] mb-2 tracking-widest"
+          style={{ color: "#8a7a5c" }}
+        >
+          الموديل
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {(Object.keys(GARMENTS) as GarmentKey[]).map((key) => {
+            const g = GARMENTS[key];
+            const active = key === garment;
+            return (
+              <button
+                key={key}
+                onClick={() => setGarment(key)}
+                className="rounded-xl py-2.5 flex flex-col items-center gap-0.5 transition-all"
+                style={{
+                  border: `1.5px solid ${active ? "#d4af37" : "#2a2418"}`,
+                  background: active
+                    ? "linear-gradient(180deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.05) 100%)"
+                    : "rgba(20, 16, 10, 0.4)",
+                }}
+              >
+                <span className="text-2xl">{g.emoji}</span>
+                <span
+                  className="text-[11px] font-medium"
+                  style={{ color: active ? "#f4d27a" : "#7a6a4c" }}
+                >
+                  {g.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="px-3 pb-4">
+        <button
+          className="w-full py-3.5 rounded-xl font-bold text-sm"
+          style={{
+            background: "linear-gradient(135deg, #d4af37 0%, #b8941f 100%)",
+            color: "#0a0806",
+            boxShadow: "0 8px 24px rgba(212, 175, 55, 0.3)",
+          }}
+        >
+          اطلب {GARMENTS[garment].label} • {FABRICS[fabric].label}
+        </button>
+      </div>
+
+      {/* Suspense overlay */}
+      <Suspense fallback={<LoadingFallback />}>
+        <></>
+      </Suspense>
     </div>
   );
 }
