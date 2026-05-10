@@ -1287,7 +1287,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
-      if (cancelled) FS.saveOrder(cancelled).catch(() => {});
+      if (cancelled) await FS.saveOrder(cancelled);
     },
     []
   );

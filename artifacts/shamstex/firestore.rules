@@ -112,6 +112,16 @@ service cloud.firestore {
             'paymentMethod', 'paymentFee', 'totalWithFee', 'transferProofImage'
           ]);
 
+      // Customer may cancel their own order while it is still pending or
+      // scheduled (i.e. before staff has started working on it). Only the
+      // status field may change, and it must transition to 'cancelled'.
+      allow update: if isSignedIn()
+        && resource.data.userPhone == userPhone()
+        && resource.data.status in ['pending', 'scheduled']
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.userPhone == resource.data.userPhone
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
       // Staff can update orders (status, assignment, etc.)
       allow update: if isStaff() && (isAdmin() || hasPermission('edit_orders'));
 

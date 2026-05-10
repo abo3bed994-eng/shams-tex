@@ -94,7 +94,13 @@ export default function OrdersScreen() {
         {
           text: t("yesCancel"),
           style: "destructive",
-          onPress: () => cancelOrder(order.id),
+          onPress: async () => {
+            try {
+              await cancelOrder(order.id);
+            } catch {
+              Alert.alert("خطأ", "تعذّر إلغاء الطلب. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
+            }
+          },
         },
       ]
     );

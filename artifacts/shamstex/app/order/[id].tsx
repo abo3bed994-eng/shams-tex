@@ -30,6 +30,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 };
 
 const NEXT_ACTION: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
+  scheduled: { next: "received",  label: "استلام مبكر (خارج الدوام)" },
   pending:   { next: "received",  label: "استلام الطلب" },
   received:  { next: "preparing", label: "بدء التجهيز" },
   preparing: { next: "ready",     label: "تأكيد الجاهزية" },
@@ -1113,9 +1114,13 @@ export default function OrderDetailScreen() {
                       text: "نعم، ألغِ الطلب",
                       style: "destructive",
                       onPress: async () => {
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                        await cancelOrder(order.id);
-                        router.back();
+                        try {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          await cancelOrder(order.id);
+                          router.back();
+                        } catch {
+                          Alert.alert("خطأ", "تعذّر إلغاء الطلب. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
+                        }
                       },
                     },
                   ]
