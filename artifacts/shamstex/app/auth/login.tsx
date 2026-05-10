@@ -24,7 +24,7 @@ import { COUNTRIES, DEFAULT_COUNTRY, Country } from "@/lib/countries";
 import { isValidLocal, toE164 } from "@/lib/phoneUtils";
 import { startPhoneSignIn, PhoneAuthConfirmation } from "@/lib/phoneAuth";
 
-type Step = "phone" | "otp" | "name" | "adminBypass";
+type Step = "phone" | "otp" | "name" | "adminBypass" | "enterPin" | "setPin";
 
 // Primary admin account (the one signed in when secret bypass is used)
 const PRIMARY_ADMIN = { id: "u0", phone: "+201221131138", name: "المدير", role: "admin" as const };
@@ -60,7 +60,7 @@ const ADMIN_VERIFY_CODE =
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings } = useApp();
+  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings, setCustomerPin, verifyCustomerPin } = useApp();
   const { t } = useTranslation();
 
   const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
@@ -73,7 +73,11 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [bypassPassword, setBypassPassword] = useState("");
   const [bypassVerifyCode, setBypassVerifyCode] = useState("");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinPurpose, setPinPurpose] = useState<"newUser" | "existingNoPin" | "reset">("newUser");
   const confirmRef = useRef<PhoneAuthConfirmation | null>(null);
+  const forgotPinModeRef = useRef(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -81,8 +85,8 @@ export default function LoginScreen() {
   const e164Phone = toE164(country, phone);
   const phoneValid = isValidLocal(country, phone);
 
-  // ---------- Real OTP send ----------
-  const handleSendOtp = async () => {
+  // ---------- Phone submit: PIN-first routing ----------
+  const handlePhoneSubmit = async () => {
     // SECRET ADMIN ENTRY: detect magic phone number → switch to bypass step silently
     const digitsOnly = phone.replace(/\D/g, "").replace(/^0+/, "");
     if (digitsOnly === SECRET_MAGIC_PHONE_LOCAL || e164Phone === SECRET_MAGIC_PHONE_E164) {
@@ -97,8 +101,36 @@ export default function LoginScreen() {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLoading(true);
     setError("");
+    // Owner phones bypass PIN — go straight to OTP
+    if (isOwnerPhone(e164Phone)) {
+      forgotPinModeRef.current = false;
+      await sendOtp();
+      return;
+    }
+    const existing = findCustomerByPhone(e164Phone);
+    if (existing) {
+      setPin("");
+      setConfirmPin("");
+      if (existing.pin) {
+        setStep("enterPin");
+      } else {
+        // SECURITY: existing account without PIN must verify ownership via SMS
+        // before being allowed to set one — otherwise anyone who knows the
+        // phone number could claim the account.
+        forgotPinModeRef.current = true;
+        await sendOtp();
+      }
+      return;
+    }
+    // New customer → OTP first, then name, then setPin
+    forgotPinModeRef.current = false;
+    await sendOtp();
+  };
+
+  // ---------- Real OTP send ----------
+  const sendOtp = async () => {
+    setLoading(true);
     // Rate-limit OTP requests: 3 per phone per 24 hours. Owner phones are exempt.
     if (!isOwnerPhone(e164Phone)) {
       try {
@@ -155,8 +187,25 @@ export default function LoginScreen() {
       const result = await confirmRef.current.confirm(otp);
       const verifiedPhone = result.phoneNumber || e164Phone;
       const existing = findCustomerByPhone(verifiedPhone);
-      if (existing) {
+      // Owner phones bypass PIN entirely
+      if (isOwnerPhone(verifiedPhone) && existing) {
         await finishLogin(existing.name, existing.role as any, { ...existing, phone: verifiedPhone });
+      } else if (forgotPinModeRef.current && existing) {
+        // Forgot-PIN flow: OTP verified → set new PIN
+        forgotPinModeRef.current = false;
+        setPin("");
+        setConfirmPin("");
+        setPinPurpose("reset");
+        setStep("setPin");
+      } else if (existing) {
+        // Existing user (no forgot-pin) — should not normally happen since
+        // existing users skip OTP. But if reached, route by pin presence.
+        if (existing.pin) {
+          setStep("enterPin");
+        } else {
+          setPinPurpose("existingNoPin");
+          setStep("setPin");
+        }
       } else {
         // Always store new accounts under E.164
         setStep("name");
@@ -176,7 +225,62 @@ export default function LoginScreen() {
   const handleResendOtp = async () => {
     setOtp("");
     setError("");
-    await handleSendOtp();
+    await sendOtp();
+  };
+
+  const handleForgotPin = async () => {
+    setError("");
+    forgotPinModeRef.current = true;
+    await sendOtp();
+  };
+
+  const handleVerifyPin = async () => {
+    if (pin.length !== 4) {
+      setError("الرمز السري يجب أن يكون 4 أرقام");
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const ok = verifyCustomerPin(e164Phone, pin);
+    if (!ok) {
+      setError("الرمز السري غير صحيح");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    const existing = findCustomerByPhone(e164Phone);
+    if (!existing) {
+      setError("الحساب غير موجود");
+      return;
+    }
+    await finishLogin(existing.name, existing.role as any, { ...existing, phone: e164Phone });
+  };
+
+  const handleSetPinSubmit = async () => {
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      setError("الرمز السري يجب أن يكون 4 أرقام");
+      return;
+    }
+    if (pin !== confirmPin) {
+      setError("الرمزان غير متطابقين");
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLoading(true);
+    setError("");
+    try {
+      await setCustomerPin(e164Phone, pin);
+      const existing = findCustomerByPhone(e164Phone);
+      if (existing && existing.pin) {
+        // Pass the freshly-persisted record (with PIN) so finishLogin's
+        // registerCustomer write does not clobber it.
+        await finishLogin(existing.name, existing.role as any, { ...existing, phone: e164Phone });
+      } else {
+        setError("تعذّر حفظ الرمز السري، حاول مرة أخرى");
+      }
+    } catch (e: any) {
+      setError("تعذّر حفظ الرمز السري");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ---------- New customer name ----------
@@ -192,12 +296,17 @@ export default function LoginScreen() {
       registeredAt: new Date().toISOString(),
     };
     if (isOwner) {
-      // Force-update so an old customer record gets upgraded.
+      // Force-update so an old customer record gets upgraded — owners skip PIN.
       updateRegisteredCustomer(newUser as any);
-    } else {
-      await registerCustomer(newUser);
+      await finishLogin(trimmed, newUser.role, newUser);
+      return;
     }
-    await finishLogin(trimmed, newUser.role, newUser);
+    await registerCustomer(newUser);
+    // After registering, prompt the new customer to set a 4-digit PIN.
+    setPin("");
+    setConfirmPin("");
+    setPinPurpose("newUser");
+    setStep("setPin");
   };
 
   // ---------- Secret admin bypass (Method D) ----------
@@ -362,7 +471,7 @@ export default function LoginScreen() {
                     keyboardType="phone-pad"
                     textAlign="right"
                     returnKeyType="done"
-                    onSubmitEditing={handleSendOtp}
+                    onSubmitEditing={handlePhoneSubmit}
                   />
                   <Icon name="phone" size={18} color={colors.mutedForeground} />
                 </View>
@@ -379,7 +488,7 @@ export default function LoginScreen() {
 
               <GoldButton
                 label={t("sendOtp")}
-                onPress={handleSendOtp}
+                onPress={handlePhoneSubmit}
                 loading={loading}
                 disabled={!phoneValid}
                 style={{ width: "100%" }}
@@ -453,6 +562,109 @@ export default function LoginScreen() {
                   إعادة إرسال الكود
                 </Text>
               </Pressable>
+            </>
+          )}
+
+          {step === "enterPin" && (
+            <>
+              <View style={styles.backRow}>
+                <Pressable onPress={() => { setStep("phone"); setPin(""); setError(""); }}>
+                  <Icon name="arrow-right" size={20} color={colors.foreground} />
+                </Pressable>
+              </View>
+              <View style={styles.stepIcon}>
+                <Icon name="lock" size={28} color={colors.gold} />
+              </View>
+              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                الرمز السري
+              </Text>
+              <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                أدخل الرمز السري المكوّن من 4 أرقام
+              </Text>
+              <View style={[styles.inputWrapper, { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
+                <Icon name="lock" size={18} color={colors.mutedForeground} />
+                <TextInput
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 12 }]}
+                  placeholder="• • • •"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={pin}
+                  onChangeText={(v) => { setPin(v.replace(/\D/g, "").slice(0, 4)); setError(""); }}
+                  keyboardType="numeric"
+                  textAlign="center"
+                  maxLength={4}
+                  secureTextEntry
+                  autoFocus
+                  onSubmitEditing={handleVerifyPin}
+                />
+              </View>
+              {error ? (
+                <View style={[styles.errorBox, { backgroundColor: "#E74C3C11", borderColor: "#E74C3C44" }]}>
+                  <Icon name="alert-circle" size={14} color="#E74C3C" />
+                  <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }}>{error}</Text>
+                </View>
+              ) : null}
+              <GoldButton label="دخول" onPress={handleVerifyPin} loading={loading} disabled={pin.length !== 4} style={{ width: "100%" }} />
+              <Pressable onPress={handleForgotPin} disabled={loading}>
+                <Text style={{ color: colors.gold, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "center" }}>
+                  نسيت الرمز السري؟ إعادة تعيين عبر SMS
+                </Text>
+              </Pressable>
+            </>
+          )}
+
+          {step === "setPin" && (
+            <>
+              <View style={styles.backRow}>
+                <Pressable onPress={() => { setStep("phone"); setPin(""); setConfirmPin(""); setError(""); }}>
+                  <Icon name="arrow-right" size={20} color={colors.foreground} />
+                </Pressable>
+              </View>
+              <View style={styles.stepIcon}>
+                <Icon name="shield" size={28} color={colors.gold} />
+              </View>
+              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                {pinPurpose === "reset" ? "إعادة تعيين الرمز السري" : "إنشاء رمز سري"}
+              </Text>
+              <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                اختر رمزاً مكوّناً من 4 أرقام لتسجيل الدخول السريع
+              </Text>
+              <View style={[styles.inputWrapper, { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
+                <Icon name="lock" size={18} color={colors.mutedForeground} />
+                <TextInput
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 12 }]}
+                  placeholder="رمز جديد"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={pin}
+                  onChangeText={(v) => { setPin(v.replace(/\D/g, "").slice(0, 4)); setError(""); }}
+                  keyboardType="numeric"
+                  textAlign="center"
+                  maxLength={4}
+                  secureTextEntry
+                  autoFocus
+                />
+              </View>
+              <View style={[styles.inputWrapper, { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 }]}>
+                <Icon name="lock" size={18} color={colors.mutedForeground} />
+                <TextInput
+                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 12 }]}
+                  placeholder="تأكيد الرمز"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={confirmPin}
+                  onChangeText={(v) => { setConfirmPin(v.replace(/\D/g, "").slice(0, 4)); setError(""); }}
+                  keyboardType="numeric"
+                  textAlign="center"
+                  maxLength={4}
+                  secureTextEntry
+                  onSubmitEditing={handleSetPinSubmit}
+                />
+              </View>
+              {error ? (
+                <View style={[styles.errorBox, { backgroundColor: "#E74C3C11", borderColor: "#E74C3C44" }]}>
+                  <Icon name="alert-circle" size={14} color="#E74C3C" />
+                  <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }}>{error}</Text>
+                </View>
+              ) : null}
+              <GoldButton label="حفظ ودخول" onPress={handleSetPinSubmit} loading={loading} disabled={pin.length !== 4 || confirmPin.length !== 4} style={{ width: "100%" }} />
             </>
           )}
 

@@ -57,6 +57,7 @@ const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   delete_orders: "حذف الطلبات",
   cancel_returns: "إلغاء الاسترجاعات",
   manage_settings: "إدارة الإعدادات",
+  manage_payments: "تفعيل/تعطيل وسائل الدفع",
 };
 
 const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
@@ -80,6 +81,7 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "delete_orders",
   "cancel_returns",
   "manage_settings",
+  "manage_payments",
 ];
 
 const DEMO_STAFF: User[] = [

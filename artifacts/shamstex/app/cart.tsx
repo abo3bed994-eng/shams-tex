@@ -22,7 +22,7 @@ import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import { isWithinWorkingHours, nextWorkingTime, formatNextOpenTime } from "@/lib/workingHours";
 
-const PAYMENT_METHODS: { key: PaymentMethod; short: string; desc: string }[] = [
+const ALL_PAYMENT_METHODS: { key: PaymentMethod; short: string; desc: string }[] = [
   { key: "cash", short: "كاش", desc: "الدفع عند استلام البضاعة" },
   { key: "bank_transfer", short: "تحويل بنكي", desc: "تحويل على الحساب البنكي" },
   { key: "ewallet", short: "محفظة", desc: "فودافون كاش / أورنج / اتصالات" },
@@ -81,6 +81,13 @@ export default function CartScreen() {
 
   const paymentSettings = settings.payment;
   const ewalletFee = paymentSettings?.ewalletFeePercent ?? 1;
+  const PAYMENT_METHODS = ALL_PAYMENT_METHODS.filter((pm) => {
+    if (pm.key === "cash") return paymentSettings?.cashEnabled !== false;
+    if (pm.key === "bank_transfer") return paymentSettings?.bankTransferEnabled !== false;
+    if (pm.key === "ewallet") return paymentSettings?.ewalletEnabled !== false;
+    if (pm.key === "instapay") return paymentSettings?.instapayEnabled !== false;
+    return true;
+  });
   const feeAmount = selectedPayment === "ewallet" ? Math.ceil(totalPrice * ewalletFee / 100) : 0;
   const totalWithFee = totalPrice + feeAmount;
 
@@ -590,6 +597,9 @@ export default function CartScreen() {
                     طريقة الدفع
                   </Text>
                 </View>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right", lineHeight: 18 }}>
+                  يرجى سداد قيمة الفاتورة بإحدى الطرق التالية
+                </Text>
 
                 <View style={styles.paymentGrid}>
                   {PAYMENT_METHODS.map((pm) => {

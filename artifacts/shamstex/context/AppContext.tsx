@@ -21,7 +21,8 @@ export type EmployeePermission =
   | "approve_upgrades"
   | "delete_orders"
   | "cancel_returns"
-  | "manage_settings";
+  | "manage_settings"
+  | "manage_payments";
 
 export interface User {
   id: string;
@@ -35,6 +36,7 @@ export interface User {
   city?: string;
   notes?: string;
   sessionToken?: string;
+  pin?: string;
 }
 
 export interface ColorOption {
@@ -111,6 +113,9 @@ export interface Order {
   invoiceImage?: string;
   scheduledFor?: string;
   releasedAt?: string;
+  paymentOverrideHandle?: string;
+  paymentOverrideName?: string;
+  transferProofImage?: string;
 }
 
 export type ReturnStatus = "pending" | "returned" | "settled" | "cancelled";
@@ -206,6 +211,10 @@ export interface PaymentSettings {
   bankAccountNumber: string;
   bankIBAN: string;
   ewalletFeePercent: number;
+  cashEnabled?: boolean;
+  bankTransferEnabled?: boolean;
+  ewalletEnabled?: boolean;
+  instapayEnabled?: boolean;
 }
 
 export interface AppSettings {
@@ -274,6 +283,10 @@ const DEFAULT_SETTINGS: AppSettings = {
     bankAccountNumber: "1234567890123",
     bankIBAN: "EG000012345678901234567890",
     ewalletFeePercent: 1,
+    cashEnabled: true,
+    bankTransferEnabled: true,
+    ewalletEnabled: true,
+    instapayEnabled: true,
   },
   suspendOrdersOutsideHours: true,
   notificationTemplates: [
@@ -323,6 +336,11 @@ interface AppContextType {
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
   setOrderInvoiceImage: (orderId: string, imageUri: string | null) => Promise<void>;
+  setOrderTransferProof: (orderId: string, imageUri: string | null) => Promise<void>;
+  setOrderPaymentMethod: (orderId: string, method: PaymentMethod) => Promise<void>;
+  setOrderPaymentOverride: (orderId: string, handle: string | null, name?: string | null) => Promise<void>;
+  setCustomerPin: (phone: string, pin: string) => Promise<void>;
+  verifyCustomerPin: (phone: string, pin: string) => boolean;
   updateOrderItems: (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string) => Promise<void>;
   editingOrderId: string | null;
   setEditingOrderId: (id: string | null) => void;
@@ -1384,6 +1402,115 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const setOrderTransferProof = useCallback(
+    async (orderId: string, imageUri: string | null) => {
+      const updated = ordersRef.current.map((o) => {
+        if (o.id !== orderId) return o;
+        if (imageUri === null) {
+          const { transferProofImage, ...rest } = o;
+          return rest as typeof o;
+        }
+        return { ...o, transferProofImage: imageUri };
+      });
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) {
+        FS.saveOrder(updatedOrder).catch(() => {});
+        if (imageUri) {
+          const notif: Notification = {
+            id: `notif_proof_${orderId}_${Date.now()}`,
+            title: "📸 العميل أرسل إثبات تحويل",
+            body: `العميل ${updatedOrder.userName} أرفق صورة التحويل للطلب #${orderId.slice(0, 8)}`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            targetRole: "staff" as any,
+            sourceUserId: updatedOrder.userId,
+            linkedOrderId: orderId,
+          };
+          const updatedNotifs = [notif, ...notificationsRef.current];
+          setNotifications(updatedNotifs);
+          AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs)).catch(() => {});
+          FS.saveNotification(notif).catch(() => {});
+        }
+      }
+    },
+    []
+  );
+
+  const setOrderPaymentMethod = useCallback(
+    async (orderId: string, method: PaymentMethod) => {
+      const ewalletPct = settings.payment?.ewalletFeePercent ?? 1;
+      const updated = ordersRef.current.map((o) => {
+        if (o.id !== orderId) return o;
+        const fee = method === "ewallet" ? Math.ceil(o.total * ewalletPct / 100) : 0;
+        return { ...o, paymentMethod: method, paymentFee: fee, totalWithFee: o.total + fee };
+      });
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) FS.saveOrder(updatedOrder).catch(() => {});
+    },
+    [settings]
+  );
+
+  const setOrderPaymentOverride = useCallback(
+    async (orderId: string, handle: string | null, name?: string | null) => {
+      const updated = ordersRef.current.map((o) => {
+        if (o.id !== orderId) return o;
+        if (handle === null) {
+          const { paymentOverrideHandle, paymentOverrideName, ...rest } = o;
+          return rest as typeof o;
+        }
+        return { ...o, paymentOverrideHandle: handle, paymentOverrideName: name || "" };
+      });
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) FS.saveOrder(updatedOrder).catch(() => {});
+    },
+    []
+  );
+
+  const hashPin = (pin: string): string => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < pin.length; i++) {
+      h ^= pin.charCodeAt(i);
+      h = (h * 0x01000193) >>> 0;
+    }
+    return "p_" + h.toString(16);
+  };
+
+  const setCustomerPin = useCallback(
+    async (phone: string, pin: string) => {
+      const hashed = hashPin(pin);
+      const existing = registeredCustomersRef.current.find((c) => samePhone(c.phone, phone));
+      if (existing) {
+        const updated = { ...existing, pin: hashed };
+        updateRegisteredCustomer(updated);
+      }
+      const cur = userRef.current;
+      if (cur && samePhone(cur.phone, phone)) {
+        const synced = { ...cur, pin: hashed };
+        setUserState(synced);
+        await persistUserSafe(synced);
+      }
+    },
+    [updateRegisteredCustomer]
+  );
+
+  const verifyCustomerPin = useCallback(
+    (phone: string, pin: string): boolean => {
+      const c = registeredCustomersRef.current.find((x) => samePhone(x.phone, phone));
+      if (!c?.pin) return false;
+      return c.pin === hashPin(pin);
+    },
+    []
+  );
+
   const updateOrderItems = useCallback(
     async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string) => {
       const updated = ordersRef.current.map((o) => {
@@ -1681,6 +1808,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sendOrderMessage,
         setOrderEditable,
         setOrderInvoiceImage,
+        setOrderTransferProof,
+        setOrderPaymentMethod,
+        setOrderPaymentOverride,
+        setCustomerPin,
+        verifyCustomerPin,
         updateOrderItems,
         editingOrderId,
         setEditingOrderId,

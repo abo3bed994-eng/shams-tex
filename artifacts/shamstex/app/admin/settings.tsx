@@ -107,7 +107,7 @@ export default function AdminSettingsScreen() {
   useAdminGuard();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings, setSettings } = useApp();
+  const { settings, setSettings, user } = useApp();
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 24 : 0);
 
   const [draft, setDraft] = useState<AppSettings>({
@@ -734,6 +734,37 @@ export default function AdminSettingsScreen() {
                 أرقام الدفع التي تظهر للعميل عند الشراء
               </Text>
             </View>
+
+            {(user?.role === "admin" || (user?.permissions ?? []).includes("manage_payments")) && (
+              <View style={{ gap: 10, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.surface }}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                  تفعيل / تعطيل وسائل الدفع
+                </Text>
+                {[
+                  { key: "cashEnabled" as const, label: "كاش (الدفع عند الاستلام)", locked: true },
+                  { key: "bankTransferEnabled" as const, label: "تحويل بنكي", locked: false },
+                  { key: "ewalletEnabled" as const, label: "محفظة إلكترونية", locked: false },
+                  { key: "instapayEnabled" as const, label: "انستاباي", locked: false },
+                ].map((row) => {
+                  const cur = (draft.payment as any)?.[row.key];
+                  const enabled = cur === undefined ? true : !!cur;
+                  return (
+                    <View key={row.key} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingVertical: 6 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right", flex: 1 }}>
+                        {row.label}{row.locked ? " (دائماً مفعل)" : ""}
+                      </Text>
+                      <Switch
+                        value={enabled}
+                        disabled={row.locked}
+                        onValueChange={(v) => setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), [row.key]: v } as PaymentSettings }))}
+                        trackColor={{ true: colors.gold, false: colors.border }}
+                        thumbColor={enabled ? colors.gold : colors.mutedForeground}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>
               المحافظ الإلكترونية (يمكن إضافة أكثر من رقم)
