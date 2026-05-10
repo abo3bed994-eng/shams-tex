@@ -153,6 +153,14 @@ export const FS = {
     return snap.exists() ? snap.data() : null;
   },
 
+  subscribeSettings(callback: (settings: any | null) => void): Unsubscribe {
+    return onSnapshot(
+      doc(db, "config", "main"),
+      (snap) => callback(snap.exists() ? snap.data() : null),
+      () => {}
+    );
+  },
+
   subscribeProducts(callback: (products: any[]) => void): Unsubscribe {
     return onSnapshot(
       collection(db, "products"),

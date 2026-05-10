@@ -687,7 +687,7 @@ export default function OrderDetailScreen() {
           </Pressable>
         )}
 
-        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && order.status !== "delivered" && (() => {
+        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && order.status !== "delivered" && (isStaff || order.status === "ready") && (() => {
           const pm = order.paymentMethod as PaymentMethod;
           const ps = settings.payment;
           const wallets = ps?.ewallets ?? (ps?.ewalletNumber ? [{ id: "_l", number: ps.ewalletNumber, name: ps.ewalletName ?? "", provider: "" }] : []);

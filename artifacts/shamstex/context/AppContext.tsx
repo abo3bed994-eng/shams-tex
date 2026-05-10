@@ -627,6 +627,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem("returnRequests", JSON.stringify(freshReqs)).catch(() => {});
     });
 
+    let isFirstSettingsLoad = true;
+    const unsubSettings = FS.subscribeSettings((freshSettings) => {
+      if (!freshSettings && isFirstSettingsLoad) {
+        isFirstSettingsLoad = false;
+        return;
+      }
+      isFirstSettingsLoad = false;
+      if (freshSettings) {
+        setSettingsState({ ...DEFAULT_SETTINGS, ...freshSettings });
+        AsyncStorage.setItem("settings", JSON.stringify(freshSettings)).catch(() => {});
+      }
+    });
+
     let isFirstProductsLoad = true;
     const unsubProducts = FS.subscribeProducts((freshProducts) => {
       if (freshProducts.length === 0 && isFirstProductsLoad) {
@@ -643,6 +656,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsubCustomers();
       unsubNotifications();
       unsubReturns();
+      unsubSettings();
       unsubProducts();
     };
   }, []);
