@@ -1417,7 +1417,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (updatedOrder) {
-        FS.saveOrder(updatedOrder).catch(() => {});
+        await FS.saveOrder(updatedOrder);
         if (imageUri) {
           const notif: Notification = {
             id: `notif_proof_${orderId}_${Date.now()}`,
@@ -1451,7 +1451,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
-      if (updatedOrder) FS.saveOrder(updatedOrder).catch(() => {});
+      if (updatedOrder) await FS.saveOrder(updatedOrder);
     },
     [settings]
   );
@@ -1470,7 +1470,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
-      if (updatedOrder) FS.saveOrder(updatedOrder).catch(() => {});
+      if (updatedOrder) await FS.saveOrder(updatedOrder);
     },
     []
   );

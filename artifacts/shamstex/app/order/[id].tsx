@@ -785,9 +785,13 @@ export default function OrderDetailScreen() {
                         <Pressable
                           onPress={async () => {
                             const h = overrideHandle.trim();
-                            await setOrderPaymentOverride(order.id, h ? h : null, overrideName.trim() || null);
-                            setShowOverrideInput(false);
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            try {
+                              await setOrderPaymentOverride(order.id, h ? h : null, overrideName.trim() || null);
+                              setShowOverrideInput(false);
+                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            } catch {
+                              Alert.alert("خطأ", "تعذّر حفظ بيانات الدفع");
+                            }
                           }}
                           style={{ flex: 1, padding: 10, backgroundColor: colors.gold, borderRadius: 8, alignItems: "center" }}
                         >
@@ -1552,9 +1556,13 @@ export default function OrderDetailScreen() {
                 <Pressable
                   key={m.key}
                   onPress={async () => {
-                    await setOrderPaymentMethod(order.id, m.key);
-                    setShowChangeMethodModal(false);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    try {
+                      await setOrderPaymentMethod(order.id, m.key);
+                      setShowChangeMethodModal(false);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch {
+                      Alert.alert("خطأ", "تعذّر تغيير طريقة الدفع");
+                    }
                   }}
                   style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 12, borderRadius: 8, borderWidth: 1, borderColor: order.paymentMethod === m.key ? colors.gold : colors.border, backgroundColor: order.paymentMethod === m.key ? colors.gold + "15" : colors.surface }}
                 >

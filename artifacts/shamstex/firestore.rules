@@ -99,8 +99,30 @@ service cloud.firestore {
         && resource.data.get('editable', false) == true
         && request.resource.data.status == resource.data.status;
 
+      // Customer may update payment-only fields (method, fee, totals derived
+      // from method, transfer-proof image) on their own order while it is still
+      // pending/scheduled — without requiring `editable=true`. Status, items,
+      // assignment, and ownership must NOT change.
+      allow update: if isSignedIn()
+        && resource.data.userPhone == userPhone()
+        && resource.data.status in ['pending', 'scheduled']
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.userPhone == resource.data.userPhone
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentMethod', 'paymentFee', 'totalWithFee', 'transferProofImage'
+          ]);
+
       // Staff can update orders (status, assignment, etc.)
       allow update: if isStaff() && (isAdmin() || hasPermission('edit_orders'));
+
+      // Staff with manage_payments may set payment-override fields even
+      // without full edit_orders permission.
+      allow update: if isStaff()
+        && (isAdmin() || hasPermission('manage_payments'))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentOverrideHandle', 'paymentOverrideName', 'paymentMethod',
+            'paymentFee', 'totalWithFee'
+          ]);
 
       // Only admin can delete orders
       allow delete: if isAdmin();
@@ -119,7 +141,9 @@ service cloud.firestore {
     // ============ Settings (Config) ============
     match /config/{docId} {
       allow read: if true; // pricing settings, payment info — public read
-      allow write: if isAdmin() || hasPermission('manage_settings');
+      allow write: if isAdmin()
+        || hasPermission('manage_settings')
+        || hasPermission('manage_payments');
     }
 
     // ============ Return Requests ============
