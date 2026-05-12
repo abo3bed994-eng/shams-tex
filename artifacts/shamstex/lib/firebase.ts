@@ -103,6 +103,15 @@ try {
 export { db };
 
 export const FS = {
+  async getCustomer(phone: string): Promise<any | null> {
+    try {
+      const snap = await getDoc(doc(db, "customers", phone));
+      return snap.exists() ? snap.data() : null;
+    } catch {
+      return null;
+    }
+  },
+
   async saveCustomer(customer: object & { id: string; phone: string }) {
     // Use phone as Firestore doc ID — prevents duplicate docs per phone number
     const withTimestamp = { ...customer, lastUpdated: new Date().toISOString() };

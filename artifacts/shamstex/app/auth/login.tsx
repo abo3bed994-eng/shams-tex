@@ -240,18 +240,38 @@ export default function LoginScreen() {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const ok = verifyCustomerPin(e164Phone, pin);
-    if (!ok) {
-      setError("الرمز السري غير صحيح");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      return;
+    setLoading(true);
+    setError("");
+    try {
+      let ok = verifyCustomerPin(e164Phone, pin);
+      // Fallback: local cache may be stale (e.g. PIN was just set on another
+      // device, or Firestore subscription hasn't caught up yet). Refetch the
+      // authoritative customer doc and retry once before showing an error.
+      if (!ok) {
+        try {
+          const { FS } = await import("@/lib/firebase");
+          const fresh = await FS.getCustomer(e164Phone);
+          if (fresh) {
+            await updateRegisteredCustomer(fresh as any);
+            await new Promise((r) => setTimeout(r, 50));
+            ok = verifyCustomerPin(e164Phone, pin);
+          }
+        } catch {}
+      }
+      if (!ok) {
+        setError("الرمز السري غير صحيح");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+      const existing = findCustomerByPhone(e164Phone);
+      if (!existing) {
+        setError("الحساب غير موجود");
+        return;
+      }
+      await finishLogin(existing.name, existing.role as any, { ...existing, phone: e164Phone });
+    } finally {
+      setLoading(false);
     }
-    const existing = findCustomerByPhone(e164Phone);
-    if (!existing) {
-      setError("الحساب غير موجود");
-      return;
-    }
-    await finishLogin(existing.name, existing.role as any, { ...existing, phone: e164Phone });
   };
 
   const handleSetPinSubmit = async () => {
