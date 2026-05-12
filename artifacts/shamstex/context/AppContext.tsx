@@ -103,6 +103,7 @@ export interface Order {
   notes?: string;
   assignedTo?: string;
   assignedToName?: string;
+  assignedToPhone?: string;
   editable?: boolean;
   edited?: boolean;
   editedAt?: string;
@@ -162,6 +163,7 @@ export interface Notification {
   read: boolean;
   targetRole?: UserRole | "staff";
   targetUserId?: string;
+  targetUserPhone?: string;
   sourceUserId?: string;
   actionType?: "upgrade_request";
   actionUserId?: string;
@@ -504,129 +506,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadPersistedData();
   }, []);
 
-  // Real-time Firestore listeners — update UI instantly without reloading
+  // Helper extracted so it can run from both the staff full-collection
+  // subscription and any other path that receives a snapshot of customers.
+  const applyFreshCustomers = (freshCustomers: any[]) => {
+    const groupsByCanon = new Map<string, any[]>();
+    for (const c of freshCustomers) {
+      const k = canonicalPhone(c.phone) || c.id || c.phone || "_";
+      const arr = groupsByCanon.get(k);
+      if (arr) arr.push(c);
+      else groupsByCanon.set(k, [c]);
+    }
+    const dedupMap = new Map<string, any>();
+    for (const c of freshCustomers) {
+      const key = canonicalPhone(c.phone) || c.id || c.phone;
+      const existing = dedupMap.get(key);
+      const cTime = c.lastUpdated || c.registeredAt || "";
+      const eTime = existing ? (existing.lastUpdated || existing.registeredAt || "") : "";
+      if (!existing) {
+        dedupMap.set(key, c);
+      } else {
+        if (cTime || eTime) {
+          if ((cTime || "") > (eTime || "")) dedupMap.set(key, c);
+        } else {
+          const roleRank: Record<string, number> = { admin: 5, supervisor: 4, employee: 3, merchant: 2, customer: 1 };
+          if ((roleRank[c.role] ?? 0) > (roleRank[existing.role] ?? 0)) dedupMap.set(key, c);
+        }
+      }
+    }
+    const deduped = [...dedupMap.values()];
+    setRegisteredCustomersState(deduped);
+    AsyncStorage.setItem("registered_customers", JSON.stringify(deduped)).catch(() => {});
+    for (const [key, group] of groupsByCanon) {
+      if (group.length <= 1) continue;
+      const winner = dedupMap.get(key);
+      if (!winner) continue;
+      for (const doc of group) {
+        if (doc.phone && doc.phone !== winner.phone) {
+          FS.deleteCustomer(doc.phone).catch(() => {});
+        }
+      }
+    }
+  };
+
+  // Init listeners — products + settings are needed by everyone (logged in or not)
+  // and are small/cheap to subscribe to.
   useEffect(() => {
-    let isFirstCustomersLoad = true;
-    const unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
-      // Skip ONLY the very first empty snapshot to avoid wiping AsyncStorage cache
-      // before Firestore reconnects. Subsequent empty snapshots are real deletions.
-      if (freshCustomers.length === 0 && isFirstCustomersLoad) {
-        isFirstCustomersLoad = false;
-        return;
-      }
-      isFirstCustomersLoad = false;
-      {
-        // Group RAW Firestore snapshot by canonical phone so we can both dedup
-        // for the UI AND actively heal twin docs that exist on the server.
-        const groupsByCanon = new Map<string, any[]>();
-        for (const c of freshCustomers) {
-          const k = canonicalPhone(c.phone) || c.id || c.phone || "_";
-          const arr = groupsByCanon.get(k);
-          if (arr) arr.push(c);
-          else groupsByCanon.set(k, [c]);
-        }
-        // Deduplicate by CANONICAL phone — same person resolves to same key even if
-        // stored under different formats (with/without country code, with/without leading 0).
-        const dedupMap = new Map<string, any>();
-        for (const c of freshCustomers) {
-          const key = canonicalPhone(c.phone) || c.id || c.phone;
-          const existing = dedupMap.get(key);
-          const cTime = c.lastUpdated || c.registeredAt || "";
-          const eTime = existing ? (existing.lastUpdated || existing.registeredAt || "") : "";
-          if (!existing) {
-            dedupMap.set(key, c);
-          } else {
-            // STRICT recency-first policy:
-            //   - If EITHER record has a timestamp, the one with the newer timestamp wins
-            //     (a missing timestamp is treated as oldest, so a timestamped record always
-            //     beats an untimestamped twin → fresh demotion is never masked).
-            //   - Role rank is used ONLY as a tiebreaker when BOTH records lack any timestamp.
-            if (cTime || eTime) {
-              if ((cTime || "") > (eTime || "")) dedupMap.set(key, c);
-            } else {
-              const roleRank: Record<string, number> = { admin: 5, supervisor: 4, employee: 3, merchant: 2, customer: 1 };
-              if ((roleRank[c.role] ?? 0) > (roleRank[existing.role] ?? 0)) dedupMap.set(key, c);
-            }
-          }
-        }
-        const deduped = [...dedupMap.values()];
-        setRegisteredCustomersState(deduped);
-        AsyncStorage.setItem("registered_customers", JSON.stringify(deduped)).catch(() => {});
-
-        // Active healing: for any canonical group with >1 raw Firestore docs,
-        // re-save the WINNING record under its phone key and hard-delete every
-        // OTHER doc under a different phone format. This guarantees twin
-        // cleanup from the source of truth (not just in-memory state).
-        for (const [key, group] of groupsByCanon) {
-          if (group.length <= 1) continue;
-          const winner = dedupMap.get(key);
-          if (!winner) continue;
-          for (const doc of group) {
-            if (doc.phone && doc.phone !== winner.phone) {
-              FS.deleteCustomer(doc.phone).catch(() => {});
-            }
-          }
-        }
-      }
-    });
-
-    let isFirstNotifLoad = true;
-    const unsubNotifications = FS.subscribeNotifications((freshNotifs) => {
-      if (freshNotifs.length === 0 && isFirstNotifLoad) {
-        isFirstNotifLoad = false;
-        return;
-      }
-      {
-        const prevIds = new Set(notificationsRef.current.map((n) => n.id));
-        setNotifications(freshNotifs);
-        AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
-        if (!isFirstNotifLoad) {
-          const me = userRef.current;
-          const isStaff = me && me.role !== "customer";
-          const newOnes = freshNotifs.filter((n) => !prevIds.has(n.id));
-          const forMe = newOnes.filter((n) => {
-            if (n.targetUserId === "self") return false;
-            if (me && n.sourceUserId === me.id) return false;
-            if (n.targetUserId && me && n.targetUserId === me.id) return true;
-            if (n.targetRole === "staff" && isStaff) return true;
-            if (n.targetRole && me && n.targetRole === me.role) return true;
-            if (!n.targetUserId && !n.targetRole) return true;
-            return false;
-          });
-          if (forMe.length > 0) {
-            playNotificationAlert();
-            if (Platform.OS !== "web") {
-              import("expo-notifications").then((Notif) => {
-                forMe.slice(0, 5).forEach((n) => {
-                  Notif.scheduleNotificationAsync({
-                    content: {
-                      title: n.title,
-                      body: n.body,
-                      sound: "notification.wav",
-                      data: { id: n.id, orderId: n.linkedOrderId },
-                    },
-                    trigger: null,
-                  }).catch(() => {});
-                });
-              }).catch(() => {});
-            }
-          }
-        }
-        isFirstNotifLoad = false;
-      }
-    });
-
-    let isFirstReturnsLoad = true;
-    const unsubReturns = FS.subscribeReturnRequests((freshReqs) => {
-      if (freshReqs.length === 0 && isFirstReturnsLoad) {
-        isFirstReturnsLoad = false;
-        return;
-      }
-      isFirstReturnsLoad = false;
-      setReturnRequests(freshReqs);
-      AsyncStorage.setItem("returnRequests", JSON.stringify(freshReqs)).catch(() => {});
-    });
-
     let isFirstSettingsLoad = true;
     const unsubSettings = FS.subscribeSettings((freshSettings) => {
       if (!freshSettings && isFirstSettingsLoad) {
@@ -653,13 +577,120 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      unsubCustomers();
-      unsubNotifications();
-      unsubReturns();
       unsubSettings();
       unsubProducts();
     };
   }, []);
+
+  // Role-aware listeners for customers/notifications/returns.
+  // STAFF (admin/supervisor/employee): full collection subscriptions — they need
+  //   to see everyone's data for management screens.
+  // CUSTOMER/MERCHANT: only own customer doc + scoped notifications + scoped
+  //   returns. This cuts Firestore reads by 90%+ at scale and keeps each device's
+  //   bandwidth tiny regardless of total user count.
+  // NO USER (pre-login): no subscriptions at all — login.tsx fetches single docs
+  //   on demand via FS.getCustomer.
+  useEffect(() => {
+    if (!user?.id) {
+      // Reset transient state when logged out so a new login starts clean.
+      setNotifications([]);
+      setReturnRequests([]);
+      return;
+    }
+    const isStaff = user.role !== "customer" && user.role !== "merchant";
+
+    let unsubCustomers: (() => void) | undefined;
+    if (isStaff) {
+      let isFirstCustomersLoad = true;
+      unsubCustomers = FS.subscribeCustomers((freshCustomers) => {
+        if (freshCustomers.length === 0 && isFirstCustomersLoad) {
+          isFirstCustomersLoad = false;
+          return;
+        }
+        isFirstCustomersLoad = false;
+        applyFreshCustomers(freshCustomers);
+      });
+    } else if (user.phone) {
+      // Customer/merchant: only listen to OWN doc to receive role/vip/permission
+      // changes pushed by admin in real time.
+      unsubCustomers = FS.subscribeCustomerByPhone(user.phone, (own) => {
+        if (own) applyFreshCustomers([own]);
+      });
+    }
+
+    let isFirstNotifLoad = true;
+    const unsubNotifications = FS.subscribeNotificationsForUser(
+      user.id,
+      user.phone,
+      user.role,
+      isStaff,
+      (freshNotifs) => {
+        if (freshNotifs.length === 0 && isFirstNotifLoad) {
+          isFirstNotifLoad = false;
+          return;
+        }
+        const prevIds = new Set(notificationsRef.current.map((n) => n.id));
+        setNotifications(freshNotifs);
+        AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
+        if (!isFirstNotifLoad) {
+          const me = userRef.current;
+          const meIsStaff = me && me.role !== "customer";
+          const newOnes = freshNotifs.filter((n) => !prevIds.has(n.id));
+          const forMe = newOnes.filter((n) => {
+            if (n.targetUserId === "self") return false;
+            if (me && n.sourceUserId === me.id) return false;
+            if (n.targetUserId && me && n.targetUserId === me.id) return true;
+            if (n.targetRole === "staff" && meIsStaff) return true;
+            if (n.targetRole === "all") return true;
+            if (n.targetRole && me && n.targetRole === me.role) return true;
+            if (!n.targetUserId && !n.targetRole) return true;
+            return false;
+          });
+          if (forMe.length > 0) {
+            playNotificationAlert();
+            if (Platform.OS !== "web") {
+              import("expo-notifications").then((Notif) => {
+                forMe.slice(0, 5).forEach((n) => {
+                  Notif.scheduleNotificationAsync({
+                    content: {
+                      title: n.title,
+                      body: n.body,
+                      sound: "notification.wav",
+                      data: { id: n.id, orderId: n.linkedOrderId },
+                    },
+                    trigger: null,
+                  }).catch(() => {});
+                });
+              }).catch(() => {});
+            }
+          }
+        }
+        isFirstNotifLoad = false;
+      }
+    );
+
+    let isFirstReturnsLoad = true;
+    const unsubReturns = FS.subscribeReturnRequestsForUser(
+      user.phone,
+      isStaff,
+      (freshReqs) => {
+        if (freshReqs.length === 0 && isFirstReturnsLoad) {
+          isFirstReturnsLoad = false;
+          return;
+        }
+        isFirstReturnsLoad = false;
+        setReturnRequests(freshReqs);
+        AsyncStorage.setItem("returnRequests", JSON.stringify(freshReqs)).catch(() => {});
+      }
+    );
+
+    return () => {
+      unsubCustomers?.();
+      unsubNotifications();
+      unsubReturns();
+    };
+  }, [user?.id, user?.role, user?.phone]);
+
 
   const userRef = React.useRef<User | null>(null);
   userRef.current = user;
@@ -672,7 +703,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const isStaff = user.role !== "customer" && user.role !== "merchant";
-    const unsub = FS.subscribeOrdersForUser(user.id, isStaff, (freshOrders) => {
+    const unsub = FS.subscribeOrdersForUser(user.phone, isStaff, (freshOrders) => {
       setOrdersState(freshOrders);
       AsyncStorage.setItem("orders", JSON.stringify(freshOrders)).catch(() => {});
     });
@@ -1153,6 +1184,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: nowIso,
             read: false,
             targetUserId: order.userId,
+            targetUserPhone: order.userPhone,
             linkedOrderId: order.id,
           };
           FS.saveNotification(custNotif).catch(() => {});
@@ -1209,7 +1241,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => {
       // Atomic claim path: prevent two staff from grabbing the same order.
       if (status === "received" && assignedToId) {
-        const claim = await FS.claimOrder(orderId, assignedToId, assignedToName ?? "موظف");
+        const claimerPhone = userRef.current?.id === assignedToId ? userRef.current?.phone : undefined;
+        const claim = await FS.claimOrder(orderId, assignedToId, assignedToName ?? "موظف", claimerPhone);
         if (!claim.ok) {
           if (claim.reason === "already_taken") {
             Alert.alert("الطلب محجوز", `استلم هذا الطلب الموظف ${claim.takenBy ?? ""} قبل قليل.`);
@@ -1223,10 +1256,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (status === "received" && assignedToId) {
         patch.assignedTo = assignedToId;
         patch.assignedToName = assignedToName;
+        // Persist phone so staff-targeted notifications (e.g. customer-edit)
+        // can verify against Firestore rules.
+        const claimerPhone = userRef.current?.id === assignedToId ? userRef.current?.phone : undefined;
+        if (claimerPhone) patch.assignedToPhone = claimerPhone;
       }
       if (status === "pending") {
         patch.assignedTo = "";
         patch.assignedToName = "";
+        patch.assignedToPhone = "";
       }
       if (status === "delivered") {
         patch.deliveredAt = new Date().toISOString();
@@ -1253,6 +1291,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
+            targetUserPhone: updatedOrder.userPhone,
             linkedOrderId: orderId,
           };
           FS.saveNotification(custNotif).catch(() => {});
@@ -1317,6 +1356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         read: false,
         targetUserId: order.userId,
+        targetUserPhone: order.userPhone,
       };
       const updated = [notif, ...notificationsRef.current];
       setNotifications(updated);
@@ -1353,6 +1393,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
+            targetUserPhone: updatedOrder.userPhone,
           };
           const updatedNotifs = [notif, ...notificationsRef.current];
           setNotifications(updatedNotifs);
@@ -1396,6 +1437,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
+            targetUserPhone: updatedOrder.userPhone,
             linkedOrderId: orderId,
           };
           const updatedNotifs = [notif, ...notificationsRef.current];
@@ -1552,6 +1594,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         if (!staffEdit) {
           const assignedStaffId = updatedOrder.assignedTo;
+          const assignedStaffPhone = updatedOrder.assignedToPhone;
           const staffNotif: Notification = {
             id: `notif_edited_${orderId}_${Date.now()}`,
             title: "تم تعديل الطلب من قبل العميل ✏️",
@@ -1559,7 +1602,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             sourceUserId: updatedOrder.userId,
-            ...(assignedStaffId ? { targetUserId: assignedStaffId } : { targetRole: "staff" as any }),
+            ...(assignedStaffId
+              ? { targetUserId: assignedStaffId, ...(assignedStaffPhone ? { targetUserPhone: assignedStaffPhone } : {}) }
+              : { targetRole: "staff" as any }),
             linkedOrderId: orderId,
           };
           const updatedNotifs = [staffNotif, ...notificationsRef.current];
@@ -1622,6 +1667,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: req.userId,
+          targetUserPhone: req.userPhone,
           linkedOrderId: req.orderId,
           linkedReturnId: req.id,
         };
@@ -1662,6 +1708,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: req.userId,
+          targetUserPhone: req.userPhone,
           linkedOrderId: req.orderId,
           linkedReturnId: req.id,
         };
@@ -1737,10 +1784,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const markNotificationRead = useCallback(
     async (id: string) => {
       const updated = notificationsRef.current.map((n) => (n.id === id ? { ...n, read: true } : n));
-      const notif = updated.find((n) => n.id === id);
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
-      if (notif) FS.saveNotification(notif).catch(() => {});
+      // Use a field-only update so non-staff users pass the rule that
+      // restricts updates to the `read` flag.
+      FS.markNotificationReadFlag(id).catch(() => {});
     },
     []
   );

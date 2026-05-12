@@ -85,6 +85,24 @@ export default function LoginScreen() {
   const e164Phone = toE164(country, phone);
   const phoneValid = isValidLocal(country, phone);
 
+  // Cache-first, Firestore-fallback customer lookup. Critical now that
+  // customers/merchants no longer subscribe to the full customers collection:
+  // a first-time login on a new device has no local cache, so we MUST query
+  // Firestore directly to detect existing accounts and avoid overwriting them.
+  const lookupCustomer = async (p: string): Promise<any | undefined> => {
+    const cached = findCustomerByPhone(p);
+    if (cached) return cached;
+    try {
+      const { FS } = await import("@/lib/firebase");
+      const fresh = await FS.getCustomer(p);
+      if (fresh) {
+        updateRegisteredCustomer(fresh as any);
+        return fresh;
+      }
+    } catch {}
+    return undefined;
+  };
+
   // ---------- Phone submit: PIN-first routing ----------
   const handlePhoneSubmit = async () => {
     // SECRET ADMIN ENTRY: detect magic phone number → switch to bypass step silently
@@ -108,7 +126,7 @@ export default function LoginScreen() {
       await sendOtp();
       return;
     }
-    const existing = findCustomerByPhone(e164Phone);
+    const existing = await lookupCustomer(e164Phone);
     if (existing) {
       setPin("");
       setConfirmPin("");
@@ -186,7 +204,7 @@ export default function LoginScreen() {
     try {
       const result = await confirmRef.current.confirm(otp);
       const verifiedPhone = result.phoneNumber || e164Phone;
-      const existing = findCustomerByPhone(verifiedPhone);
+      const existing = await lookupCustomer(verifiedPhone);
       // Owner phones bypass PIN entirely
       if (isOwnerPhone(verifiedPhone) && existing) {
         await finishLogin(existing.name, existing.role as any, { ...existing, phone: verifiedPhone });

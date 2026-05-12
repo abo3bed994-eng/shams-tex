@@ -1,9 +1,12 @@
 // Shams Tex Firestore Security Rules
 // Deploy with: firebase deploy --only firestore:rules
 //
-// Phone numbers are stored as E.164 (+20...) for new accounts. Legacy accounts
-// in local format are still allowed read access by the same authenticated phone
-// (digit-suffix match) until they re-authenticate and get migrated to E.164.
+// Real Firebase Phone Auth is wired (see lib/phoneAuth.ts), so these rules can
+// be deployed safely. Phone numbers are stored as E.164 (+20...) for new
+// accounts; legacy local-format docs created before the migration are still
+// matched by the same authenticated phone (auth.token.phone_number is always
+// E.164) only when the doc id matches that exact value — otherwise they are
+// inaccessible until re-saved under the canonical E.164 id by the client.
 
 rules_version = '2';
 
@@ -61,9 +64,12 @@ service cloud.firestore {
       // Anyone signed in can read their own profile; staff can read all
       allow read: if isSignedIn() && (phone == userPhone() || isStaff());
 
-      // A user may create/update their OWN doc but cannot self-promote.
+      // A user may create their OWN doc but cannot self-promote and cannot
+      // grant themselves any privileged permissions or VIP status.
       allow create: if isSignedIn() && phone == userPhone()
-        && request.resource.data.role in ['customer', 'merchant'];
+        && request.resource.data.role in ['customer', 'merchant']
+        && request.resource.data.get('permissions', []).size() == 0
+        && request.resource.data.get('vip', false) == false;
 
       // Self-update: allowed except role/permissions/vip changes
       allow update: if isSignedIn() && phone == userPhone()
@@ -71,15 +77,28 @@ service cloud.firestore {
         && request.resource.data.get('permissions', []) == resource.data.get('permissions', [])
         && request.resource.data.get('vip', false) == resource.data.get('vip', false);
 
-      // Staff with manage permission OR admin can do everything
-      allow write: if isAdmin() || hasPermission('manage_users');
+      // Admin can do anything on customers (except delete is below).
+      allow write: if isAdmin();
+
+      // Staff with manage_staff can create/update other users, BUT:
+      //   - cannot edit their own customer doc through this path
+      //     (prevents self-promotion / self-permission grants);
+      //   - cannot grant the admin role (only an admin can mint admins).
+      allow create: if isStaff() && hasPermission('manage_staff')
+        && phone != userPhone()
+        && request.resource.data.role != 'admin';
+      allow update: if isStaff() && hasPermission('manage_staff')
+        && phone != userPhone()
+        && request.resource.data.role != 'admin'
+        && resource.data.role != 'admin';
+
       allow delete: if isAdmin();
     }
 
     // ============ Products ============
     match /products/{productId} {
       allow read: if true; // catalog is public
-      allow write: if isAdmin() || hasPermission('manage_products');
+      allow write: if isAdmin() || hasPermission('edit_products');
     }
 
     // ============ Orders ============
@@ -139,11 +158,28 @@ service cloud.firestore {
     }
 
     // ============ Notifications ============
+    // Customers/merchants only get their own targeted notifications + role/all
+    // broadcasts. Staff can read everything. This pairs with the scoped
+    // subscriptions in lib/firebase.ts (subscribeNotificationsForUser).
     match /notifications/{notifId} {
-      // Read your own notification or staff broadcast
-      allow read: if isSignedIn();
-      // Anyone signed in can mark-as-read (write merge for read flag) is fine
-      allow update: if isSignedIn();
+      allow read: if isSignedIn() && (
+        isStaff() ||
+        resource.data.get('targetUserPhone', '') == userPhone() ||
+        resource.data.get('targetRole', '') == 'all' ||
+        resource.data.get('targetRole', '') == getRole(userPhone())
+      );
+      // Mark-as-read: only the `read` flag may change, and only on a
+      // notification the user is allowed to read (same predicate as above).
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && (
+          isStaff() ||
+          resource.data.get('targetUserPhone', '') == userPhone() ||
+          resource.data.get('targetRole', '') == 'all' ||
+          resource.data.get('targetRole', '') == getRole(userPhone())
+        );
+      // Staff can also fully update notifications they manage.
+      allow update: if isStaff();
       allow create: if isStaff();
       allow delete: if isAdmin();
     }
@@ -163,7 +199,7 @@ service cloud.firestore {
       );
       allow create: if isSignedIn()
         && request.resource.data.userPhone == userPhone();
-      allow update: if isStaff() && (isAdmin() || hasPermission('manage_returns') || hasPermission('cancel_returns'));
+      allow update: if isStaff() && (isAdmin() || hasPermission('edit_orders') || hasPermission('cancel_returns'));
       allow delete: if isAdmin();
     }
 

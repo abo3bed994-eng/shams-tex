@@ -199,8 +199,10 @@ export const FS = {
   },
 
   // Privacy-aware: customers see only their own orders; staff see all.
+  // Queries by userPhone to align with Firestore rules that authorize via
+  // request.auth.token.phone_number.
   subscribeOrdersForUser(
-    userId: string,
+    userPhone: string,
     isStaff: boolean,
     callback: (orders: any[]) => void
   ): Unsubscribe {
@@ -208,11 +210,11 @@ export const FS = {
       return FS.subscribeOrders(callback);
     }
     let unsub = onSnapshot(
-      query(collection(db, "orders"), where("userId", "==", userId), orderBy("createdAt", "desc")),
+      query(collection(db, "orders"), where("userPhone", "==", userPhone), orderBy("createdAt", "desc")),
       (snap) => callback(snap.docs.map((d) => d.data())),
       (_err) => {
         unsub = onSnapshot(
-          query(collection(db, "orders"), where("userId", "==", userId)),
+          query(collection(db, "orders"), where("userPhone", "==", userPhone)),
           (snap) => callback(snap.docs.map((d) => d.data())),
           () => {}
         );
@@ -222,7 +224,7 @@ export const FS = {
   },
 
   // Atomic claim: prevents two staff from receiving the same order at once.
-  async claimOrder(orderId: string, staffId: string, staffName: string): Promise<{ ok: boolean; reason?: string; takenBy?: string }> {
+  async claimOrder(orderId: string, staffId: string, staffName: string, staffPhone?: string): Promise<{ ok: boolean; reason?: string; takenBy?: string }> {
     try {
       const result = await runTransaction(db, async (tx) => {
         const ref = doc(db, "orders", orderId);
@@ -232,11 +234,13 @@ export const FS = {
         if (data.assignedTo && data.assignedTo !== staffId) {
           return { ok: false, reason: "already_taken", takenBy: data.assignedToName ?? data.assignedTo } as const;
         }
-        tx.update(ref, {
+        const update: Record<string, any> = {
           status: "received",
           assignedTo: staffId,
           assignedToName: staffName,
-        });
+        };
+        if (staffPhone) update.assignedToPhone = staffPhone;
+        tx.update(ref, update);
         return { ok: true } as const;
       });
       return result;
@@ -288,6 +292,17 @@ export const FS = {
     );
   },
 
+  // Single-doc listener for own customer record (used by customer/merchant
+  // sessions to receive role/vip/permission updates without paying for the
+  // full customers collection scan on every change).
+  subscribeCustomerByPhone(phone: string, callback: (customer: any | null) => void): Unsubscribe {
+    return onSnapshot(
+      doc(db, "customers", phone),
+      (snap) => callback(snap.exists() ? snap.data() : null),
+      () => {}
+    );
+  },
+
   subscribeNotifications(callback: (notifs: any[]) => void): Unsubscribe {
     let unsub = onSnapshot(
       query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(200)),
@@ -303,8 +318,74 @@ export const FS = {
     return () => unsub();
   },
 
+  // Privacy + cost aware: customers/merchants only subscribe to their own
+  // targeted notifications + role/all broadcasts. Staff fall through to the
+  // unfiltered subscription. We use two parallel listeners and merge in memory
+  // so we don't need a composite Firestore index.
+  subscribeNotificationsForUser(
+    userId: string,
+    userPhone: string,
+    role: string,
+    isStaff: boolean,
+    callback: (notifs: any[]) => void
+  ): Unsubscribe {
+    if (isStaff) {
+      return FS.subscribeNotifications(callback);
+    }
+    const merged = new Map<string, any>();
+    const emit = () => {
+      const arr = [...merged.values()].sort((a, b) =>
+        (b.createdAt || "").localeCompare(a.createdAt || "")
+      );
+      callback(arr);
+    };
+    // Query private notifications by targetUserPhone (matches Firestore rules
+    // that authorize via auth.token.phone_number). Notifications without
+    // targetUserPhone (legacy) won't be visible to non-staff users.
+    const subTargeted = onSnapshot(
+      query(collection(db, "notifications"), where("targetUserPhone", "==", userPhone), limit(100)),
+      (snap) => {
+        // Remove any previously stored docs from this listener that no longer match,
+        // then add/update fresh ones.
+        const incoming = new Set(snap.docs.map((d) => d.id));
+        for (const [k, v] of merged) {
+          if ((v as any).__src === "t" && !incoming.has(k)) merged.delete(k);
+        }
+        snap.docs.forEach((d) => merged.set(d.id, { ...d.data(), __src: "t" }));
+        emit();
+      },
+      () => {}
+    );
+    const subRole = onSnapshot(
+      query(collection(db, "notifications"), where("targetRole", "in", ["all", role]), limit(100)),
+      (snap) => {
+        const incoming = new Set(snap.docs.map((d) => d.id));
+        for (const [k, v] of merged) {
+          if ((v as any).__src === "r" && !incoming.has(k)) merged.delete(k);
+        }
+        snap.docs.forEach((d) => merged.set(d.id, { ...d.data(), __src: "r" }));
+        emit();
+      },
+      () => {}
+    );
+    return () => {
+      subTargeted();
+      subRole();
+    };
+  },
+
   async saveNotification(notification: object & { id: string }) {
-    await setDoc(doc(db, "notifications", notification.id), notification);
+    // Strip client-only metadata before persisting.
+    const { __src, ...clean } = notification as any;
+    await setDoc(doc(db, "notifications", notification.id), clean);
+  },
+
+  // Mark a single notification's `read` flag without touching other fields.
+  // Pairs with the strict Firestore rule that limits non-staff updates to
+  // affectedKeys().hasOnly(['read']).
+  async markNotificationReadFlag(id: string) {
+    const { updateDoc } = await import("firebase/firestore");
+    await updateDoc(doc(db, "notifications", id), { read: true });
   },
 
   async batchMarkRead(ids: string[]) {
@@ -342,23 +423,45 @@ export const FS = {
     return () => unsub();
   },
 
+  // Customer/merchant: only their own returns. Staff: all returns.
+  // Queries by userPhone to align with Firestore rules that authorize via
+  // request.auth.token.phone_number.
+  subscribeReturnRequestsForUser(
+    userPhone: string,
+    isStaff: boolean,
+    callback: (reqs: any[]) => void
+  ): Unsubscribe {
+    if (isStaff) {
+      return FS.subscribeReturnRequests(callback);
+    }
+    let unsub = onSnapshot(
+      query(collection(db, "returnRequests"), where("userPhone", "==", userPhone), orderBy("createdAt", "desc")),
+      (snap) => callback(snap.docs.map((d) => d.data())),
+      (_err) => {
+        unsub = onSnapshot(
+          query(collection(db, "returnRequests"), where("userPhone", "==", userPhone)),
+          (snap) => callback(snap.docs.map((d) => d.data())),
+          () => {}
+        );
+      }
+    );
+    return () => unsub();
+  },
+
   async saveSession(phone: string, token: string) {
-    // Sessions are keyed by canonical phone so the same person on a new device
-    // always invalidates the prior session, regardless of phone format used at login.
-    const key = sessionKey(phone);
-    await setDoc(doc(db, "sessions", key), { token, phone, updatedAt: new Date().toISOString() });
+    // Sessions are keyed by the exact E.164 phone number so the rule
+    // `phone == request.auth.token.phone_number` matches.
+    await setDoc(doc(db, "sessions", phone), { token, phone, updatedAt: new Date().toISOString() });
   },
 
   async getSession(phone: string): Promise<string | null> {
-    const key = sessionKey(phone);
-    const snap = await getDoc(doc(db, "sessions", key));
+    const snap = await getDoc(doc(db, "sessions", phone));
     return snap.exists() ? snap.data().token : null;
   },
 
   subscribeSession(phone: string, callback: (token: string | null) => void): Unsubscribe {
-    const key = sessionKey(phone);
     return onSnapshot(
-      doc(db, "sessions", key),
+      doc(db, "sessions", phone),
       (snap) => callback(snap.exists() ? (snap.data().token as string) : null),
       () => {}
     );

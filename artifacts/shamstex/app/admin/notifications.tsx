@@ -228,11 +228,16 @@ export default function AdminNotificationsScreen() {
       read: false,
     };
 
+    if (notifType === "all") notif.targetRole = "all";
     if (notifType === "customers") notif.targetRole = "customer";
     if (notifType === "merchants") notif.targetRole = "merchant";
     if (notifType === "employees") notif.targetRole = "employee";
     if (notifType === "supervisors") notif.targetRole = "supervisor";
-    if (notifType === "private") notif.targetUserId = selectedUserId;
+    if (notifType === "private") {
+      notif.targetUserId = selectedUserId;
+      const target = allPickableUsers.find((u) => u.id === selectedUserId);
+      if (target?.phone) notif.targetUserPhone = target.phone;
+    }
 
     await addNotification(notif);
 

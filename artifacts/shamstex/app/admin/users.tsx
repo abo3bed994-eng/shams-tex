@@ -267,6 +267,7 @@ export default function AdminUsersScreen() {
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: updated.id,
+          targetUserPhone: updated.phone,
         });
         notifyUserByPhone(updated.phone, notif.title, notif.body, { type: "role_change", newRole }).catch(() => {});
       }
@@ -317,6 +318,7 @@ export default function AdminUsersScreen() {
         createdAt: new Date().toISOString(),
         read: false,
         targetUserId: target.id,
+        targetUserPhone: target.phone,
       });
       notifyUserByPhone(target.phone, "🎉 ترقية إلى مدير!", "تم ترقيتك إلى مدير. لديك الآن صلاحيات كاملة.", { type: "role_change", newRole: "admin" }).catch(() => {});
     } else if (newRole === "supervisor") {
@@ -328,6 +330,7 @@ export default function AdminUsersScreen() {
         createdAt: new Date().toISOString(),
         read: false,
         targetUserId: target.id,
+        targetUserPhone: target.phone,
       });
       notifyUserByPhone(target.phone, "تغيير الدور إلى مشرف 🛡️", "تم تغيير دورك إلى مشرف.", { type: "role_change", newRole: "supervisor" }).catch(() => {});
     } else if (newRole === "employee") {
@@ -339,6 +342,7 @@ export default function AdminUsersScreen() {
         createdAt: new Date().toISOString(),
         read: false,
         targetUserId: target.id,
+        targetUserPhone: target.phone,
       });
       notifyUserByPhone(target.phone, "تغيير الدور إلى موظف 🛠️", "تم تغيير دورك إلى موظف.", { type: "role_change", newRole: "employee" }).catch(() => {});
     }
@@ -442,6 +446,7 @@ export default function AdminUsersScreen() {
               createdAt: new Date().toISOString(),
               read: false,
               targetUserId: u.id,
+              targetUserPhone: u.phone,
             });
             notifyUserByPhone(
               u.phone,
