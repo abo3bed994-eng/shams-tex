@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image,
   Platform,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import Icon from "@/components/Icon";
@@ -15,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
-import GoldButton from "@/components/GoldButton";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function AdminFeaturedScreen() {
@@ -26,49 +26,51 @@ export default function AdminFeaturedScreen() {
 
   const [featuredIds, setFeaturedIds] = useState<string[]>(settings.featuredProductIds ?? []);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const dirtyRef = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Re-sync local selection when settings change from elsewhere (e.g. another
   // device or first cloud load), but only if the user hasn't started editing.
   useEffect(() => {
-    if (!dirty) {
+    if (!dirtyRef.current) {
       setFeaturedIds(settings.featuredProductIds ?? []);
     }
-  }, [settings.featuredProductIds, dirty]);
+  }, [settings.featuredProductIds]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const toggle = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setDirty(true);
-    setFeaturedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const handleSave = async () => {
-    if (saving) return;
+  const persist = async (ids: string[]) => {
     setSaving(true);
     try {
-      await setSettings({ ...settings, featuredProductIds: featuredIds });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setDirty(false);
-      showToast(
-        featuredIds.length > 0
-          ? `تم حفظ ${featuredIds.length} منتج مميز ✓`
-          : "تم إلغاء جميع المنتجات المميزة ✓",
-        "success"
-      );
-      // Brief delay so the toast is visible, then return to the previous screen.
-      setTimeout(() => {
-        try { router.back(); } catch {}
-      }, 700);
+      await setSettings({ ...settings, featuredProductIds: ids });
+      setSavedAt(Date.now());
+      dirtyRef.current = false;
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showToast("تعذّر الحفظ — تأكد من اتصال الإنترنت ثم حاول مجدداً", "error");
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggle = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    dirtyRef.current = true;
+    setFeaturedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        persist(next);
+      }, 400);
+      return next;
+    });
   };
 
   return (
@@ -134,7 +136,25 @@ export default function AdminFeaturedScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: bottomPad + 16 }]}>
-        <GoldButton label="حفظ الاختيار" onPress={handleSave} loading={saving} style={{ flex: 1 }} size="lg" />
+        {saving ? (
+          <>
+            <ActivityIndicator size="small" color={colors.gold} />
+            <Text style={[styles.statusText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+              جاري الحفظ...
+            </Text>
+          </>
+        ) : savedAt ? (
+          <>
+            <Icon name="check" size={16} color={colors.gold} />
+            <Text style={[styles.statusText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
+              تم الحفظ تلقائياً ✓
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.statusText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            التغييرات تُحفظ تلقائياً
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -151,5 +171,6 @@ const styles = StyleSheet.create({
   productInfo: { flex: 1, gap: 3 },
   productThumb: { width: 52, height: 52, borderRadius: 8 },
   empty: { paddingVertical: 24, alignItems: "center", gap: 10 },
-  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
+  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8 },
+  statusText: { fontSize: 13 },
 });
