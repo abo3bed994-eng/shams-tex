@@ -173,7 +173,7 @@ export default function LoginScreen() {
 
   // ---------- Real OTP verify ----------
   const handleVerifyOtp = async () => {
-    if (otp.length < 4) return;
+    if (otp.length < 6) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     setError("");
@@ -553,7 +553,7 @@ export default function LoginScreen() {
                 label={t("verify")}
                 onPress={handleVerifyOtp}
                 loading={loading}
-                disabled={otp.length < 4}
+                disabled={otp.length < 6}
                 style={{ width: "100%" }}
               />
 
