@@ -1559,7 +1559,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             sourceUserId: updatedOrder.userId,
-            ...(assignedStaffId ? { targetUserId: assignedStaffId } : { targetRole: "employee" as any }),
+            ...(assignedStaffId ? { targetUserId: assignedStaffId } : { targetRole: "staff" as any }),
             linkedOrderId: orderId,
           };
           const updatedNotifs = [staffNotif, ...notificationsRef.current];

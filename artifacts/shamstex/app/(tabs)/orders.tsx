@@ -47,13 +47,17 @@ export default function OrdersScreen() {
 
   const statusFiltered = filter === "all" ? myOrders : filter === "returns" ? [] : myOrders.filter((o) => o.status === filter);
 
-  const filtered = isStaff && search.trim()
+  const filteredUnsorted = isStaff && search.trim()
     ? statusFiltered.filter((o) =>
         o.userName.toLowerCase().includes(search.trim().toLowerCase()) ||
         o.userPhone.includes(search.trim()) ||
         o.id.toLowerCase().startsWith(search.trim().toLowerCase())
       )
     : statusFiltered;
+
+  const filtered = [...filteredUnsorted].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   const filteredReturns = filter === "returns"
     ? (isStaff && search.trim()
@@ -184,6 +188,7 @@ export default function OrdersScreen() {
         </View>
       )}
 
+      {isStaff && (
       <View style={[styles.filterGrid, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
         {FILTERS.map(({ key, label, count }) => {
           const isReturns = key === "returns";
@@ -238,6 +243,7 @@ export default function OrdersScreen() {
           );
         })}
       </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
