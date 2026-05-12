@@ -89,7 +89,6 @@ export default function EditProductScreen() {
       return;
     }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 400));
     const updated = products.map((p) =>
       p.id === id
         ? {
@@ -106,7 +105,14 @@ export default function EditProductScreen() {
           }
         : p
     );
-    await setProducts(updated);
+    try {
+      await setProducts(updated);
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setSaving(false);
+      Alert.alert("تعذّر الحفظ", "تأكد من اتصال الإنترنت ثم حاول مجدداً");
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(false);
     Alert.alert("تم", "تم تعديل المنتج بنجاح", [

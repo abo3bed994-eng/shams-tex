@@ -14,7 +14,7 @@ export function useAdminGuard(requiredPermission?: EmployeePermission): boolean 
     if (!user) {
       router.replace("/auth/login");
     } else if (!authorized) {
-      router.back();
+      router.replace("/(tabs)");
     }
   }, [user, authorized]);
 

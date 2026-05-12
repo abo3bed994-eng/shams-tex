@@ -46,14 +46,19 @@ export default function AdminPricesScreen() {
       Alert.alert("خطأ", "الرجاء إدخال جميع الحقول");
       return;
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const updated = products.map((p) =>
       p.id === id
         ? { ...p, name: editValues.name!, retailPrice: retail, wholesalePrice: wholesale }
         : p
     );
-    await setProducts(updated);
-    setEditing(null);
+    try {
+      await setProducts(updated);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEditing(null);
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("تعذّر الحفظ", "تأكد من اتصال الإنترنت ثم حاول مجدداً");
+    }
   };
 
   return (

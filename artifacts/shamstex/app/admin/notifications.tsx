@@ -102,9 +102,14 @@ export default function AdminNotificationsScreen() {
         body: bodyT,
       });
     }
-    await setSettings({ ...settings, notificationTemplates: list });
-    setTmplModalOpen(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      await setSettings({ ...settings, notificationTemplates: list });
+      setTmplModalOpen(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("تعذّر الحفظ", "تأكد من اتصال الإنترنت ثم حاول مجدداً");
+    }
   };
   const deleteTemplate = (t: { id: string; title: string; body: string }) => {
     Alert.alert("حذف القالب", `هل تريد حذف "${t.title}"؟`, [
@@ -114,8 +119,13 @@ export default function AdminNotificationsScreen() {
         style: "destructive",
         onPress: async () => {
           const list = templates.filter((x) => x.id !== t.id);
-          await setSettings({ ...settings, notificationTemplates: list });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          try {
+            await setSettings({ ...settings, notificationTemplates: list });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          } catch (e) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert("تعذّر الحذف", "تأكد من اتصال الإنترنت ثم حاول مجدداً");
+          }
         },
       },
     ]);
@@ -239,7 +249,14 @@ export default function AdminNotificationsScreen() {
       if (target?.phone) notif.targetUserPhone = target.phone;
     }
 
-    await addNotification(notif);
+    try {
+      await addNotification(notif);
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setLoading(false);
+      Alert.alert("تعذّر الإرسال", "تأكد من اتصال الإنترنت ثم حاول مجدداً");
+      return;
+    }
 
     try {
       if (notifType === "all") {

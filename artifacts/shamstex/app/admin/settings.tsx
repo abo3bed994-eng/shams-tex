@@ -104,7 +104,7 @@ const cardStyles = StyleSheet.create({
 });
 
 export default function AdminSettingsScreen() {
-  useAdminGuard();
+  useAdminGuard("manage_settings");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings, setSettings, user } = useApp();
@@ -157,11 +157,18 @@ export default function AdminSettingsScreen() {
   };
 
   const save = async () => {
+    if (saving) return;
     setSaving(true);
-    await setSettings(draft);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setSaving(false);
-    Alert.alert("تم", "تم حفظ الإعدادات بنجاح");
+    try {
+      await setSettings(draft);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("تم", "تم حفظ الإعدادات بنجاح");
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("تعذّر الحفظ", "تأكد من اتصال الإنترنت ثم حاول مجدداً");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateContact = (id: string, field: keyof ContactEntry, value: string) => {

@@ -23,7 +23,7 @@ import GoldButton from "@/components/GoldButton";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function AdminColorsScreen() {
-  useAdminGuard();
+  useAdminGuard("manage_settings");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { settings, setSettings } = useApp();

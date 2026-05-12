@@ -31,7 +31,7 @@ const TAB_TYPES: { value: Tab["type"]; label: string }[] = [
 const TAB_ICONS = ["home", "grid", "package", "phone", "info", "star", "heart", "settings"];
 
 export default function AdminTabsScreen() {
-  useAdminGuard();
+  useAdminGuard("manage_settings");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { tabs, setTabs } = useApp();

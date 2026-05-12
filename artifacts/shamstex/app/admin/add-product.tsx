@@ -97,7 +97,6 @@ export default function AddProductScreen() {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
 
     const newProduct = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
@@ -113,7 +112,14 @@ export default function AddProductScreen() {
       unit,
     };
 
-    await setProducts([newProduct, ...products]);
+    try {
+      await setProducts([newProduct, ...products]);
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setLoading(false);
+      Alert.alert("تعذّر الحفظ", "تأكد من اتصال الإنترنت ثم حاول مجدداً");
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(false);
     Alert.alert("تم", "تمت إضافة المنتج بنجاح", [
