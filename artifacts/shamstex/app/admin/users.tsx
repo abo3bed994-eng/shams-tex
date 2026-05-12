@@ -238,7 +238,7 @@ export default function AdminUsersScreen() {
       if (newRole === "employee") perms = ["view_orders", "view_products"];
       if (newRole === "supervisor") perms = [...SUPERVISOR_PERMISSIONS];
 
-      saveCustomerChange({ ...updated, role: newRole, permissions: perms, upgradeStatus: undefined });
+      saveCustomerChange({ ...updated, role: newRole, permissions: perms, upgradeStatus: undefined, lastUpdated: new Date().toISOString() } as any);
 
       if (user) {
         FS.appendAuditLog({
@@ -277,7 +277,7 @@ export default function AdminUsersScreen() {
   const handleToggleVip = (userId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const target = customerList.find((u) => u.id === userId);
-    if (target) saveCustomerChange({ ...target, vip: !target.vip });
+    if (target) saveCustomerChange({ ...target, vip: !target.vip, lastUpdated: new Date().toISOString() } as any);
   };
 
   const handleApproveUpgrade = (userId: string) => {
@@ -290,7 +290,7 @@ export default function AdminUsersScreen() {
   const handleRejectUpgrade = (userId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const target = customerList.find((u) => u.id === userId);
-    if (target) saveCustomerChange({ ...target, upgradeStatus: "rejected" });
+    if (target) saveCustomerChange({ ...target, upgradeStatus: "rejected", lastUpdated: new Date().toISOString() } as any);
   };
 
   const handleChangeStaffRole = (userId: string, newRole: UserRole) => {
@@ -370,7 +370,7 @@ export default function AdminUsersScreen() {
     if (trimmed.length < 2) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const target = customerList.find((u) => u.id === userId);
-    if (target) saveCustomerChange({ ...target, name: trimmed });
+    if (target) saveCustomerChange({ ...target, name: trimmed, lastUpdated: new Date().toISOString() } as any);
     setEditingNameId(null);
     setEditingNameValue("");
   };
