@@ -608,13 +608,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         isFirstCustomersLoad = false;
+        // If the currently logged-in staff member was removed by an admin,
+        // their own customer doc will be missing from the fresh snapshot.
+        // Force-logout immediately so they get kicked to the login screen.
+        const me = userRef.current;
+        if (me?.phone) {
+          const stillExists = freshCustomers.some((c: any) => samePhone(c.phone, me.phone));
+          if (!stillExists) {
+            forceLogoutAccountRemoved();
+            return;
+          }
+        }
         applyFreshCustomers(freshCustomers);
       });
     } else if (user.phone) {
       // Customer/merchant: only listen to OWN doc to receive role/vip/permission
-      // changes pushed by admin in real time.
+      // changes pushed by admin in real time. If the doc is deleted remotely
+      // (admin removed the account), force-logout.
+      let isFirstOwnLoad = true;
       unsubCustomers = FS.subscribeCustomerByPhone(user.phone, (own) => {
-        if (own) applyFreshCustomers([own]);
+        if (own) {
+          isFirstOwnLoad = false;
+          applyFreshCustomers([own]);
+        } else if (!isFirstOwnLoad) {
+          forceLogoutAccountRemoved();
+        } else {
+          isFirstOwnLoad = false;
+        }
       });
     }
 
@@ -936,9 +956,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (u) {
       await persistUserSafe(u);
     } else {
-      await AsyncStorage.removeItem("user");
+      await AsyncStorage.multiRemove([
+        "user",
+        "notifications",
+        "orders",
+        "returnRequests",
+        "registered_customers",
+      ]).catch(() => {});
       await deleteSecureItem("sessionToken");
+      setNotifications([]);
+      setOrdersState([]);
+      setReturnRequests([]);
     }
+  }, []);
+
+  // Force logout helper used when the current user's account has been deleted
+  // remotely (e.g. admin removes a staff member). Clears local state and shows
+  // an Arabic alert, then redirects to the login screen.
+  const forceLogoutAccountRemoved = useCallback(async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        "user",
+        "notifications",
+        "orders",
+        "returnRequests",
+      ]).catch(() => {});
+      await deleteSecureItem("sessionToken");
+    } catch {}
+    setUserState(null);
+    setNotifications([]);
+    setOrdersState([]);
+    setReturnRequests([]);
+    Alert.alert(
+      "تم إنهاء حسابك",
+      "تم حذف حسابك من قِبل الإدارة. يرجى تسجيل الدخول مجدداً.",
+      [{ text: "حسناً" }]
+    );
+    try {
+      const { router } = await import("expo-router");
+      router.replace("/auth/login" as any);
+    } catch {}
   }, []);
 
   const findCustomerByPhone = useCallback(
