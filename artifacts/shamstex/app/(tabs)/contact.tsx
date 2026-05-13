@@ -18,7 +18,7 @@ import { useTranslation } from "@/lib/i18n";
 export default function ContactScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings } = useApp();
+  const { settings, language } = useApp();
   const { t } = useTranslation();
   const CONTACTS = settings.contacts;
   const SOCIAL = settings.social;
@@ -55,7 +55,7 @@ export default function ContactScreen() {
             style={styles.logoImg}
             resizeMode="contain"
           />
-          <Text style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+          <Text style={[styles.brandName, { color: colors.gold, fontFamily: language === "ar" ? "Amiri_700Bold" : "Inter_700Bold" }]}>
             {t("tagline")}
           </Text>
         </View>

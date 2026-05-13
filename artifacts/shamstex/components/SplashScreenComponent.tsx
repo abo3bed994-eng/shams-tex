@@ -71,7 +71,13 @@ export default function SplashScreenComponent({ onFinish }: { onFinish: () => vo
 
       <Animated.View style={[styles.textBlock, { opacity: textFade }]}>
         <Text
-          style={[styles.brandName, { color: colors.gold, fontFamily: "Inter_700Bold" }]}
+          style={[
+            styles.brandName,
+            {
+              color: colors.gold,
+              fontFamily: language === "ar" ? "Amiri_700Bold" : "Inter_700Bold",
+            },
+          ]}
         >
           {language === "ar" ? "تعانق الجودة كل خيط" : "Quality embraces every thread"}
         </Text>
@@ -93,7 +99,7 @@ const styles = StyleSheet.create({
   logoContainer: { alignItems: "center" },
   logo: { width: 180, height: 180 },
   textBlock: { alignItems: "center", gap: 10 },
-  brandName: { fontSize: 34, letterSpacing: 4, textAlign: "center" },
+  brandName: { fontSize: 28, letterSpacing: 2, textAlign: "center", lineHeight: 42 },
   line: { height: 1.5, opacity: 0.7 },
   tagline: { fontSize: 14, textAlign: "center", letterSpacing: 1 },
 });

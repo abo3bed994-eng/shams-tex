@@ -60,7 +60,7 @@ const ADMIN_VERIFY_CODE =
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings, setCustomerPin, verifyCustomerPin } = useApp();
+  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings, setCustomerPin, verifyCustomerPin, language } = useApp();
   const { t } = useTranslation();
 
   const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
@@ -460,7 +460,7 @@ export default function LoginScreen() {
             style={styles.logoImg}
             resizeMode="contain"
           />
-          <Text style={[styles.brand, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+          <Text style={[styles.brand, { color: colors.gold, fontFamily: language === "ar" ? "Amiri_700Bold" : "Inter_700Bold" }]}>
             {t("tagline")}
           </Text>
         </View>
@@ -851,8 +851,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 24, gap: 28 },
   header: { alignItems: "center", gap: 10 },
-  logoImg: { width: 120, height: 120 },
-  brand: { fontSize: 28, letterSpacing: 3 },
+  logoImg: { width: 160, height: 160 },
+  brand: { fontSize: 24, letterSpacing: 1.5, lineHeight: 38, textAlign: "center" },
   subtitle: { fontSize: 14, letterSpacing: 1 },
   card: { padding: 24, borderWidth: 1, gap: 16 },
   stepIcon: { alignItems: "center", marginBottom: 4 },
