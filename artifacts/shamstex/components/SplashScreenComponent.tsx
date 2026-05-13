@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   logoContainer: { alignItems: "center" },
-  logo: { width: 180, height: 180 },
+  logo: { width: 260, height: 260 },
   textBlock: { alignItems: "center", gap: 10 },
   brandName: { fontSize: 28, letterSpacing: 2, textAlign: "center", lineHeight: 42 },
   line: { height: 1.5, opacity: 0.7 },

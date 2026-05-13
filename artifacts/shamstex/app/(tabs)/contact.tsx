@@ -192,8 +192,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   logoImg: {
-    width: 110,
-    height: 110,
+    width: 180,
+    height: 180,
   },
   brandName: {
     fontSize: 24,

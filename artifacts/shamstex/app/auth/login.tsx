@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 24, gap: 28 },
   header: { alignItems: "center", gap: 10 },
-  logoImg: { width: 160, height: 160 },
+  logoImg: { width: 220, height: 220 },
   brand: { fontSize: 24, letterSpacing: 1.5, lineHeight: 38, textAlign: "center" },
   subtitle: { fontSize: 14, letterSpacing: 1 },
   card: { padding: 24, borderWidth: 1, gap: 16 },
