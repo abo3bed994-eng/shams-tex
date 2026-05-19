@@ -558,14 +558,16 @@ export default function ProductDetailScreen() {
               ]}
             >
               <Icon name="info" size={14} color={colors.gold} />
-              <Text
-                style={[styles.piecesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
-              >
-                الوزن التقديري: {totalPieces * 20} كغ — السعر التقديري: ≈ {totalPieces * 20 * displayPrice} ج.م
-              </Text>
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 }}>
-                (20 كغ لكل ثوب — الوزن الفعلي يُحدد عند التجهيز)
-              </Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text
+                  style={[styles.piecesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
+                >
+                  الوزن التقديري: {totalPieces * 20} كغ — السعر التقديري: ≈ {totalPieces * 20 * displayPrice} ج.م
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                  (20 كغ لكل ثوب)
+                </Text>
+              </View>
             </View>
           )}
         </View>
@@ -703,12 +705,12 @@ const styles = StyleSheet.create({
   weightTotalPrice: { fontSize: 15 },
   piecesNote: {
     flexDirection: "row-reverse",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     padding: 12,
     borderWidth: 1,
   },
-  piecesNoteText: { fontSize: 12, flex: 1, textAlign: "right" },
+  piecesNoteText: { fontSize: 12, textAlign: "right" },
   footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: 1 },
   outOfStockBanner: {
     flexDirection: "row-reverse",

@@ -573,7 +573,7 @@ export default function CartScreen() {
                 <View style={styles.salesNoteInfoRow}>
                   <Icon name="info" size={16} color={colors.gold} />
                   <Text style={[styles.salesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                    الوزن التقديري لكل ثوب 20 كغ — الوزن الفعلي يُحدد عند التجهيز
+                    الوزن التقديري لكل ثوب 20 كغ
                   </Text>
                 </View>
                 {cart.filter(i => i.orderType === "pieces").map((item, idx) => (

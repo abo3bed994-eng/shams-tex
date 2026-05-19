@@ -16,8 +16,9 @@ import { useColors } from "@/hooks/useColors";
 //      device as offline. Re-checked on a slow heartbeat + whenever NetInfo
 //      fires a change event.
 const PING_URL = "https://www.gstatic.com/generate_204";
-const PING_TIMEOUT_MS = 8000;
-const PING_INTERVAL_MS = 25000;
+const PING_TIMEOUT_MS = 15000;
+const PING_INTERVAL_MS = 45000;
+const PING_FAILURES_TO_TRIP = 2;
 
 async function pingReachable(): Promise<boolean> {
   try {
@@ -40,6 +41,7 @@ export default function OfflineGate() {
   const [netOffline, setNetOffline] = useState(false);
   const [pingOffline, setPingOffline] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
+  const failuresRef = useRef(0);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const offline = netOffline || pingOffline;
 
@@ -53,10 +55,9 @@ export default function OfflineGate() {
           const offNow = !(state.isConnected && state.isInternetReachable !== false);
           setNetOffline(offNow);
           if (!offNow) {
-            // NetInfo says we're back; verify with a real ping
-            pingReachable().then((ok) => setPingOffline(!ok));
-          } else {
-            setPingOffline(true);
+            // NetInfo says we're back; clear soft-offline and reset failure count.
+            failuresRef.current = 0;
+            setPingOffline(false);
           }
         });
       } catch {
@@ -70,18 +71,30 @@ export default function OfflineGate() {
 
   // Heartbeat ping while we believe we're online — catches dead-air / captive
   // portal cases where NetInfo reports connected but no traffic flows.
+  //
+  // To avoid false-positives during legitimate heavy traffic (large media
+  // uploads can saturate the link and make a generic ping time out), we require
+  // PING_FAILURES_TO_TRIP consecutive failures before flipping to offline.
+  // A single success immediately resets and clears the gate.
   useEffect(() => {
     if (Platform.OS === "web") return;
     if (netOffline) return;
     let cancelled = false;
-    pingReachable().then((ok) => {
-      if (!cancelled) setPingOffline(!ok);
-    });
-    const t = setInterval(() => {
-      pingReachable().then((ok) => {
-        if (!cancelled) setPingOffline(!ok);
-      });
-    }, PING_INTERVAL_MS);
+    const runPing = async () => {
+      const ok = await pingReachable();
+      if (cancelled) return;
+      if (ok) {
+        failuresRef.current = 0;
+        setPingOffline(false);
+      } else {
+        failuresRef.current += 1;
+        if (failuresRef.current >= PING_FAILURES_TO_TRIP) {
+          setPingOffline(true);
+        }
+      }
+    };
+    runPing();
+    const t = setInterval(runPing, PING_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(t);

@@ -583,7 +583,7 @@ export default function OrderDetailScreen() {
                 )}
                 {!allPiecesWeighed && (
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
-                    تقدير بناءً على 20كغ لكل ثوب — الوزن الفعلي يحدده الطاقم
+                    تقدير بناءً على 20كغ لكل ثوب
                   </Text>
                 )}
               </View>
@@ -688,7 +688,7 @@ export default function OrderDetailScreen() {
           </Pressable>
         )}
 
-        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && order.status !== "delivered" && (isStaff || order.status === "ready") && (() => {
+        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || (order.status === "delivered" && !!order.transferProofImage)) && (() => {
           const pm = order.paymentMethod as PaymentMethod;
           const ps = settings.payment;
           const wallets = ps?.ewallets ?? (ps?.ewalletNumber ? [{ id: "_l", number: ps.ewalletNumber, name: ps.ewalletName ?? "", provider: "" }] : []);
