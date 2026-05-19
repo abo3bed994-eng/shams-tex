@@ -227,12 +227,28 @@ export default function ProfileScreen() {
 
         <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <View style={styles.themeHeader}>
-            <Icon name={theme === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
+            <Icon name={theme === "system" ? "smartphone" : theme === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
             <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               {isRTL ? "مظهر التطبيق" : "Appearance"}
             </Text>
           </View>
           <View style={styles.themeButtons}>
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme("system"); }}
+              style={[
+                styles.themeBtn,
+                {
+                  backgroundColor: theme === "system" ? colors.gold : colors.surface,
+                  borderColor: theme === "system" ? colors.gold : colors.border,
+                  borderRadius: colors.radius - 4,
+                },
+              ]}
+            >
+              <Icon name="smartphone" size={16} color={theme === "system" ? colors.background : colors.mutedForeground} />
+              <Text style={[styles.themeBtnText, { color: theme === "system" ? colors.background : colors.mutedForeground, fontFamily: theme === "system" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                {t("systemMode")}
+              </Text>
+            </Pressable>
             <Pressable
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme("dark"); }}
               style={[

@@ -526,7 +526,7 @@ export const FS = {
     phone: string,
     options: { maxPerWindow?: number; windowMs?: number } = {}
   ): Promise<{ allowed: boolean; retryAfterMs?: number; remaining?: number }> {
-    const max = options.maxPerWindow ?? 3;
+    const max = options.maxPerWindow ?? 5;
     const win = options.windowMs ?? 24 * 60 * 60 * 1000; // 24h
     const key = sessionKey(phone);
     const ref = doc(db, "otpThrottle", key);

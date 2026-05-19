@@ -185,7 +185,7 @@ export interface SocialEntry {
   url: string;
 }
 
-export type AppTheme = "dark" | "light";
+export type AppTheme = "dark" | "light" | "system";
 export type AppLanguage = "ar" | "en";
 
 export interface WalletEntry {
@@ -489,7 +489,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [tabs, setTabsState] = useState<Tab[]>(DEFAULT_TABS);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [theme, setThemeState] = useState<AppTheme>("dark");
+  const [theme, setThemeState] = useState<AppTheme>("system");
   const [language, setLanguageState] = useState<AppLanguage>("ar");
   const [isLoading, setIsLoading] = useState(true);
   const [roleSwitching, setRoleSwitching] = useState<string | null>(null);

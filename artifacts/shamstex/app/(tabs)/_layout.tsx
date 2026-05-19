@@ -2,7 +2,7 @@ import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import Icon from "@/components/Icon";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
@@ -11,7 +11,8 @@ export default function TabLayout() {
   const colors = useColors();
   const { theme, orders, user, returnRequests } = useApp();
   const { t } = useTranslation();
-  const isDark = theme === "dark";
+  const systemScheme = useColorScheme();
+  const isDark = theme === "system" ? systemScheme !== "light" : theme === "dark";
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
   const pendingOrdersCount = isStaff

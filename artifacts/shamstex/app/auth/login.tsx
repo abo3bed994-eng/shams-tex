@@ -149,7 +149,7 @@ export default function LoginScreen() {
   // ---------- Real OTP send ----------
   const sendOtp = async () => {
     setLoading(true);
-    // Rate-limit OTP requests: 3 per phone per 24 hours. Owner phones are exempt.
+    // Rate-limit OTP requests: 5 per phone per 24 hours. Owner phones are exempt.
     if (!isOwnerPhone(e164Phone)) {
       try {
         const { FS } = await import("@/lib/firebase");
@@ -157,14 +157,14 @@ export default function LoginScreen() {
         if (!result.allowed) {
           const hours = Math.ceil((result.retryAfterMs || 0) / (60 * 60 * 1000));
           setError(
-            `وصلت الحد الأقصى لطلبات الكود (3 محاولات خلال 24 ساعة). حاول مرة أخرى بعد ${hours} ساعة.`
+            `وصلت الحد الأقصى للمحاولات. حاول مرة أخرى بعد ${hours} ساعة.`
           );
           setLoading(false);
           return;
         }
       } catch (throttleErr: any) {
-        // If throttle check itself fails (e.g. network), let the request through
-        // rather than blocking legitimate users — Firebase has its own quotas.
+        // If throttle check itself fails, let the request through rather than
+        // blocking legitimate users.
         console.warn("[OTP throttle] check failed:", throttleErr?.message || throttleErr);
       }
     }
@@ -175,15 +175,14 @@ export default function LoginScreen() {
     } catch (e: any) {
       const code = e?.code || "";
       const msg = String(e?.message || e);
-      console.log("[PhoneAuth ERROR]", { code, msg, e164Phone, raw: e });
-      let friendly = `تعذّر إرسال الكود [${code || "؟"}]`;
-      if (msg.includes("quota")) friendly = "وصلت الحصة اليومية للرسائل. حاول غداً.";
+      // Log details to the developer console only — never surface to user.
+      console.log("[PhoneAuth ERROR]", { code, msg, e164Phone });
+      let friendly = "تعذّر إرسال الكود حالياً، حاول مرة أخرى";
+      if (msg.includes("quota")) friendly = "وصلت الحصة اليومية للرسائل، حاول غداً";
       else if (code.includes("invalid-phone") || msg.includes("invalid-phone")) friendly = "رقم الهاتف غير صحيح";
-      else if (code.includes("too-many-requests") || msg.includes("too-many-requests")) friendly = "محاولات كثيرة. انتظر قليلاً.";
-      else if (code.includes("missing-client-identifier") || msg.includes("missing-client-identifier")) friendly = "إعدادات Firebase ناقصة (SHA-1 أو App Check). جرّب رقم تجريبي.";
-      else if (code.includes("app-not-authorized") || msg.includes("app-not-authorized")) friendly = "التطبيق غير مصرّح في Firebase. تحقق من SHA-1 أو استخدم رقم تجريبي.";
+      else if (code.includes("too-many-requests") || msg.includes("too-many-requests")) friendly = "محاولات كثيرة، انتظر قليلاً";
       else if (msg.includes("network") || msg.includes("Network")) friendly = "تعذّر الاتصال بالإنترنت";
-      setError(friendly + (code ? ` (${code})` : ""));
+      setError(friendly);
     } finally {
       setLoading(false);
     }
@@ -197,7 +196,7 @@ export default function LoginScreen() {
     setError("");
 
     if (!confirmRef.current) {
-      setError("جلسة التحقق منتهية، أعد المحاولة");
+      setError("انتهت صلاحية الجلسة، أعد المحاولة");
       setLoading(false);
       return;
     }
@@ -230,9 +229,10 @@ export default function LoginScreen() {
       }
     } catch (e: any) {
       const msg = String(e?.message || e);
+      console.log("[OTP verify ERROR]", { msg });
       let friendly = "كود التحقق غير صحيح";
       if (msg.includes("expired") || msg.includes("session-expired")) {
-        friendly = "انتهت صلاحية الكود. أعد إرساله.";
+        friendly = "انتهت صلاحية الكود، أعد إرساله";
       }
       setError(friendly);
     } finally {

@@ -121,6 +121,7 @@ const translations: Record<string, Record<Language, string>> = {
   appSettings: { ar: "إعدادات التطبيق", en: "App Settings" },
   darkMode: { ar: "الوضع الداكن", en: "Dark Mode" },
   lightMode: { ar: "الوضع الفاتح", en: "Light Mode" },
+  systemMode: { ar: "تلقائي", en: "Auto" },
   language: { ar: "اللغة", en: "Language" },
   arabic: { ar: "العربية", en: "Arabic" },
   english: { ar: "الإنجليزية", en: "English" },
