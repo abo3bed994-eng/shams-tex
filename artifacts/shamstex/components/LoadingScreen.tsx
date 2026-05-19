@@ -11,16 +11,80 @@ type Props = {
   fullscreen?: boolean;
 };
 
+function BouncingDot({
+  delay,
+  color,
+  size = 10,
+}: {
+  delay: number;
+  color: string;
+  size?: number;
+}) {
+  const translate = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0.35)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.parallel([
+          Animated.timing(translate, {
+            toValue: -12,
+            duration: 380,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 380,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(translate, {
+            toValue: 0,
+            duration: 380,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.35,
+            duration: 380,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.delay(420),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: color,
+        opacity,
+        transform: [{ translateY: translate }],
+      }}
+    />
+  );
+}
+
 export default function LoadingScreen({
   message,
   showTagline,
   taglineText,
   taglineFontFamily,
-  logoSize = 180,
+  logoSize = 200,
   fullscreen = true,
 }: Props) {
   const colors = useColors();
-  const spin = useRef(new Animated.Value(0)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -29,27 +93,7 @@ export default function LoadingScreen({
       duration: 450,
       useNativeDriver: true,
     }).start();
-
-    const loop = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 1600,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
   }, []);
-
-  const rotate = spin.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  // Ring sits ~22px outside the logo on every side.
-  const ringSize = logoSize + 44;
-  const ringThickness = 3;
 
   return (
     <View
@@ -59,53 +103,16 @@ export default function LoadingScreen({
       ]}
     >
       <Animated.View style={{ opacity: fadeIn, alignItems: "center" }}>
-        <View
-          style={[
-            styles.stack,
-            { width: ringSize, height: ringSize },
-          ]}
-        >
-          {/* Faint full ring as a subtle track */}
-          <View
-            pointerEvents="none"
-            style={[
-              styles.ring,
-              {
-                width: ringSize,
-                height: ringSize,
-                borderRadius: ringSize / 2,
-                borderWidth: ringThickness,
-                borderColor: colors.gold,
-                opacity: 0.12,
-              },
-            ]}
-          />
+        <Image
+          source={require("../assets/images/loading-logo.png")}
+          style={{ width: logoSize, height: logoSize }}
+          resizeMode="contain"
+        />
 
-          {/* Rotating arc — only top + right edges are bright gold, the
-              other two are transparent so we see a quarter-circle sweeping. */}
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.ring,
-              {
-                width: ringSize,
-                height: ringSize,
-                borderRadius: ringSize / 2,
-                borderWidth: ringThickness,
-                borderTopColor: colors.gold,
-                borderRightColor: colors.gold,
-                borderBottomColor: "transparent",
-                borderLeftColor: "transparent",
-                transform: [{ rotate }],
-              },
-            ]}
-          />
-
-          <Image
-            source={require("../assets/images/logo.png")}
-            style={{ width: logoSize, height: logoSize }}
-            resizeMode="contain"
-          />
+        <View style={styles.dotsRow}>
+          <BouncingDot delay={0} color={colors.gold} />
+          <BouncingDot delay={160} color={colors.gold} />
+          <BouncingDot delay={320} color={colors.gold} />
         </View>
 
         {showTagline && taglineText ? (
@@ -126,7 +133,9 @@ export default function LoadingScreen({
         ) : null}
 
         {message ? (
-          <Text style={[styles.message, { color: colors.text, opacity: 0.7 }]}>{message}</Text>
+          <Text style={[styles.message, { color: colors.text, opacity: 0.7 }]}>
+            {message}
+          </Text>
         ) : null}
       </Animated.View>
     </View>
@@ -144,16 +153,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 32,
   },
-  stack: {
+  dotsRow: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-  },
-  ring: {
-    position: "absolute",
+    gap: 14,
+    marginTop: 24,
+    height: 24,
   },
   tagBlock: {
     alignItems: "center",
-    marginTop: 28,
+    marginTop: 24,
     gap: 10,
   },
   tagline: {
