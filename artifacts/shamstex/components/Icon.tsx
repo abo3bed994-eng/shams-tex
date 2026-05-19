@@ -70,6 +70,7 @@ import {
   X,
   XCircle,
   Zap,
+  ZapOff,
 } from "lucide-react-native";
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -144,6 +145,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   x: X,
   "x-circle": XCircle,
   zap: Zap,
+  "zap-off": ZapOff,
 };
 
 interface IconProps {
