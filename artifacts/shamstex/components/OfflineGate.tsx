@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Icon from "./Icon";
 import { useColors } from "@/hooks/useColors";
@@ -111,12 +111,14 @@ export default function OfflineGate() {
       <View style={[StyleSheet.absoluteFill, styles.tint]} />
 
       <View style={styles.center}>
-        <View style={[styles.iconWrap, { borderColor: colors.gold }]}>
-          <Icon name="zap" size={42} color={colors.gold} />
-        </View>
+        <Image
+          source={require("../assets/images/loading-logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={[styles.title, { color: colors.gold }]}>لا يوجد اتصال بالإنترنت</Text>
         <Text style={styles.subtitle}>
-          التطبيق متوقف مؤقتاً لحماية بياناتك.{"\n"}سيعود تلقائياً بمجرد عودة الاتصال.
+          سيعود التطبيق تلقائياً بمجرد عودة الاتصال.
         </Text>
 
         <Pressable
@@ -149,14 +151,10 @@ const styles = StyleSheet.create({
     padding: 28,
     gap: 14,
   },
-  iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.35)",
+  logo: {
+    width: 130,
+    height: 130,
+    marginBottom: 4,
   },
   title: {
     fontSize: 22,
