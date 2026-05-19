@@ -131,6 +131,10 @@ export const FS = {
     await setDoc(doc(db, "products", product.id), product);
   },
 
+  async deleteProduct(productId: string) {
+    await deleteDoc(doc(db, "products", productId));
+  },
+
   async getAllProducts(): Promise<any[]> {
     const snap = await getDocs(collection(db, "products"));
     return snap.docs.map((d) => d.data());

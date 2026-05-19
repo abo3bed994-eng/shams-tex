@@ -30,7 +30,7 @@ export default function AdminProductsScreen() {
   useAdminGuard("view_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, setProducts } = useApp();
+  const { products, setProducts, deleteProductOne, updateProductOne } = useApp();
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -42,7 +42,7 @@ export default function AdminProductsScreen() {
         style: "destructive",
         onPress: async () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          await setProducts(products.filter((p) => p.id !== id));
+          await deleteProductOne(id);
         },
       },
     ]);
@@ -50,9 +50,8 @@ export default function AdminProductsScreen() {
 
   const toggleStock = async (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await setProducts(
-      products.map((p) => (p.id === id ? { ...p, inStock: !p.inStock } : p))
-    );
+    const target = products.find((p) => p.id === id);
+    if (target) await updateProductOne({ ...target, inStock: !target.inStock });
   };
 
   const renderItem = useCallback(

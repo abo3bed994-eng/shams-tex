@@ -26,7 +26,7 @@ export default function AddProductScreen() {
   useAdminGuard("edit_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, setProducts, settings } = useApp();
+  const { products, addProductOne, settings } = useApp();
 
   const CATEGORIES = settings.categories.filter((c) => c !== "الكل");
 
@@ -113,7 +113,7 @@ export default function AddProductScreen() {
     };
 
     try {
-      await setProducts([newProduct, ...products]);
+      await addProductOne(newProduct);
     } catch (e) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setLoading(false);

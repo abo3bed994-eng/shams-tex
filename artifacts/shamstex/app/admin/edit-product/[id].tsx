@@ -27,7 +27,7 @@ export default function EditProductScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { products, setProducts, settings } = useApp();
+  const { products, updateProductOne, settings } = useApp();
 
   const product = products.find((p) => p.id === id);
 
@@ -89,24 +89,26 @@ export default function EditProductScreen() {
       return;
     }
     setSaving(true);
-    const updated = products.map((p) =>
-      p.id === id
-        ? {
-            ...p,
-            name,
-            category,
-            subcategory: subcategory || undefined,
-            retailPrice: Number(retailPrice),
-            wholesalePrice: Number(wholesalePrice),
-            description,
-            images,
-            colors: selectedColors.length > 0 ? selectedColors : p.colors,
-            unit,
-          }
-        : p
-    );
+    const existing = products.find((p) => p.id === id);
+    if (!existing) {
+      setSaving(false);
+      Alert.alert("خطأ", "تعذّر العثور على المنتج");
+      return;
+    }
+    const updatedProduct = {
+      ...existing,
+      name,
+      category,
+      subcategory: subcategory || undefined,
+      retailPrice: Number(retailPrice),
+      wholesalePrice: Number(wholesalePrice),
+      description,
+      images,
+      colors: selectedColors.length > 0 ? selectedColors : existing.colors,
+      unit,
+    };
     try {
-      await setProducts(updated);
+      await updateProductOne(updatedProduct);
     } catch (e) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSaving(false);

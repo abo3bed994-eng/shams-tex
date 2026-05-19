@@ -81,7 +81,7 @@ export async function registerForPushNotifications(
         name: "طلبات جديدة",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        sound: "notification.wav",
+        sound: "default",
         lightColor: "#C9A84C",
         enableVibrate: true,
         showBadge: true,
@@ -89,14 +89,14 @@ export async function registerForPushNotifications(
       await Notifications.setNotificationChannelAsync("messages", {
         name: "رسائل",
         importance: Notifications.AndroidImportance.HIGH,
-        sound: "notification.wav",
+        sound: "default",
         showBadge: true,
       });
       await Notifications.setNotificationChannelAsync("default", {
         name: "إشعارات عامة",
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        sound: "notification.wav",
+        sound: "default",
         lightColor: "#C9A84C",
         enableVibrate: true,
         showBadge: true,

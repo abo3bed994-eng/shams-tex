@@ -4,7 +4,6 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Alert, Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
-import { playNotificationAlert } from "@/lib/notificationSound";
 import { canonicalPhone, samePhone } from "@/lib/phoneUtils";
 import { isWithinWorkingHours } from "@/lib/workingHours";
 
@@ -323,6 +322,9 @@ interface AppContextType {
   deleteRegisteredCustomer: (phone: string) => void;
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
+  addProductOne: (product: Product) => Promise<void>;
+  updateProductOne: (product: Product) => Promise<void>;
+  deleteProductOne: (productId: string) => Promise<void>;
   cart: CartItem[];
   setCart: (items: CartItem[]) => void;
   addToCart: (item: CartItem) => void;
@@ -667,7 +669,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return false;
           });
           if (forMe.length > 0) {
-            playNotificationAlert();
             if (Platform.OS !== "web") {
               import("expo-notifications").then((Notif) => {
                 forMe.slice(0, 5).forEach((n) => {
@@ -675,7 +676,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     content: {
                       title: n.title,
                       body: n.body,
-                      sound: "notification.wav",
+                      sound: true,
                       data: { id: n.id, orderId: n.linkedOrderId },
                     },
                     trigger: null,
@@ -826,39 +827,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       persistUserSafe(synced).catch(() => {});
 
       if (roleChanged) {
-        const roleNames: Record<string, string> = {
-          customer: "زبون",
-          merchant: "تاجر",
-          employee: "موظف",
-          supervisor: "مشرف",
-          admin: "مدير",
-        };
-        const roleName = roleNames[freshRecord.role] || freshRecord.role;
-        setRoleSwitching(`جارٍ تحديث حسابك إلى ${roleName}…`);
+        // Force a clean logout on EVERY role change (including reverts):
+        // staff/admin commonly toggle roles back-and-forth by mistake, and
+        // an in-place reload could leave stale permissions/screens cached.
+        // Sign the user out so they re-login with a fresh session and role.
         (async () => {
           try {
-            await persistUserSafe(synced);
-            if (Platform.OS === "web") {
-              setTimeout(() => window.location.reload(), 1000);
-              return;
-            }
-            try {
-              const Updates = await import("expo-updates");
-              await new Promise((r) => setTimeout(r, 900));
-              await (Updates as any).reloadAsync();
-              return;
-            } catch {}
-            setUserState(null);
-            await new Promise((r) => setTimeout(r, 350));
-            setUserState(synced);
-            await new Promise((r) => setTimeout(r, 250));
-            try {
-              const { router } = await import("expo-router");
-              router.replace("/" as any);
-            } catch {}
-          } finally {
-            setTimeout(() => setRoleSwitching(null), 800);
-          }
+            await AsyncStorage.multiRemove([
+              "user",
+              "notifications",
+              "orders",
+              "returnRequests",
+            ]).catch(() => {});
+            await deleteSecureItem("sessionToken");
+          } catch {}
+          setUserState(null);
+          setNotifications([]);
+          setOrdersState([]);
+          setReturnRequests([]);
+          Alert.alert(
+            "تم تغيير دورك",
+            "تم تحديث دورك من قِبل الإدارة. الرجاء تسجيل الدخول مجدداً.",
+            [{ text: "حسناً" }]
+          );
+          try {
+            const { router } = await import("expo-router");
+            router.replace("/auth/login" as any);
+          } catch {}
         })();
       }
     }
@@ -1106,6 +1101,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setProductsState(prods);
     await AsyncStorage.setItem("products", JSON.stringify(prods));
     prods.forEach((p) => FS.saveProduct(p).catch(() => {}));
+  }, []);
+
+  // Single-product helpers — avoid re-writing the entire collection on
+  // every add/edit/delete. Faster local UX and faster real-time propagation
+  // to other clients via the products subscription.
+  const addProductOne = useCallback(async (product: Product) => {
+    setProductsState((prev) => {
+      const next = [product, ...prev];
+      AsyncStorage.setItem("products", JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+    await FS.saveProduct(product);
+  }, []);
+
+  const updateProductOne = useCallback(async (product: Product) => {
+    setProductsState((prev) => {
+      const next = prev.map((p) => (p.id === product.id ? product : p));
+      AsyncStorage.setItem("products", JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+    await FS.saveProduct(product);
+  }, []);
+
+  const deleteProductOne = useCallback(async (productId: string) => {
+    setProductsState((prev) => {
+      const next = prev.filter((p) => p.id !== productId);
+      AsyncStorage.setItem("products", JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+    await FS.deleteProduct(productId);
   }, []);
 
   const addToCart = useCallback((item: CartItem) => {
@@ -1818,7 +1843,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         notification.targetUserId === "self" ||
         notification.targetUserId === currentUser?.id;
       if (isForMe) {
-        playNotificationAlert();
         if (Platform.OS !== "web") {
           try {
             const Notif = await import("expo-notifications");
@@ -1826,7 +1850,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               content: {
                 title: notification.title,
                 body: notification.body,
-                sound: "notification.wav",
+                sound: true,
                 data: { id: notification.id },
               },
               trigger: null,
@@ -1912,6 +1936,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteRegisteredCustomer,
         products,
         setProducts,
+        addProductOne,
+        updateProductOne,
+        deleteProductOne,
         cart,
         setCart,
         addToCart,

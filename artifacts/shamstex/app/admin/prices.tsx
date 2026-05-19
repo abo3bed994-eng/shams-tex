@@ -23,7 +23,7 @@ export default function AdminPricesScreen() {
   useAdminGuard("edit_products");
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, setProducts } = useApp();
+  const { products, updateProductOne } = useApp();
   const [editing, setEditing] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Product>>({});
   const [editTexts, setEditTexts] = useState<{ retail: string; wholesale: string }>({ retail: "", wholesale: "" });
@@ -46,13 +46,10 @@ export default function AdminPricesScreen() {
       Alert.alert("خطأ", "الرجاء إدخال جميع الحقول");
       return;
     }
-    const updated = products.map((p) =>
-      p.id === id
-        ? { ...p, name: editValues.name!, retailPrice: retail, wholesalePrice: wholesale }
-        : p
-    );
+    const target = products.find((p) => p.id === id);
+    if (!target) return;
     try {
-      await setProducts(updated);
+      await updateProductOne({ ...target, name: editValues.name!, retailPrice: retail, wholesalePrice: wholesale });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEditing(null);
     } catch (e) {
