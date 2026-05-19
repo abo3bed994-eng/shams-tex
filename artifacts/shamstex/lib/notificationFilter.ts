@@ -3,8 +3,19 @@ import type { User, Notification } from "@/context/AppContext";
 export function filterNotificationsForUser(notifications: Notification[], user: User | null): Notification[] {
   if (!user) return [];
 
+  // Customers/merchants must NOT see broadcasts that were sent before their
+  // account was created. Staff can see the full history.
+  const isStaff = user.role !== "customer" && user.role !== "merchant";
+  const registeredAt = user.registeredAt || "";
+
   return notifications.filter((n) => {
     if (n.sourceUserId && n.sourceUserId === user.id) return false;
+
+    // Hide broadcasts (no targetUserId) that predate the user's registration,
+    // but always allow direct-targeted notifications (e.g. order updates).
+    if (!isStaff && registeredAt && !n.targetUserId && n.createdAt && n.createdAt < registeredAt) {
+      return false;
+    }
     if (user.role === "admin") {
       if (n.targetUserId) return n.targetUserId === user.id;
       return true;

@@ -54,12 +54,8 @@ async function tryFirebaseUpload(uri: string): Promise<string | null> {
     const downloadUrl = await getDownloadURL(fileRef);
     return downloadUrl;
   } catch (err: any) {
-    const msg = String(err?.message || err);
-    if (msg.includes("storage/unauthorized") || msg.includes("permission") || msg.includes("403")) {
-      console.warn("Firebase Storage: قواعد الأمان تمنع الرفع. يجب تفعيل Storage في Firebase Console وضبط القواعد.");
-    } else {
-      console.warn("Firebase Storage upload failed:", msg);
-    }
+    // Log technical details to developer console only — never surface to user.
+    console.warn("[upload] failed:", String(err?.message || err));
     return null;
   }
 }
@@ -93,7 +89,12 @@ async function toBase64(uri: string): Promise<string> {
   }
 }
 
-let storageWarningShown = false;
+export class UploadFailedError extends Error {
+  constructor() {
+    super("upload_failed");
+    this.name = "UploadFailedError";
+  }
+}
 
 export async function persistImageUri(uri: string): Promise<string> {
   if (!uri) return uri;
@@ -108,17 +109,16 @@ export async function persistImageUri(uri: string): Promise<string> {
   const uploaded = await tryFirebaseUpload(uri);
   if (uploaded) return uploaded;
 
-  if (!storageWarningShown) {
-    storageWarningShown = true;
+  // Videos are too large for base64 in Firestore (1MB doc limit). Fail loudly
+  // instead of silently producing an unusable record.
+  if (isVideoUri(uri)) {
     if (Platform.OS !== "web") {
-      Alert.alert(
-        "تنبيه",
-        "لم يتم تفعيل مستودع الصور السحابي (Firebase Storage) بعد.\n\nالصور ستُحفظ محلياً فقط ولن تظهر للمستخدمين الآخرين.\n\nيرجى تفعيل Firebase Storage من لوحة التحكم.",
-        [{ text: "حسناً" }]
-      );
+      Alert.alert("خطأ", "تعذّر رفع الفيديو، حاول مرة أخرى");
     }
+    throw new UploadFailedError();
   }
 
+  // Images: fall back to base64 so the user still has a usable preview locally.
   return toBase64(uri);
 }
 

@@ -35,7 +35,7 @@ const translations: Record<string, Record<Language, string>> = {
   addedToCart: { ar: "تمت الإضافة", en: "Added" },
   weight: { ar: "وزن", en: "Weight" },
   byWeight: { ar: "بالوزن", en: "By Weight" },
-  byPieces: { ar: "بالثوب", en: "By Roll" },
+  byPieces: { ar: "ثوب", en: "Roll" },
   available: { ar: "متاح", en: "Available" },
   outOfStock: { ar: "نفد المخزون", en: "Out of Stock" },
   colors: { ar: "الألوان المتاحة", en: "Available Colors" },

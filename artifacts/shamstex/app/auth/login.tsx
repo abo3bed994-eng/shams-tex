@@ -90,8 +90,9 @@ export default function LoginScreen() {
   // a first-time login on a new device has no local cache, so we MUST query
   // Firestore directly to detect existing accounts and avoid overwriting them.
   const lookupCustomer = async (p: string): Promise<any | undefined> => {
-    const cached = findCustomerByPhone(p);
-    if (cached) return cached;
+    // ALWAYS verify with Firestore — even if cached. If the admin deleted the
+    // account on another device, the local cache may still have the record
+    // (including a PIN hash) and would otherwise let a deleted user back in.
     try {
       const { FS } = await import("@/lib/firebase");
       const fresh = await FS.getCustomer(p);
@@ -99,8 +100,15 @@ export default function LoginScreen() {
         updateRegisteredCustomer(fresh as any);
         return fresh;
       }
-    } catch {}
-    return undefined;
+      // Firestore says no such customer → treat as new account regardless of
+      // local cache.
+      return undefined;
+    } catch {
+      // Network/Firestore failure: fall back to cache so legitimate users
+      // aren't locked out when offline.
+      const cached = findCustomerByPhone(p);
+      return cached;
+    }
   };
 
   // ---------- Phone submit: PIN-first routing ----------

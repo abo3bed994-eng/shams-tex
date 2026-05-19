@@ -338,8 +338,8 @@ export default function AddProductScreen() {
             </Text>
             <View style={styles.unitRow}>
               {([
-                { value: "meter", label: "بالمتر", icon: "maximize-2" },
-                { value: "kilo", label: "بالكيلو", icon: "package" },
+                { value: "meter", label: "أمتار", icon: "maximize-2" },
+                { value: "kilo", label: "وزن", icon: "package" },
               ] as const).map((opt) => (
                 <Pressable
                   key={opt.value}

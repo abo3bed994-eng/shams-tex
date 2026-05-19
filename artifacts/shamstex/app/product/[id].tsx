@@ -514,7 +514,7 @@ export default function ProductDetailScreen() {
                   },
                 ]}
               >
-                بالثوب
+                ثوب
               </Text>
             </Pressable>
             <Pressable
@@ -539,7 +539,7 @@ export default function ProductDetailScreen() {
                   },
                 ]}
               >
-                {product.unit === "kilo" ? "بالكيلو" : "بالمتر"}
+                {product.unit === "kilo" ? "وزن" : "أمتار"}
               </Text>
             </Pressable>
           </View>

@@ -248,8 +248,8 @@ export default function EditProductScreen() {
           </Text>
           <View style={{ flexDirection: "row-reverse", gap: 12 }}>
             {([
-              { value: "meter" as ProductUnit, label: "بالمتر", icon: "maximize-2" },
-              { value: "kilo" as ProductUnit, label: "بالكيلو", icon: "package" },
+              { value: "meter" as ProductUnit, label: "أمتار", icon: "maximize-2" },
+              { value: "kilo" as ProductUnit, label: "وزن", icon: "package" },
             ]).map((opt) => (
               <Pressable
                 key={opt.value}

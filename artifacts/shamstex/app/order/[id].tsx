@@ -10,6 +10,7 @@ import GoldButton from "@/components/GoldButton";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { persistImageUri } from "@/utils/persistImage";
+import { saveImageToDevice, shareImage } from "@/utils/imageActions";
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
@@ -810,14 +811,20 @@ export default function OrderDetailScreen() {
                 </View>
               )}
 
+              {/* Transfer proof image: visible to BOTH customer and staff so the
+                  team can verify the transfer. Customer also gets an upload/replace
+                  button below. */}
+              {order.transferProofImage ? (
+                <Pressable onPress={() => setShowTransferProof(true)} style={{ marginTop: 4 }}>
+                  <Image source={{ uri: order.transferProofImage }} style={{ width: "100%", height: 180, borderRadius: colors.radius - 6, backgroundColor: colors.surface }} resizeMode="cover" />
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "center", marginTop: 4, fontFamily: "Inter_400Regular" }}>
+                    {isStaff ? "إيصال التحويل من العميل — اضغط للعرض" : "صورة إيصال التحويل — اضغط للعرض"}
+                  </Text>
+                </Pressable>
+              ) : null}
+
               {isCustomer && (
                 <View style={{ gap: 8, marginTop: 4 }}>
-                  {order.transferProofImage ? (
-                    <Pressable onPress={() => setShowTransferProof(true)}>
-                      <Image source={{ uri: order.transferProofImage }} style={{ width: "100%", height: 160, borderRadius: colors.radius - 6, backgroundColor: colors.surface }} resizeMode="cover" />
-                      <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "center", marginTop: 4, fontFamily: "Inter_400Regular" }}>صورة إيصال التحويل — اضغط للعرض</Text>
-                    </Pressable>
-                  ) : null}
                   <Pressable
                     onPress={async () => {
                       try {
@@ -1534,7 +1541,23 @@ export default function OrderDetailScreen() {
             >
               <Icon name="x" size={22} color="#fff" />
             </Pressable>
-            <Image source={{ uri: order.transferProofImage }} style={{ width: "92%", height: "70%", borderRadius: 12 }} resizeMode="contain" />
+            <Image source={{ uri: order.transferProofImage }} style={{ width: "92%", height: "65%", borderRadius: 12 }} resizeMode="contain" />
+            <View style={{ position: "absolute", bottom: insets.bottom + 24, left: 16, right: 16, flexDirection: "row-reverse", gap: 10 }}>
+              <Pressable
+                onPress={() => order.transferProofImage && saveImageToDevice(order.transferProofImage, `transfer_${order.id.slice(0, 8)}`)}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.15)", opacity: pressed ? 0.7 : 1 })}
+              >
+                <Icon name="download" size={18} color="#fff" />
+                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>حفظ في الجهاز</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => order.transferProofImage && shareImage(order.transferProofImage, `transfer_${order.id.slice(0, 8)}`)}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.gold, opacity: pressed ? 0.7 : 1 })}
+              >
+                <Icon name="share-2" size={18} color="#000" />
+                <Text style={{ color: "#000", fontFamily: "Inter_700Bold", fontSize: 13 }}>مشاركة</Text>
+              </Pressable>
+            </View>
           </View>
         </Modal>
       )}
@@ -1594,9 +1617,25 @@ export default function OrderDetailScreen() {
             </Pressable>
             <Image
               source={{ uri: order.invoiceImage }}
-              style={{ width: "92%", height: "70%", borderRadius: 12 }}
+              style={{ width: "92%", height: "65%", borderRadius: 12 }}
               resizeMode="contain"
             />
+            <View style={{ position: "absolute", bottom: insets.bottom + 24, left: 16, right: 16, flexDirection: "row-reverse", gap: 10 }}>
+              <Pressable
+                onPress={() => order.invoiceImage && saveImageToDevice(order.invoiceImage, `invoice_${order.id.slice(0, 8)}`)}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.15)", opacity: pressed ? 0.7 : 1 })}
+              >
+                <Icon name="download" size={18} color="#fff" />
+                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>حفظ في الجهاز</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => order.invoiceImage && shareImage(order.invoiceImage, `invoice_${order.id.slice(0, 8)}`)}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.gold, opacity: pressed ? 0.7 : 1 })}
+              >
+                <Icon name="share-2" size={18} color="#000" />
+                <Text style={{ color: "#000", fontFamily: "Inter_700Bold", fontSize: 13 }}>مشاركة</Text>
+              </Pressable>
+            </View>
           </View>
         </Modal>
       )}
