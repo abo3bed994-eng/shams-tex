@@ -16,12 +16,11 @@ export default function LoadingScreen({
   showTagline,
   taglineText,
   taglineFontFamily,
-  logoSize = 220,
+  logoSize = 180,
   fullscreen = true,
 }: Props) {
   const colors = useColors();
-  const pulseScale = useRef(new Animated.Value(1)).current;
-  const glowOpacity = useRef(new Animated.Value(0.25)).current;
+  const spin = useRef(new Animated.Value(0)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -31,43 +30,26 @@ export default function LoadingScreen({
       useNativeDriver: true,
     }).start();
 
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pulseScale, {
-            toValue: 1.05,
-            duration: 1100,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowOpacity, {
-            toValue: 0.55,
-            duration: 1100,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(pulseScale, {
-            toValue: 1.0,
-            duration: 1100,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowOpacity, {
-            toValue: 0.2,
-            duration: 1100,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 1600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
     );
-    pulse.start();
-    return () => pulse.stop();
+    loop.start();
+    return () => loop.stop();
   }, []);
 
-  const glowSize = logoSize * 1.35;
+  const rotate = spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  // Ring sits ~22px outside the logo on every side.
+  const ringSize = logoSize + 44;
+  const ringThickness = 3;
 
   return (
     <View
@@ -77,30 +59,51 @@ export default function LoadingScreen({
       ]}
     >
       <Animated.View style={{ opacity: fadeIn, alignItems: "center" }}>
-        <View style={[styles.logoWrap, { width: logoSize, height: logoSize }]}>
-          <Animated.View
+        <View
+          style={[
+            styles.stack,
+            { width: ringSize, height: ringSize },
+          ]}
+        >
+          {/* Faint full ring as a subtle track */}
+          <View
             pointerEvents="none"
             style={[
-              styles.glow,
+              styles.ring,
               {
-                width: glowSize,
-                height: glowSize,
-                borderRadius: glowSize / 2,
-                backgroundColor: colors.gold,
-                opacity: glowOpacity,
+                width: ringSize,
+                height: ringSize,
+                borderRadius: ringSize / 2,
+                borderWidth: ringThickness,
+                borderColor: colors.gold,
+                opacity: 0.12,
               },
             ]}
           />
-          <Animated.Image
-            source={require("../assets/images/loading-logo.png")}
+
+          {/* Rotating arc — only top + right edges are bright gold, the
+              other two are transparent so we see a quarter-circle sweeping. */}
+          <Animated.View
+            pointerEvents="none"
             style={[
-              styles.logo,
+              styles.ring,
               {
-                width: logoSize,
-                height: logoSize,
-                transform: [{ scale: pulseScale }],
+                width: ringSize,
+                height: ringSize,
+                borderRadius: ringSize / 2,
+                borderWidth: ringThickness,
+                borderTopColor: colors.gold,
+                borderRightColor: colors.gold,
+                borderBottomColor: "transparent",
+                borderLeftColor: "transparent",
+                transform: [{ rotate }],
               },
             ]}
+          />
+
+          <Image
+            source={require("../assets/images/logo.png")}
+            style={{ width: logoSize, height: logoSize }}
             resizeMode="contain"
           />
         </View>
@@ -141,17 +144,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 32,
   },
-  logoWrap: {
+  stack: {
     alignItems: "center",
     justifyContent: "center",
   },
-  glow: {
+  ring: {
     position: "absolute",
   },
-  logo: {},
   tagBlock: {
     alignItems: "center",
-    marginTop: 24,
+    marginTop: 28,
     gap: 10,
   },
   tagline: {
@@ -169,6 +171,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 13,
     fontFamily: "Inter_500Medium",
-    opacity: 0.7,
   },
 });
