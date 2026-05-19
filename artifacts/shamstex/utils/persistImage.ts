@@ -18,6 +18,25 @@ function isVideoUri(uri: string): boolean {
   return ["mp4", "mov", "avi", "mkv", "webm", "m4v"].includes(ext);
 }
 
+// React-Native–friendly blob fetch.
+// XHR with responseType="blob" is the canonical RN pattern: it streams the
+// file via the native bridge instead of loading the whole thing into JS memory
+// (which crashes for videos > ~30MB on low-end Android phones).
+function uriToBlobXHR(uri: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = () => {
+      if (xhr.response) resolve(xhr.response as Blob);
+      else reject(new Error("empty_blob"));
+    };
+    xhr.onerror = () => reject(new Error("xhr_blob_failed"));
+    xhr.ontimeout = () => reject(new Error("xhr_blob_timeout"));
+    xhr.responseType = "blob";
+    xhr.open("GET", uri, true);
+    xhr.send(null);
+  });
+}
+
 async function uriToBlob(uri: string): Promise<Blob> {
   if (Platform.OS === "web") {
     if (uri.startsWith("data:") || uri.startsWith("blob:") || uri.startsWith("http")) {
@@ -26,6 +45,14 @@ async function uriToBlob(uri: string): Promise<Blob> {
     }
   }
 
+  // Fast path on native: stream via XHR.
+  try {
+    return await uriToBlobXHR(uri);
+  } catch (e) {
+    console.warn("[upload] XHR blob path failed, falling back to base64:", String((e as Error)?.message || e));
+  }
+
+  // Legacy fallback: base64 round-trip. Memory-heavy but works as a last resort.
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
@@ -40,24 +67,53 @@ async function uriToBlob(uri: string): Promise<Blob> {
   return new Blob([bytes], { type: mimeType });
 }
 
-async function tryFirebaseUpload(uri: string): Promise<string | null> {
-  try {
-    const { storage } = await import("@/lib/firebase");
-    const { ref: storageRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
-    const ext = getExtension(uri);
-    const folder = isVideoUri(uri) ? "videos" : "images";
-    const filename = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const fileRef = storageRef(storage, filename);
-    const blob = await uriToBlob(uri);
-    await uploadBytes(fileRef, blob);
-    const downloadUrl = await getDownloadURL(fileRef);
-    return downloadUrl;
-  } catch (err: any) {
-    // Log technical details to developer console only — never surface to user.
-    console.warn("[upload] failed:", String(err?.message || err));
-    return null;
+async function uploadOnce(uri: string): Promise<string> {
+  const { storage } = await import("@/lib/firebase");
+  const { ref: storageRef, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+
+  const ext = getExtension(uri);
+  const isVideo = isVideoUri(uri);
+  const folder = isVideo ? "videos" : "images";
+  const filename = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const fileRef = storageRef(storage, filename);
+  const blob = await uriToBlob(uri);
+  const mimeType = getMimeType(ext);
+
+  // Resumable upload: chunks the file, auto-retries on transient network errors,
+  // and lets us await final completion via the snapshot-state promise.
+  await new Promise<void>((resolve, reject) => {
+    const task = uploadBytesResumable(fileRef, blob, { contentType: mimeType });
+    task.on(
+      "state_changed",
+      undefined,
+      (err) => reject(err),
+      () => resolve(),
+    );
+  });
+
+  return await getDownloadURL(fileRef);
+}
+
+async function tryFirebaseUpload(uri: string): Promise<string | null> {
+  const MAX_ATTEMPTS = 3;
+  let lastErr: any = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await uploadOnce(uri);
+    } catch (err: any) {
+      lastErr = err;
+      console.warn(`[upload] attempt ${attempt}/${MAX_ATTEMPTS} failed:`, String(err?.code || err?.message || err));
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(1500 * attempt);
+      }
+    }
   }
+  console.warn("[upload] gave up after retries:", String(lastErr?.code || lastErr?.message || lastErr));
+  return null;
 }
 
 async function toBase64(uri: string): Promise<string> {
