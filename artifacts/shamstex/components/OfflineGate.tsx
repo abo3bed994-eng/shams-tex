@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Icon from "./Icon";
 import { useColors } from "@/hooks/useColors";
@@ -111,11 +111,23 @@ export default function OfflineGate() {
       <View style={[StyleSheet.absoluteFill, styles.tint]} />
 
       <View style={styles.center}>
-        <Image
-          source={require("../assets/images/loading-logo.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <View style={styles.iconHalo}>
+          <View
+            style={[
+              styles.iconRingOuter,
+              { borderColor: colors.gold, shadowColor: colors.gold },
+            ]}
+          >
+            <View
+              style={[
+                styles.iconRingInner,
+                { borderColor: colors.gold, backgroundColor: "rgba(0,0,0,0.55)" },
+              ]}
+            >
+              <Icon name="zap-off" size={46} color={colors.gold} />
+            </View>
+          </View>
+        </View>
         <Text style={[styles.title, { color: colors.gold }]}>لا يوجد اتصال بالإنترنت</Text>
         <Text style={styles.subtitle}>
           سيعود التطبيق تلقائياً بمجرد عودة الاتصال.
@@ -151,10 +163,30 @@ const styles = StyleSheet.create({
     padding: 28,
     gap: 14,
   },
-  logo: {
-    width: 130,
-    height: 130,
-    marginBottom: 4,
+  iconHalo: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  iconRingOuter: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
+  },
+  iconRingInner: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     fontSize: 22,

@@ -746,12 +746,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsub = FS.subscribeSession(user.phone, async (remoteToken) => {
         if (cancelled || !remoteToken) return;
         if (remoteToken !== localToken) {
-          // Another device took over this account → log out immediately
+          // Another device took over this account → log out FULLY immediately:
+          // clear all per-user state, secure token, then force-navigate to the
+          // login screen so the old session can no longer interact with the app.
           try {
-            await AsyncStorage.removeItem("user");
+            await AsyncStorage.multiRemove([
+              "user",
+              "notifications",
+              "orders",
+              "returnRequests",
+            ]).catch(() => {});
             await deleteSecureItem("sessionToken");
           } catch {}
           setUserState(null);
+          setNotifications([]);
+          setOrdersState([]);
+          setReturnRequests([]);
+          try {
+            const { router } = await import("expo-router");
+            router.replace("/auth/login" as any);
+          } catch {}
           Alert.alert(
             "تم تسجيل الدخول من جهاز آخر",
             "تم تسجيل دخول حسابك على جهاز آخر، فتم إخراجك من هذا الجهاز.",
