@@ -23,7 +23,8 @@ import { AppProvider, useApp } from "@/context/AppContext";
 import SplashScreenComponent from "@/components/SplashScreenComponent";
 import Toast from "@/components/Toast";
 import NotificationBanner from "@/components/NotificationBanner";
-import OfflineBanner from "@/components/OfflineBanner";
+import OfflineGate from "@/components/OfflineGate";
+import LoadingScreen from "@/components/LoadingScreen";
 import RoleSwitchOverlay from "@/components/RoleSwitchOverlay";
 import ForceUpdateScreen from "@/components/ForceUpdateScreen";
 import { registerForPushNotifications } from "@/lib/pushService";
@@ -114,6 +115,10 @@ function RootLayoutNav() {
     return <ForceUpdateScreen />;
   }
 
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
@@ -137,8 +142,8 @@ function RootLayoutNav() {
       </Stack>
       <Toast />
       <NotificationBanner />
-      <OfflineBanner />
       <RoleSwitchOverlay />
+      <OfflineGate />
     </>
   );
 }
