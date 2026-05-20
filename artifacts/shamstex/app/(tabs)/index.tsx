@@ -70,7 +70,8 @@ export default function HomeScreen() {
   }, []);
 
   const myNotifications = filterNotificationsForUser(notifications, user);
-  const unreadCount = myNotifications.filter((n) => !n.read).length;
+  const { isNotifReadForUser } = useApp();
+  const unreadCount = myNotifications.filter((n) => !isNotifReadForUser(n)).length;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const featuredProducts =

@@ -958,40 +958,33 @@ export default function OrderDetailScreen() {
                       );
                       return;
                     }
-                    Alert.alert(
-                      "تأكيد",
-                      `هل تريد "${nextAction.label}"؟`,
-                      [
-                        { text: "إلغاء", style: "cancel" },
-                        { text: "نعم", onPress: () => {
-                          if (nextAction.next === "ready") {
-                            const hasPiecesWithoutWeight = order.items.some(
-                              (i) => i.orderType === "pieces" && !i.actualWeight
-                            );
-                            if (hasPiecesWithoutWeight) {
-                              const newItems = order.items.map((i) => {
-                                if (i.orderType === "pieces" && !i.actualWeight) {
-                                  return { ...i, actualWeight: i.quantity * 20 };
-                                }
-                                return i;
-                              });
-                              const weightTotal = newItems
-                                .filter((i) => i.orderType === "weight")
-                                .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              const piecesTotal = newItems
-                                .filter((i) => i.orderType === "pieces")
-                                .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
-                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
-                            }
+                    // Instant single-tap advance — no confirmation dialog.
+                    // User explicitly requested instant transitions even on repeat taps.
+                    if (nextAction.next === "ready") {
+                      const hasPiecesWithoutWeight = order.items.some(
+                        (i) => i.orderType === "pieces" && !i.actualWeight
+                      );
+                      if (hasPiecesWithoutWeight) {
+                        const newItems = order.items.map((i) => {
+                          if (i.orderType === "pieces" && !i.actualWeight) {
+                            return { ...i, actualWeight: i.quantity * 20 };
                           }
-                          if (nextAction.next === "received" && user?.role !== "admin") {
-                            updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
-                          } else {
-                            updateOrderStatus(order.id, nextAction.next);
-                          }
-                        }},
-                      ]
-                    );
+                          return i;
+                        });
+                        const weightTotal = newItems
+                          .filter((i) => i.orderType === "weight")
+                          .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                        const piecesTotal = newItems
+                          .filter((i) => i.orderType === "pieces")
+                          .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                        updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                      }
+                    }
+                    if (nextAction.next === "received" && user?.role !== "admin") {
+                      updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
+                    } else {
+                      updateOrderStatus(order.id, nextAction.next);
+                    }
                   }}
                   style={{ flex: 1 }}
                 />

@@ -26,7 +26,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, addToCart, showToast } = useApp();
+  const { products, user, addToCart, showToast, effectivePriceMode } = useApp();
 
   const { width: windowWidth } = useWindowDimensions();
   const imgScrollRef = useRef<ScrollView>(null);
@@ -69,9 +69,7 @@ export default function ProductDetailScreen() {
   }
 
   const displayPrice =
-    user?.role === "merchant" || user?.role === "admin"
-      ? product.wholesalePrice
-      : product.retailPrice;
+    effectivePriceMode === "wholesale" ? product.wholesalePrice : product.retailPrice;
 
   const totalPieces = Object.values(selectedColors).reduce((a, b) => a + b, 0);
   const selectedColorCount = Object.keys(selectedColors).length;

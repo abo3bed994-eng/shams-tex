@@ -12,15 +12,12 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, onPress }: ProductCardProps) {
   const colors = useColors();
-  const { user } = useApp();
+  const { effectivePriceMode } = useApp();
 
   const displayPrice =
-    user?.role === "merchant" || user?.role === "admin"
-      ? product.wholesalePrice
-      : product.retailPrice;
+    effectivePriceMode === "wholesale" ? product.wholesalePrice : product.retailPrice;
 
-  const priceLabel =
-    user?.role === "merchant" || user?.role === "admin" ? "سعر الجملة" : "السعر";
+  const priceLabel = effectivePriceMode === "wholesale" ? "سعر الجملة" : "السعر";
 
   const isOutOfStock = !product.inStock;
 

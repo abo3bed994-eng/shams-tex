@@ -22,7 +22,7 @@ const OUT_OF_STOCK_LABEL = "غير متوفر";
 export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, cart, settings } = useApp();
+  const { products, user, cart, settings, pricingView, setPricingView, canTogglePricing, effectivePriceMode } = useApp();
   const { t, isRTL } = useTranslation();
   const CATEGORIES = settings.categories.length > 0 ? settings.categories : [isRTL ? "الكل" : "All"];
   const [search, setSearch] = useState("");
@@ -115,6 +115,41 @@ export default function ProductsScreen() {
           },
         ]}
       >
+        {canTogglePricing && (
+          <View style={{ flexDirection: "row-reverse", gap: 6, paddingHorizontal: 16, paddingTop: 10, alignItems: "center" }}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_500Medium" }}>
+              عرض الأسعار:
+            </Text>
+            {([
+              { v: "wholesale", l: "تجار" },
+              { v: "retail", l: "عملاء" },
+            ] as const).map((opt) => {
+              const active = effectivePriceMode === opt.v;
+              return (
+                <Pressable
+                  key={opt.v}
+                  onPress={() => setPricingView(opt.v)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    backgroundColor: active ? colors.gold + "33" : "transparent",
+                    borderColor: active ? colors.gold : colors.border,
+                  }}
+                >
+                  <Text style={{
+                    color: active ? colors.gold : colors.mutedForeground,
+                    fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular",
+                    fontSize: 12,
+                  }}>
+                    {opt.l}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
         <View
           style={[
             styles.searchBar,

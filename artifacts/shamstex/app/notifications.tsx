@@ -11,7 +11,7 @@ import { filterNotificationsForUser } from "@/lib/notificationFilter";
 export default function NotificationsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { notifications, markNotificationRead, markAllNotificationsRead, user, registeredCustomers, updateRegisteredCustomer } = useApp();
+  const { notifications, markNotificationRead, markAllNotificationsRead, user, registeredCustomers, updateRegisteredCustomer, isNotifReadForUser } = useApp();
   const markedRef = useRef(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -19,7 +19,7 @@ export default function NotificationsScreen() {
   const visibleNotifications = useMemo(() => filterNotificationsForUser(notifications, user), [notifications, user]);
 
   useEffect(() => {
-    if (!markedRef.current && visibleNotifications.some((n) => !n.read)) {
+    if (!markedRef.current && visibleNotifications.some((n) => !isNotifReadForUser(n))) {
       markedRef.current = true;
       markAllNotificationsRead();
     }

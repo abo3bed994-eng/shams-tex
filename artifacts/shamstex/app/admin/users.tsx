@@ -58,6 +58,7 @@ const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   cancel_returns: "إلغاء الاسترجاعات",
   manage_settings: "إدارة الإعدادات",
   manage_payments: "تفعيل/تعطيل وسائل الدفع",
+  toggle_price_view: "التبديل بين أسعار التجار/العملاء",
 };
 
 const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
@@ -67,6 +68,7 @@ const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
   "edit_products",
   "view_users",
   "send_notifications",
+  "toggle_price_view",
 ];
 
 const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
@@ -82,6 +84,7 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "cancel_returns",
   "manage_settings",
   "manage_payments",
+  "toggle_price_view",
 ];
 
 const DEMO_STAFF: User[] = [

@@ -21,7 +21,8 @@ export type EmployeePermission =
   | "delete_orders"
   | "cancel_returns"
   | "manage_settings"
-  | "manage_payments";
+  | "manage_payments"
+  | "toggle_price_view";
 
 export interface User {
   id: string;
@@ -372,6 +373,11 @@ interface AppContextType {
   roleSwitching: string | null;
   showToast: (message: string, type?: "success" | "error") => void;
   toast: { message: string; type: "success" | "error"; visible: boolean };
+  pricingView: "auto" | "wholesale" | "retail";
+  setPricingView: (mode: "auto" | "wholesale" | "retail") => Promise<void>;
+  effectivePriceMode: "wholesale" | "retail";
+  canTogglePricing: boolean;
+  isNotifReadForUser: (n: Notification) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -495,6 +501,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<AppLanguage>("ar");
   const [isLoading, setIsLoading] = useState(true);
   const [roleSwitching, setRoleSwitching] = useState<string | null>(null);
+  const [pricingView, setPricingViewState] = useState<"auto" | "wholesale" | "retail">("auto");
+  const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
+  const readNotifIdsRef = React.useRef<Set<string>>(new Set());
+  readNotifIdsRef.current = readNotifIds;
+  const pendingOrderUpdatesRef = React.useRef<Map<string, number>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
   const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -506,6 +517,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadPersistedData();
+  }, []);
+
+  // Load per-user read-notification set + per-device pricing view from AsyncStorage
+  // whenever the active user changes. This is the source of truth for "is this
+  // notification read for ME" — overlays Firestore's shared `read` flag so a
+  // failed batchMarkRead does NOT cause notifications to reappear as unread.
+  useEffect(() => {
+    (async () => {
+      try {
+        const pvRaw = await AsyncStorage.getItem("pricingView");
+        if (pvRaw === "wholesale" || pvRaw === "retail" || pvRaw === "auto") {
+          setPricingViewState(pvRaw);
+        } else {
+          setPricingViewState("auto");
+        }
+      } catch {}
+      const phone = user?.phone;
+      if (!phone) {
+        setReadNotifIds(new Set());
+        return;
+      }
+      try {
+        const raw = await AsyncStorage.getItem(`readNotifIds_${phone}`);
+        if (raw) {
+          const arr = JSON.parse(raw) as string[];
+          setReadNotifIds(new Set(arr));
+        } else {
+          setReadNotifIds(new Set());
+        }
+      } catch {
+        setReadNotifIds(new Set());
+      }
+    })();
+  }, [user?.phone]);
+
+  const persistReadNotifIds = useCallback(async (next: Set<string>) => {
+    const phone = userRef.current?.phone;
+    if (!phone) return;
+    try {
+      // Cap at 1000 ids to avoid unbounded growth
+      const arr = [...next];
+      const trimmed = arr.length > 1000 ? arr.slice(arr.length - 1000) : arr;
+      await AsyncStorage.setItem(`readNotifIds_${phone}`, JSON.stringify(trimmed));
+    } catch {}
   }, []);
 
   // Helper extracted so it can run from both the staff full-collection
@@ -725,8 +780,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const isStaff = user.role !== "customer" && user.role !== "merchant";
     const unsub = FS.subscribeOrdersForUser(user.phone, isStaff, (freshOrders) => {
-      setOrdersState(freshOrders);
-      AsyncStorage.setItem("orders", JSON.stringify(freshOrders)).catch(() => {});
+      // Protect optimistic updates: for any order we just changed locally,
+      // keep our local version until the in-flight save resolves. This
+      // prevents the "I tapped advance but the status snapped back" bug
+      // when a stale snapshot arrives before our write commits.
+      const pending = pendingOrderUpdatesRef.current;
+      let merged = freshOrders;
+      if (pending.size > 0) {
+        const localById = new Map(ordersRef.current.map((o) => [o.id, o]));
+        merged = freshOrders.map((o) => (pending.has(o.id) && localById.has(o.id) ? localById.get(o.id)! : o));
+      }
+      setOrdersState(merged);
+      ordersRef.current = merged;
+      AsyncStorage.setItem("orders", JSON.stringify(merged)).catch(() => {});
     });
     return () => unsub();
   }, [user?.id, user?.role]);
@@ -1333,28 +1399,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  // Best-effort save with retry/backoff. Keeps optimistic UI authoritative
+  // for the in-flight window; if all retries fail, surfaces a toast so the
+  // user knows the change might not be persisted server-side.
+  const saveOrderWithRetry = useCallback((order: Order, orderId: string) => {
+    let attempt = 0;
+    const tryOnce = () => {
+      FS.saveOrder(order)
+        .then(() => {
+          setTimeout(() => pendingOrderUpdatesRef.current.delete(orderId), 2000);
+        })
+        .catch(() => {
+          attempt += 1;
+          if (attempt < 3) {
+            setTimeout(tryOnce, 500 * attempt);
+          } else {
+            pendingOrderUpdatesRef.current.delete(orderId);
+            showToast("تعذّر مزامنة حالة الطلب — تحقق من الاتصال", "error");
+          }
+        });
+    };
+    tryOnce();
+  }, [showToast]);
+
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => {
-      // Atomic claim path: prevent two staff from grabbing the same order.
-      if (status === "received" && assignedToId) {
-        const claimerPhone = userRef.current?.id === assignedToId ? userRef.current?.phone : undefined;
-        const claim = await FS.claimOrder(orderId, assignedToId, assignedToName ?? "موظف", claimerPhone);
-        if (!claim.ok) {
-          if (claim.reason === "already_taken") {
-            Alert.alert("الطلب محجوز", `استلم هذا الطلب الموظف ${claim.takenBy ?? ""} قبل قليل.`);
-          } else {
-            Alert.alert("خطأ", "تعذّر استلام الطلب. حاول مرة أخرى.");
-          }
-          return;
-        }
+      const prevOrder = ordersRef.current.find((o) => o.id === orderId);
+      if (!prevOrder) return;
+      // Idempotency: same status, same staff → no-op (prevents double-tap glitches)
+      if (
+        prevOrder.status === status &&
+        (status !== "received" || !assignedToId || prevOrder.assignedTo === assignedToId)
+      ) {
+        return;
       }
+
       const patch: Partial<Order> = { status };
+      const claimerPhone = userRef.current?.id === assignedToId ? userRef.current?.phone : undefined;
       if (status === "received" && assignedToId) {
         patch.assignedTo = assignedToId;
         patch.assignedToName = assignedToName;
-        // Persist phone so staff-targeted notifications (e.g. customer-edit)
-        // can verify against Firestore rules.
-        const claimerPhone = userRef.current?.id === assignedToId ? userRef.current?.phone : undefined;
         if (claimerPhone) patch.assignedToPhone = claimerPhone;
       }
       if (status === "pending") {
@@ -1365,13 +1449,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (status === "delivered") {
         patch.deliveredAt = new Date().toISOString();
       }
+
+      // INSTANT optimistic UI update FIRST — never wait for Firestore.
       const updated = ordersRef.current.map((o) => (o.id !== orderId ? o : { ...o, ...patch }));
-      const updatedOrder = updated.find((o) => o.id === orderId);
+      const updatedOrder = updated.find((o) => o.id === orderId)!;
       setOrdersState(updated);
       ordersRef.current = updated;
-      await AsyncStorage.setItem("orders", JSON.stringify(updated));
-      if (updatedOrder) {
-        FS.saveOrder(updatedOrder).catch(() => {});
+      // Mark this order as "in-flight" so the orders subscription won't
+      // briefly revert it if a stale snapshot arrives before our write commits.
+      pendingOrderUpdatesRef.current.set(orderId, Date.now());
+      AsyncStorage.setItem("orders", JSON.stringify(updated)).catch(() => {});
+
+      // Atomic claim runs in BACKGROUND for "received" — UI already moved.
+      // If another staff already claimed it, revert UI + alert.
+      if (status === "received" && assignedToId) {
+        FS.claimOrder(orderId, assignedToId, assignedToName ?? "موظف", claimerPhone).then((claim) => {
+          if (!claim.ok && claim.reason === "already_taken") {
+            // Someone else got it first → revert our optimistic update
+            const reverted = ordersRef.current.map((o) => (o.id === orderId ? prevOrder : o));
+            ordersRef.current = reverted;
+            setOrdersState(reverted);
+            AsyncStorage.setItem("orders", JSON.stringify(reverted)).catch(() => {});
+            pendingOrderUpdatesRef.current.delete(orderId);
+            Alert.alert("الطلب محجوز", `استلم هذا الطلب الموظف ${claim.takenBy ?? ""} قبل قليل.`);
+          } else if (!claim.ok) {
+            // Transaction failed (network) — retry via saveOrder as a fallback
+            saveOrderWithRetry(updatedOrder, orderId);
+          } else {
+            // Claim succeeded — clear pending flag after a short grace window
+            setTimeout(() => pendingOrderUpdatesRef.current.delete(orderId), 3000);
+          }
+        }).catch(() => {
+          saveOrderWithRetry(updatedOrder, orderId);
+        });
+      } else {
+        saveOrderWithRetry(updatedOrder, orderId);
+      }
+
+      // Notifications fire regardless (they're per-status, idempotent by id)
+      {
         const statusLabels: Record<string, string> = {
           received: "تم استلام طلبك",
           preparing: "طلبك قيد التجهيز",
@@ -1878,27 +1994,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const markNotificationRead = useCallback(
     async (id: string) => {
+      // Track in per-user local set so we don't depend on Firestore's shared
+      // `read` flag for broadcast notifications. This prevents "notifications
+      // reappear" bug when batchMarkRead fails silently or when the doc is
+      // shared across users.
+      const next = new Set(readNotifIdsRef.current);
+      next.add(id);
+      setReadNotifIds(next);
+      persistReadNotifIds(next);
       const updated = notificationsRef.current.map((n) => (n.id === id ? { ...n, read: true } : n));
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
-      // Use a field-only update so non-staff users pass the rule that
-      // restricts updates to the `read` flag.
       FS.markNotificationReadFlag(id).catch(() => {});
     },
-    []
+    [persistReadNotifIds]
   );
 
   const markAllNotificationsRead = useCallback(
     async () => {
-      const unreadIds = notificationsRef.current.filter((n) => !n.read).map((n) => n.id);
+      const localSet = readNotifIdsRef.current;
+      const unreadIds = notificationsRef.current
+        .filter((n) => !n.read && !localSet.has(n.id))
+        .map((n) => n.id);
       if (unreadIds.length === 0) return;
+      const next = new Set(localSet);
+      for (const id of unreadIds) next.add(id);
+      setReadNotifIds(next);
+      persistReadNotifIds(next);
       const updated = notificationsRef.current.map((n) => ({ ...n, read: true }));
       setNotifications(updated);
       AsyncStorage.setItem("notifications", JSON.stringify(updated)).catch(() => {});
       FS.batchMarkRead(unreadIds).catch(() => {});
     },
+    [persistReadNotifIds]
+  );
+
+  const isNotifReadForUser = useCallback(
+    (n: Notification) => {
+      if (n.read) return true;
+      return readNotifIdsRef.current.has(n.id);
+    },
     []
   );
+
+  const setPricingView = useCallback(async (mode: "auto" | "wholesale" | "retail") => {
+    setPricingViewState(mode);
+    try { await AsyncStorage.setItem("pricingView", mode); } catch {}
+  }, []);
 
   const updateCartWeight = useCallback(
     (productId: string, colorName: string, weight: number) => {
@@ -1937,6 +2079,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLanguageState(l);
     await AsyncStorage.setItem("language", l);
   }, []);
+
+  // Effective price mode: customer/non-staff non-merchant => retail.
+  // merchant => wholesale (always).
+  // admin/staff: defaults to wholesale, but if pricingView is set explicitly
+  // and the user has permission to toggle, use that.
+  const canTogglePricing = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+    if (user.role === "supervisor" || user.role === "employee") {
+      return (user.permissions ?? []).includes("toggle_price_view");
+    }
+    return false;
+  }, [user?.role, user?.permissions]);
+
+  const effectivePriceMode: "wholesale" | "retail" = useMemo(() => {
+    if (!user) return "retail";
+    if (user.role === "customer") return "retail";
+    if (user.role === "merchant") return "wholesale";
+    // staff/admin
+    if (canTogglePricing && (pricingView === "wholesale" || pricingView === "retail")) {
+      return pricingView;
+    }
+    return "wholesale";
+  }, [user?.role, pricingView, canTogglePricing]);
 
   return (
     <AppContext.Provider
@@ -2000,6 +2166,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         roleSwitching,
         showToast,
         toast,
+        pricingView,
+        setPricingView,
+        effectivePriceMode,
+        canTogglePricing,
+        isNotifReadForUser,
       }}
     >
       {children}
