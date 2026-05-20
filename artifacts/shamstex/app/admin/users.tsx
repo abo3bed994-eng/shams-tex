@@ -173,7 +173,10 @@ export default function AdminUsersScreen() {
   // Customers list deduplicated by canonical phone too.
   const customerMap = new Map<string, User>();
   for (const c of registeredCustomers) {
-    if (c.role !== "customer" && c.role !== "merchant") continue;
+    // Defensive: missing/unknown role → treat as customer so freshly re-registered
+    // accounts (which might briefly land without an explicit role field) still show.
+    const role = c.role || "customer";
+    if (role !== "customer" && role !== "merchant") continue;
     const key = canonicalPhone(c.phone) || c.id;
     const existing = customerMap.get(key);
     if (!existing) {
@@ -233,8 +236,14 @@ export default function AdminUsersScreen() {
 
   const handleChangeCustomerRole = (userId: string, newRole: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Look up in the FULL registeredCustomers (not customerList) so a merchant
+    // who was just changed to staff (and thus excluded from customerList) can
+    // still be resolved during the confirm step. Also fall back to canonical
+    // phone matching in case the id drifted across registrations.
     const updated =
+      registeredCustomers.find((u) => u.id === userId) ||
       customerList.find((u) => u.id === userId) ||
+      registeredCustomers.find((u) => samePhone(u.phone, userId)) ||
       customerList.find((u) => samePhone(u.phone, userId));
     if (updated) {
       let perms: EmployeePermission[] | undefined = undefined;
@@ -390,6 +399,66 @@ export default function AdminUsersScreen() {
     "0000000001",
     "+200000000001",
   ];
+
+  const handleBanCustomer = (u: User) => {
+    if (PROTECTED_PHONES.some((p) => samePhone(p, u.phone))) {
+      Alert.alert("غير مسموح", "لا يمكن حظر المدير الأساسي.");
+      return;
+    }
+    Alert.alert(
+      "حظر المستخدم",
+      `هل تريد حظر "${u.name}" (${u.phone})؟\n\nلن يتمكن من تسجيل الدخول أو استخدام التطبيق.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حظر",
+          style: "destructive",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            saveCustomerChange({
+              ...u,
+              banned: true,
+              bannedAt: new Date().toISOString(),
+              lastUpdated: new Date().toISOString(),
+            } as any);
+            if (user) {
+              FS.appendAuditLog({
+                actorId: user.id,
+                actorName: user.name ?? "—",
+                actorRole: user.role,
+                action: "user.ban",
+                targetId: u.id,
+                targetType: "user",
+                details: { phone: u.phone },
+              }).catch(() => {});
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnbanCustomer = (u: User) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    saveCustomerChange({
+      ...u,
+      banned: false,
+      bannedAt: undefined,
+      bannedReason: undefined,
+      lastUpdated: new Date().toISOString(),
+    } as any);
+    if (user) {
+      FS.appendAuditLog({
+        actorId: user.id,
+        actorName: user.name ?? "—",
+        actorRole: user.role,
+        action: "user.unban",
+        targetId: u.id,
+        targetType: "user",
+        details: { phone: u.phone },
+      }).catch(() => {});
+    }
+  };
 
   const handleDeleteCustomer = (u: User) => {
     Alert.alert(
@@ -581,6 +650,12 @@ export default function AdminUsersScreen() {
                   <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 10 }}>مميز</Text>
                 </View>
               )}
+              {u.banned && (
+                <View style={[styles.vipBadge, { backgroundColor: "#E74C3C33" }]}>
+                  <Icon name="slash" size={10} color="#E74C3C" />
+                  <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 10 }}>محظور</Text>
+                </View>
+              )}
             </View>
             <Text style={[styles.userPhone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
               {u.phone}
@@ -742,6 +817,18 @@ export default function AdminUsersScreen() {
                 </Text>
               </Pressable>
             </View>
+
+            {(user?.role === "admin" || (user?.role === "supervisor" && (user.permissions ?? []).includes("manage_staff"))) && !PROTECTED_PHONES.some((p) => samePhone(p, u.phone)) && (
+              <Pressable
+                onPress={() => (u.banned ? handleUnbanCustomer(u) : handleBanCustomer(u))}
+                style={[styles.deleteUserBtn, { borderColor: u.banned ? "#27AE6044" : "#F39C1244", backgroundColor: u.banned ? "#27AE6011" : "#F39C1211", borderRadius: colors.radius - 4 }]}
+              >
+                <Icon name={u.banned ? "unlock" : "slash"} size={14} color={u.banned ? "#27AE60" : "#F39C12"} />
+                <Text style={{ color: u.banned ? "#27AE60" : "#F39C12", fontFamily: "Inter_500Medium", fontSize: 13 }}>
+                  {u.banned ? "إلغاء حظر المستخدم" : "حظر المستخدم"}
+                </Text>
+              </Pressable>
+            )}
 
             {user?.role === "admin" && (
               <Pressable

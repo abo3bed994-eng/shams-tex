@@ -98,12 +98,19 @@ async function uploadOnce(uri: string): Promise<string> {
   return await getDownloadURL(fileRef);
 }
 
+let lastUploadError: string = "";
+export function getLastUploadError(): string {
+  return lastUploadError;
+}
+
 async function tryFirebaseUpload(uri: string): Promise<string | null> {
   const MAX_ATTEMPTS = 3;
   let lastErr: any = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await uploadOnce(uri);
+      const url = await uploadOnce(uri);
+      lastUploadError = "";
+      return url;
     } catch (err: any) {
       lastErr = err;
       console.warn(`[upload] attempt ${attempt}/${MAX_ATTEMPTS} failed:`, String(err?.code || err?.message || err));
@@ -112,7 +119,8 @@ async function tryFirebaseUpload(uri: string): Promise<string | null> {
       }
     }
   }
-  console.warn("[upload] gave up after retries:", String(lastErr?.code || lastErr?.message || lastErr));
+  lastUploadError = String(lastErr?.code || lastErr?.message || lastErr || "unknown");
+  console.warn("[upload] gave up after retries:", lastUploadError);
   return null;
 }
 
@@ -169,7 +177,11 @@ export async function persistImageUri(uri: string): Promise<string> {
   // instead of silently producing an unusable record.
   if (isVideoUri(uri)) {
     if (Platform.OS !== "web") {
-      Alert.alert("خطأ", "تعذّر رفع الفيديو، حاول مرة أخرى");
+      const detail = lastUploadError ? `\n\nالتفاصيل: ${lastUploadError}` : "";
+      Alert.alert(
+        "تعذّر رفع الفيديو",
+        `حاول مرة أخرى. تأكد أن حجم الفيديو أقل من 100 ميجا وأنك متصل بإنترنت مستقر.${detail}`
+      );
     }
     throw new UploadFailedError();
   }

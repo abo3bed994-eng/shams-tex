@@ -53,6 +53,7 @@ export default function ProfileScreen() {
       targetRole: "admin",
       actionType: "upgrade_request",
       actionUserId: user.id,
+      sourceUserId: user.id,
     });
     Alert.alert(
       isRTL ? "تم إرسال الطلب" : "Request Sent",

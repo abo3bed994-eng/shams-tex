@@ -135,6 +135,15 @@ export default function LoginScreen() {
       return;
     }
     const existing = await lookupCustomer(e164Phone);
+    if (existing && (existing as any).banned) {
+      setError(
+        (existing as any).bannedReason
+          ? `تم حظر هذا الحساب: ${(existing as any).bannedReason}`
+          : "تم حظر هذا الحساب من قِبل الإدارة."
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
     if (existing) {
       setPin("");
       setConfirmPin("");
@@ -212,6 +221,15 @@ export default function LoginScreen() {
       const result = await confirmRef.current.confirm(otp);
       const verifiedPhone = result.phoneNumber || e164Phone;
       const existing = await lookupCustomer(verifiedPhone);
+      if (existing && (existing as any).banned && !isOwnerPhone(verifiedPhone)) {
+        setError(
+          (existing as any).bannedReason
+            ? `تم حظر هذا الحساب: ${(existing as any).bannedReason}`
+            : "تم حظر هذا الحساب من قِبل الإدارة."
+        );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
       // Owner phones bypass PIN entirely
       if (isOwnerPhone(verifiedPhone) && existing) {
         await finishLogin(existing.name, existing.role as any, { ...existing, phone: verifiedPhone });
@@ -294,6 +312,32 @@ export default function LoginScreen() {
         setError("الحساب غير موجود");
         return;
       }
+      // Authoritative ban recheck: a user could be banned between phone-submit
+      // and PIN entry. Fetch fresh customer doc before granting access. Owner
+      // phones are exempt (can never be banned).
+      if (!isOwnerPhone(e164Phone)) {
+        try {
+          const { FS } = await import("@/lib/firebase");
+          const fresh = await FS.getCustomer(e164Phone);
+          if (fresh && (fresh as any).banned) {
+            await updateRegisteredCustomer(fresh as any);
+            setError(
+              (fresh as any).bannedReason
+                ? `تم حظر هذا الحساب: ${(fresh as any).bannedReason}`
+                : "تم حظر هذا الحساب من قِبل الإدارة."
+            );
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            return;
+          }
+        } catch {
+          // Network failure: fall back to cached existing record check.
+          if ((existing as any).banned) {
+            setError("تم حظر هذا الحساب من قِبل الإدارة.");
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            return;
+          }
+        }
+      }
       await finishLogin(existing.name, existing.role as any, { ...existing, phone: e164Phone });
     } finally {
       setLoading(false);
@@ -347,7 +391,18 @@ export default function LoginScreen() {
       await finishLogin(trimmed, newUser.role, newUser);
       return;
     }
-    await registerCustomer(newUser);
+    setLoading(true);
+    try {
+      // Cap the awaited Firestore write at 10s. The local AsyncStorage write
+      // inside registerCustomer is synchronous-ish and already completes; this
+      // timeout just prevents a hung backend from freezing the signup button.
+      await Promise.race([
+        registerCustomer(newUser),
+        new Promise((resolve) => setTimeout(resolve, 10000)),
+      ]);
+    } finally {
+      setLoading(false);
+    }
     // After registering, prompt the new customer to set a 4-digit PIN.
     setPin("");
     setConfirmPin("");

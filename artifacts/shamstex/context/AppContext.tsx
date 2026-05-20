@@ -37,6 +37,9 @@ export interface User {
   notes?: string;
   sessionToken?: string;
   pin?: string;
+  banned?: boolean;
+  bannedAt?: string;
+  bannedReason?: string;
 }
 
 export interface ColorOption {
@@ -770,6 +773,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const userRef = React.useRef<User | null>(null);
   userRef.current = user;
+  const bannedAlertShownRef = React.useRef<boolean>(false);
 
   // Role-aware orders subscription: customers see only their own orders,
   // staff see all. Re-subscribes when user identity/role changes.
@@ -895,17 +899,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const freshRecord = registeredCustomers.find((c) => samePhone(c.phone, currentUser.phone));
     if (!freshRecord) return;
     const roleChanged = freshRecord.role !== currentUser.role;
+    const bannedNow = !!freshRecord.banned && !currentUser.banned;
     const changed =
       roleChanged ||
+      bannedNow ||
+      freshRecord.banned !== currentUser.banned ||
       freshRecord.vip !== currentUser.vip ||
       freshRecord.upgradeStatus !== currentUser.upgradeStatus ||
       freshRecord.name !== currentUser.name ||
       JSON.stringify(freshRecord.permissions ?? []) !== JSON.stringify(currentUser.permissions ?? []);
     if (changed) {
       const synced: User = { ...currentUser, ...freshRecord };
+
+      if (bannedNow) {
+        // Order matters: clear in-memory user FIRST so any concurrent
+        // persistUserSafe / Firestore writers see null and bail. Then wipe
+        // storage. Do NOT call persistUserSafe(synced) on this path — it would
+        // re-write the banned record back into AsyncStorage after multiRemove.
+        if (bannedAlertShownRef.current) return;
+        bannedAlertShownRef.current = true;
+        setUserState(null);
+        setNotifications([]);
+        setOrdersState([]);
+        setReturnRequests([]);
+        (async () => {
+          try {
+            await AsyncStorage.multiRemove([
+              "user",
+              "notifications",
+              "orders",
+              "returnRequests",
+            ]).catch(() => {});
+            await deleteSecureItem("sessionToken");
+          } catch {}
+          Alert.alert(
+            "تم حظر الحساب",
+            freshRecord.bannedReason
+              ? `تم حظر حسابك من قِبل الإدارة.\n\nالسبب: ${freshRecord.bannedReason}`
+              : "تم حظر حسابك من قِبل الإدارة. للاستفسار يرجى التواصل مع الدعم.",
+            [{ text: "حسناً" }]
+          );
+          try {
+            const { router } = await import("expo-router");
+            router.replace("/auth/login" as any);
+          } catch {}
+        })();
+        return;
+      }
+
       setUserState(synced);
       persistUserSafe(synced).catch(() => {});
-
       if (roleChanged) {
         // Force a clean logout on EVERY role change (including reverts):
         // staff/admin commonly toggle roles back-and-forth by mistake, and
@@ -1111,7 +1154,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ];
     setRegisteredCustomersState(updated);
     await AsyncStorage.setItem("registered_customers", JSON.stringify(updated));
-    FS.saveCustomer(userToSave).catch(() => {});
+    // Await Firestore write so subscribers on other devices (admin panel) see
+    // the new doc reliably before the login flow resolves. Don't throw — the
+    // local AsyncStorage write already succeeded, so the user can continue.
+    try {
+      await FS.saveCustomer(userToSave);
+    } catch (e) {
+      console.warn("[registerCustomer] FS.saveCustomer failed:", (e as any)?.message || e);
+    }
     // Hard-delete any orphan Firestore docs stored under a different phone format.
     for (const m of matches) {
       if (m.phone && m.phone !== authoritativePhone) {
