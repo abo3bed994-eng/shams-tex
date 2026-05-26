@@ -200,6 +200,40 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {(user.role === "customer" || user.role === "merchant") && (
+          <Pressable
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/profile/addresses" as any); }}
+            style={({ pressed }) => [
+              {
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: 12,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: colors.radius,
+                backgroundColor: colors.card,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.gold + "22" }}>
+              <Icon name="map-pin" size={18} color={colors.gold} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                عناويني
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", marginTop: 2 }}>
+                {(user.addresses ?? []).length > 0
+                  ? `${(user.addresses ?? []).length} عنوان محفوظ`
+                  : "لا توجد عناوين بعد"}
+              </Text>
+            </View>
+            <Icon name="chevron-left" size={16} color={colors.mutedForeground} />
+          </Pressable>
+        )}
+
         {(user.role === "admin" || user.role === "employee" || user.role === "supervisor") && adminLinks.length > 0 && (
           <View style={[styles.adminSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Text style={[styles.adminTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>

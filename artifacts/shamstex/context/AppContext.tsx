@@ -24,6 +24,25 @@ export type EmployeePermission =
   | "manage_payments"
   | "toggle_price_view";
 
+export interface SavedAddress {
+  id: string;
+  label?: string;
+  city: string;
+  district: string;
+  street: string;
+  building?: string;
+  landmark?: string;
+  isDefault?: boolean;
+  createdAt?: string;
+}
+
+export function formatAddress(a: SavedAddress): string {
+  const parts: string[] = [a.city, a.district, a.street];
+  if (a.building && a.building.trim()) parts.push(`عقار ${a.building.trim()}`);
+  if (a.landmark && a.landmark.trim()) parts.push(a.landmark.trim());
+  return parts.filter((p) => p && p.trim()).join(" - ");
+}
+
 export interface User {
   id: string;
   phone: string;
@@ -40,6 +59,7 @@ export interface User {
   banned?: boolean;
   bannedAt?: string;
   bannedReason?: string;
+  addresses?: SavedAddress[];
 }
 
 export interface ColorOption {
@@ -157,6 +177,7 @@ export interface Order {
   shippingWaybillImage?: string;
   shippingWaybillNumber?: string;
   shippingAddress?: string;
+  shippingAddressId?: string;
   shippedAt?: string;
 }
 
@@ -367,6 +388,10 @@ interface AppContextType {
   registerCustomer: (user: User) => Promise<void>;
   updateRegisteredCustomer: (user: User) => void;
   deleteRegisteredCustomer: (phone: string) => void;
+  addAddress: (data: Omit<SavedAddress, "id" | "createdAt">) => Promise<SavedAddress | null>;
+  updateAddress: (addressId: string, patch: Partial<Omit<SavedAddress, "id">>) => Promise<void>;
+  deleteAddress: (addressId: string) => Promise<void>;
+  setDefaultAddress: (addressId: string) => Promise<void>;
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
   addProductOne: (product: Product) => Promise<void>;
@@ -1258,6 +1283,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Touch tag for canonical map consumers
     void targetCanon;
   }, []);
+
+  const addAddress = useCallback(
+    async (data: Omit<SavedAddress, "id" | "createdAt">): Promise<SavedAddress | null> => {
+      const u = userRef.current;
+      if (!u) return null;
+      const newAddr: SavedAddress = {
+        ...data,
+        id: `addr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: new Date().toISOString(),
+      };
+      const existing = u.addresses ?? [];
+      // Auto-default if this is the first address, or if explicitly requested
+      const shouldBeDefault = newAddr.isDefault || existing.length === 0;
+      const next = (shouldBeDefault ? existing.map((a) => ({ ...a, isDefault: false })) : existing).concat({
+        ...newAddr,
+        isDefault: shouldBeDefault,
+      });
+      updateRegisteredCustomer({ ...u, addresses: next });
+      return { ...newAddr, isDefault: shouldBeDefault };
+    },
+    [updateRegisteredCustomer]
+  );
+
+  const updateAddress = useCallback(
+    async (addressId: string, patch: Partial<Omit<SavedAddress, "id">>) => {
+      const u = userRef.current;
+      if (!u || !u.addresses) return;
+      let next = u.addresses.map((a) => (a.id === addressId ? { ...a, ...patch, id: a.id } : a));
+      // If patch promotes to default, demote others
+      if (patch.isDefault === true) {
+        next = next.map((a) => (a.id === addressId ? { ...a, isDefault: true } : { ...a, isDefault: false }));
+      }
+      updateRegisteredCustomer({ ...u, addresses: next });
+    },
+    [updateRegisteredCustomer]
+  );
+
+  const deleteAddress = useCallback(
+    async (addressId: string) => {
+      const u = userRef.current;
+      if (!u || !u.addresses) return;
+      const wasDefault = u.addresses.find((a) => a.id === addressId)?.isDefault;
+      let next = u.addresses.filter((a) => a.id !== addressId);
+      // Promote first remaining address to default if we removed the default one
+      if (wasDefault && next.length > 0) {
+        next = next.map((a, i) => ({ ...a, isDefault: i === 0 }));
+      }
+      updateRegisteredCustomer({ ...u, addresses: next });
+    },
+    [updateRegisteredCustomer]
+  );
+
+  const setDefaultAddress = useCallback(
+    async (addressId: string) => {
+      const u = userRef.current;
+      if (!u || !u.addresses) return;
+      const next = u.addresses.map((a) => ({ ...a, isDefault: a.id === addressId }));
+      updateRegisteredCustomer({ ...u, addresses: next });
+    },
+    [updateRegisteredCustomer]
+  );
 
   const deleteRegisteredCustomer = useCallback((phone: string) => {
     setRegisteredCustomersState((prev) => {
@@ -2263,6 +2349,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         registerCustomer,
         updateRegisteredCustomer,
         deleteRegisteredCustomer,
+        addAddress,
+        updateAddress,
+        deleteAddress,
+        setDefaultAddress,
         products,
         setProducts,
         addProductOne,

@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS } from "@/context/AppContext";
+import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS, SavedAddress, formatAddress } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import { isWithinWorkingHours, nextWorkingTime, formatNextOpenTime } from "@/lib/workingHours";
@@ -32,7 +32,7 @@ const ALL_PAYMENT_METHODS: { key: PaymentMethod; short: string; desc: string }[]
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId, updateCartWeight, products } = useApp();
+  const { cart, removeFromCart, updateCartItem, clearCart, user, addOrder, orders, updateOrderItems, setCart, settings, editingOrderId, setEditingOrderId, updateCartWeight, products, addAddress } = useApp();
   const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +42,59 @@ export default function CartScreen() {
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [selectedShippingProviderId, setSelectedShippingProviderId] = useState<string | null>(null);
-  const [shippingAddress, setShippingAddress] = useState<string>("");
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false);
+  const [newAddrCity, setNewAddrCity] = useState("");
+  const [newAddrDistrict, setNewAddrDistrict] = useState("");
+  const [newAddrStreet, setNewAddrStreet] = useState("");
+  const [newAddrBuilding, setNewAddrBuilding] = useState("");
+  const [newAddrLandmark, setNewAddrLandmark] = useState("");
+  const [newAddrLabel, setNewAddrLabel] = useState("");
+  const [savingAddress, setSavingAddress] = useState(false);
+
+  const userAddresses: SavedAddress[] = user?.addresses ?? [];
+
+  // Auto-select default (or first) address when switching to shipping
+  useEffect(() => {
+    if (fulfillmentType !== "shipping") return;
+    if (selectedAddressId && userAddresses.some((a) => a.id === selectedAddressId)) return;
+    if (userAddresses.length === 0) {
+      setSelectedAddressId(null);
+      setShowAddAddressForm(true);
+      return;
+    }
+    const def = userAddresses.find((a) => a.isDefault) ?? userAddresses[0];
+    setSelectedAddressId(def?.id ?? null);
+    setShowAddAddressForm(false);
+  }, [fulfillmentType, userAddresses.length]);
+
+  const handleSaveNewAddress = async (): Promise<SavedAddress | null> => {
+    if (!newAddrCity.trim() || !newAddrDistrict.trim() || !newAddrStreet.trim()) {
+      Alert.alert("بيانات ناقصة", "المدينة والحي والشارع حقول إجبارية.");
+      return null;
+    }
+    setSavingAddress(true);
+    try {
+      const created = await addAddress({
+        label: newAddrLabel.trim() || undefined,
+        city: newAddrCity.trim(),
+        district: newAddrDistrict.trim(),
+        street: newAddrStreet.trim(),
+        building: newAddrBuilding.trim() || undefined,
+        landmark: newAddrLandmark.trim() || undefined,
+      });
+      if (created) {
+        setSelectedAddressId(created.id);
+        setShowAddAddressForm(false);
+        setNewAddrCity(""); setNewAddrDistrict(""); setNewAddrStreet("");
+        setNewAddrBuilding(""); setNewAddrLandmark(""); setNewAddrLabel("");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      return created;
+    } finally {
+      setSavingAddress(false);
+    }
+  };
   const params = useLocalSearchParams<{ editOrderId?: string }>();
   const paramEditId = params.editOrderId;
   const editOrderId = paramEditId || editingOrderId;
@@ -144,9 +196,15 @@ export default function CartScreen() {
       return;
     }
 
-    if (!editOrderId && fulfillmentType === "shipping" && shippingAddress.trim().length < 10) {
-      Alert.alert("عنوان الشحن مطلوب", "يرجى كتابة عنوان الشحن بالتفصيل (محافظة، مدينة، شارع، علامة مميزة).");
-      return;
+    if (!editOrderId && fulfillmentType === "shipping") {
+      if (userAddresses.length === 0) {
+        Alert.alert("عنوان الشحن مطلوب", "يرجى إضافة عنوان شحن قبل إتمام الطلب.");
+        return;
+      }
+      if (!selectedAddressId || !userAddresses.some((a) => a.id === selectedAddressId)) {
+        Alert.alert("اختر العنوان", "يرجى اختيار عنوان الشحن من العناوين المحفوظة.");
+        return;
+      }
     }
 
     const weightItems = cart.filter((i) => i.orderType === "weight");
@@ -215,7 +273,14 @@ export default function CartScreen() {
             ? {
                 shippingProviderId: selectedShippingProviderId,
                 shippingProviderName: shippingProvidersList.find((p) => p.id === selectedShippingProviderId)?.name,
-                shippingAddress: shippingAddress.trim(),
+                ...(selectedAddressId
+                  ? (() => {
+                      const a = userAddresses.find((x) => x.id === selectedAddressId);
+                      return a
+                        ? { shippingAddressId: a.id, shippingAddress: formatAddress(a) }
+                        : {};
+                    })()
+                  : {}),
               }
             : {}),
         };
@@ -737,33 +802,131 @@ export default function CartScreen() {
                         );
                       })}
                     </View>
-                    <View style={{ gap: 6, marginTop: 8 }}>
-                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "right" }}>
-                        عنوان الشحن <Text style={{ color: "#E74C3C" }}>*</Text>
-                      </Text>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                        المحافظة، المدينة، الشارع، رقم العقار، علامة مميزة
-                      </Text>
-                      <TextInput
-                        value={shippingAddress}
-                        onChangeText={setShippingAddress}
-                        placeholder="مثال: القاهرة - مدينة نصر - شارع مكرم عبيد - عقار 25 - بجوار صيدلية..."
-                        placeholderTextColor={colors.mutedForeground}
-                        multiline
-                        numberOfLines={3}
-                        style={{
-                          backgroundColor: colors.input,
-                          borderColor: shippingAddress.trim().length >= 10 ? colors.gold + "55" : colors.border,
-                          borderWidth: 1,
-                          borderRadius: 8,
-                          padding: 10,
-                          color: colors.foreground,
-                          textAlign: "right",
-                          textAlignVertical: "top",
-                          fontFamily: "Inter_400Regular",
-                          minHeight: 70,
-                        }}
-                      />
+                    <View style={{ gap: 8, marginTop: 8 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "right" }}>
+                          عنوان الشحن <Text style={{ color: "#E74C3C" }}>*</Text>
+                        </Text>
+                        {userAddresses.length > 0 && (
+                          <Pressable
+                            onPress={() => router.push("/profile/addresses" as any)}
+                            hitSlop={8}
+                          >
+                            <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 11 }}>إدارة العناوين</Text>
+                          </Pressable>
+                        )}
+                      </View>
+
+                      {userAddresses.length === 0 && !showAddAddressForm && (
+                        <View style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: "#E74C3C44", backgroundColor: "#E74C3C10", gap: 8 }}>
+                          <Text style={{ color: "#C0392B", fontFamily: "Inter_700Bold", fontSize: 12, textAlign: "right" }}>
+                            لا توجد لديك عناوين شحن محفوظة
+                          </Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", lineHeight: 18 }}>
+                            يرجى إضافة عنوان شحن لمتابعة الطلب.
+                          </Text>
+                          <Pressable
+                            onPress={() => setShowAddAddressForm(true)}
+                            style={({ pressed }) => ({ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 10, borderRadius: 8, backgroundColor: colors.gold, opacity: pressed ? 0.7 : 1 })}
+                          >
+                            <Icon name="plus" size={14} color="#000" />
+                            <Text style={{ color: "#000", fontFamily: "Inter_700Bold", fontSize: 13 }}>إضافة عنوان شحن</Text>
+                          </Pressable>
+                        </View>
+                      )}
+
+                      {userAddresses.length > 0 && userAddresses.map((a) => {
+                        const sel = selectedAddressId === a.id;
+                        return (
+                          <Pressable
+                            key={a.id}
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedAddressId(a.id); }}
+                            style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: sel ? colors.gold : colors.border, backgroundColor: sel ? colors.gold + "12" : colors.surface, flexDirection: "row-reverse", alignItems: "flex-start", gap: 8 }}
+                          >
+                            <Icon name={sel ? "check-circle" : "circle"} size={14} color={sel ? colors.gold : colors.mutedForeground} />
+                            <View style={{ flex: 1, gap: 2 }}>
+                              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                {a.label ? (
+                                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "right" }}>{a.label}</Text>
+                                ) : (
+                                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "right" }}>{a.city}</Text>
+                                )}
+                                {a.isDefault && (
+                                  <View style={{ backgroundColor: colors.gold + "22", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 9 }}>افتراضي</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", lineHeight: 16 }}>
+                                {formatAddress(a)}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+
+                      {userAddresses.length > 0 && !showAddAddressForm && (
+                        <Pressable
+                          onPress={() => setShowAddAddressForm(true)}
+                          style={({ pressed }) => ({ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "55", borderStyle: "dashed", opacity: pressed ? 0.7 : 1 })}
+                        >
+                          <Icon name="plus" size={13} color={colors.gold} />
+                          <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 12 }}>إضافة عنوان جديد</Text>
+                        </Pressable>
+                      )}
+
+                      {showAddAddressForm && (
+                        <View style={{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "55", backgroundColor: colors.surface, gap: 8 }}>
+                          <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "right" }}>عنوان جديد</Text>
+                          {[
+                            { ph: "اسم مختصر (مثل: المنزل، الشغل) — اختياري", val: newAddrLabel, set: setNewAddrLabel, req: false },
+                            { ph: "المدينة / المحافظة *", val: newAddrCity, set: setNewAddrCity, req: true },
+                            { ph: "الحي *", val: newAddrDistrict, set: setNewAddrDistrict, req: true },
+                            { ph: "الشارع *", val: newAddrStreet, set: setNewAddrStreet, req: true },
+                            { ph: "المبنى / رقم العقار (اختياري)", val: newAddrBuilding, set: setNewAddrBuilding, req: false },
+                            { ph: "علامة مميزة (اختياري)", val: newAddrLandmark, set: setNewAddrLandmark, req: false },
+                          ].map((f) => (
+                            <TextInput
+                              key={f.ph}
+                              value={f.val}
+                              onChangeText={f.set}
+                              placeholder={f.ph}
+                              placeholderTextColor={colors.mutedForeground}
+                              style={{
+                                backgroundColor: colors.input,
+                                borderWidth: 1,
+                                borderColor: f.req && !f.val.trim() ? colors.border : colors.gold + "44",
+                                borderRadius: 8,
+                                padding: 10,
+                                color: colors.foreground,
+                                textAlign: "right",
+                                fontFamily: "Inter_400Regular",
+                                fontSize: 13,
+                              }}
+                            />
+                          ))}
+                          <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                            <Pressable
+                              onPress={handleSaveNewAddress}
+                              disabled={savingAddress}
+                              style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderRadius: 8, backgroundColor: colors.gold, opacity: (pressed || savingAddress) ? 0.7 : 1 })}
+                            >
+                              <Icon name="check" size={14} color="#000" />
+                              <Text style={{ color: "#000", fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                                {savingAddress ? "جاري الحفظ..." : "حفظ العنوان"}
+                              </Text>
+                            </Pressable>
+                            {userAddresses.length > 0 && (
+                              <Pressable
+                                onPress={() => setShowAddAddressForm(false)}
+                                style={({ pressed }) => ({ paddingHorizontal: 14, alignItems: "center", justifyContent: "center", borderRadius: 8, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 })}
+                              >
+                                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>إلغاء</Text>
+                              </Pressable>
+                            )}
+                          </View>
+                        </View>
+                      )}
                     </View>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: "#F5A62315", borderColor: "#F5A62344", borderWidth: 1, borderRadius: colors.radius - 6, marginTop: 4 }}>
                       <Icon name="alert-triangle" size={14} color="#F5A623" />
