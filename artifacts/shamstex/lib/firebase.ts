@@ -102,6 +102,18 @@ try {
 }
 export { db };
 
+// Firebase JS SDK throws on `undefined` field values. setDoc() replaces the
+// whole document, so stripping undefined keys here is equivalent to deleting
+// them — exactly what we want for unset-style updates (e.g. clearing
+// bannedAt / bannedReason on unban).
+function stripUndefined<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  return clean;
+}
+
 export const FS = {
   async getCustomer(phone: string): Promise<any | null> {
     try {
@@ -115,7 +127,7 @@ export const FS = {
   async saveCustomer(customer: object & { id: string; phone: string }) {
     // Use phone as Firestore doc ID — prevents duplicate docs per phone number
     const withTimestamp = { ...customer, lastUpdated: new Date().toISOString() };
-    await setDoc(doc(db, "customers", customer.phone), withTimestamp);
+    await setDoc(doc(db, "customers", customer.phone), stripUndefined(withTimestamp));
   },
 
   async deleteCustomer(phone: string) {
@@ -128,7 +140,7 @@ export const FS = {
   },
 
   async saveProduct(product: object & { id: string }) {
-    await setDoc(doc(db, "products", product.id), product);
+    await setDoc(doc(db, "products", product.id), stripUndefined(product));
   },
 
   async deleteProduct(productId: string) {
@@ -141,11 +153,7 @@ export const FS = {
   },
 
   async saveOrder(order: object & { id: string }) {
-    const clean: Record<string, any> = {};
-    for (const [k, v] of Object.entries(order)) {
-      if (v !== undefined) clean[k] = v;
-    }
-    await setDoc(doc(db, "orders", order.id), clean);
+    await setDoc(doc(db, "orders", order.id), stripUndefined(order));
   },
 
   async getAllOrders(): Promise<any[]> {
