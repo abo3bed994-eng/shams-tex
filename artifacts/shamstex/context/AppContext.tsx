@@ -83,7 +83,7 @@ export type PaymentMethod = "cash" | "bank_transfer" | "ewallet" | "instapay";
 export type FulfillmentType = "store" | "branch" | "shipping";
 
 // Three fixed shipping companies. IDs are stable across versions.
-export type ShippingProviderId = "etihad" | "esprent" | "urgent";
+export type ShippingProviderId = string;
 
 export interface ShippingProviderConfig {
   id: ShippingProviderId;
