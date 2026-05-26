@@ -1,4 +1,5 @@
 import type { Order, AppSettings, PaymentMethod, ProductUnit } from "@/context/AppContext";
+import { INVOICE_LOGO_DATA_URI } from "./invoiceLogo";
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cash: "كاش عند الاستلام",
@@ -63,16 +64,12 @@ function piecesUnitAr(u?: ProductUnit): string {
   return u === "meter" ? "ثوب (متر)" : "ثوب";
 }
 
-function isPrintableLogoUri(uri: string): boolean {
-  return /^(https?:|data:)/i.test(uri);
-}
-
 export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   // Always use the latin brand name at the top of the invoice
   const brandLatin = "Shams Tex";
   const businessSubtitle = escapeHtml(settings.aboutTitle || "شمس تكس للأقمشة");
-  const rawLogo = settings.logoUri ?? "";
-  const logoUri = rawLogo && isPrintableLogoUri(rawLogo) ? escapeHtml(rawLogo) : "";
+  // Always use the bundled app logo for the invoice header
+  const logoUri = INVOICE_LOGO_DATA_URI;
 
   const phoneContact = (settings.contacts || []).find((c) =>
     /مبيعات|دعم|wholesale|sales/i.test(c.label),
@@ -272,7 +269,7 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   <div class="header">
     <div class="brand">
       <div class="logo-box">
-        ${logoUri ? `<img src="${logoUri}" alt="logo" />` : "ST"}
+        <img src="${logoUri}" alt="logo" />
       </div>
       <div>
         <div class="brand-name">${brandLatin}</div>
