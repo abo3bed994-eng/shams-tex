@@ -91,15 +91,11 @@ export default function CartScreen() {
     ? settings.shippingProviders
     : SHIPPING_PROVIDER_DEFAULTS;
   const hasEnabledShippingProvider = shippingProvidersList.some((p) => p.enabled !== false);
-  const fulfillmentAvail = paymentSettings?.fulfillmentAvailability;
   const PAYMENT_METHODS = ALL_PAYMENT_METHODS.filter((pm) => {
-    if (pm.key === "cash" && paymentSettings?.cashEnabled === false) return false;
-    if (pm.key === "bank_transfer" && paymentSettings?.bankTransferEnabled === false) return false;
-    if (pm.key === "ewallet" && paymentSettings?.ewalletEnabled === false) return false;
-    if (pm.key === "instapay" && paymentSettings?.instapayEnabled === false) return false;
-    if (fulfillmentType) {
-      const allow = fulfillmentAvail?.[pm.key]?.[fulfillmentType];
-      if (allow === false) return false;
+    if (fulfillmentType === "branch" && selectedBranchId) {
+      const b = branchesList.find((x) => x.id === selectedBranchId);
+      const allowed = b?.allowedPayments;
+      if (allowed && allowed.length > 0 && !allowed.includes(pm.key)) return false;
     }
     return true;
   });

@@ -103,6 +103,7 @@ export interface Branch {
   address?: string;
   phone?: string;
   mapsUrl?: string;
+  allowedPayments?: PaymentMethod[];
 }
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {

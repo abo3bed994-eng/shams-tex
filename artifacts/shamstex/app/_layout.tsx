@@ -135,7 +135,18 @@ function RootLayoutNav() {
         <Stack.Screen name="admin/users" options={{ headerShown: false }} />
         <Stack.Screen name="admin/notifications" options={{ headerShown: false }} />
         <Stack.Screen name="admin/tabs" options={{ headerShown: false }} />
-        <Stack.Screen name="admin/settings" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/index" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/about" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/stats" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/contacts" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/socials" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/ads" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/categories" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/hours" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/branches" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/shipping" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/payment" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/settings/update" options={{ headerShown: false }} />
         <Stack.Screen name="admin/colors" options={{ headerShown: false }} />
         <Stack.Screen name="admin/featured" options={{ headerShown: false }} />
         <Stack.Screen name="admin/edit-product/[id]" options={{ headerShown: false }} />
