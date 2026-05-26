@@ -774,6 +774,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const userRef = React.useRef<User | null>(null);
   userRef.current = user;
   const bannedAlertShownRef = React.useRef<boolean>(false);
+  const roleChangeAlertShownRef = React.useRef<boolean>(false);
 
   // Role-aware orders subscription: customers see only their own orders,
   // staff see all. Re-subscribes when user identity/role changes.
@@ -947,13 +948,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setUserState(synced);
-      persistUserSafe(synced).catch(() => {});
       if (roleChanged) {
-        // Force a clean logout on EVERY role change (including reverts):
-        // staff/admin commonly toggle roles back-and-forth by mistake, and
-        // an in-place reload could leave stale permissions/screens cached.
-        // Sign the user out so they re-login with a fresh session and role.
+        // Same race-safe order as bannedNow: clear in-memory user FIRST so any
+        // concurrent persistUserSafe / Firestore writer sees null and bails.
+        // Do NOT call persistUserSafe(synced) — it would re-write the synced
+        // record (with the new role) into AsyncStorage after multiRemove, and
+        // the next app launch would silently log the user back in.
+        if (roleChangeAlertShownRef.current) return;
+        roleChangeAlertShownRef.current = true;
+        setUserState(null);
+        setNotifications([]);
+        setOrdersState([]);
+        setReturnRequests([]);
         (async () => {
           try {
             await AsyncStorage.multiRemove([
@@ -964,10 +970,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ]).catch(() => {});
             await deleteSecureItem("sessionToken");
           } catch {}
-          setUserState(null);
-          setNotifications([]);
-          setOrdersState([]);
-          setReturnRequests([]);
           Alert.alert(
             "تم تغيير دورك",
             "تم تحديث دورك من قِبل الإدارة. الرجاء تسجيل الدخول مجدداً.",
@@ -978,7 +980,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             router.replace("/auth/login" as any);
           } catch {}
         })();
+        return;
       }
+
+      setUserState(synced);
+      persistUserSafe(synced).catch(() => {});
     }
   }, [registeredCustomers]);
 
@@ -1072,6 +1078,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setUser = useCallback(async (u: User | null) => {
     setUserState(u);
     if (u) {
+      // Reset one-shot guards so a future ban/role-change in this app process
+      // still fires the alert + forced logout exactly once per event.
+      bannedAlertShownRef.current = false;
+      roleChangeAlertShownRef.current = false;
       await persistUserSafe(u);
     } else {
       await AsyncStorage.multiRemove([

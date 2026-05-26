@@ -165,6 +165,33 @@ export const FS = {
     await deleteDoc(doc(db, "orders", orderId));
   },
 
+  // Delete every order belonging to a given user phone. Used when an admin
+  // changes a user's role so stale pending orders don't leak across roles.
+  async deleteOrdersForUserPhone(userPhone: string) {
+    if (!userPhone) return;
+    const variants = new Set<string>();
+    variants.add(userPhone);
+    const canon = canonicalPhone(userPhone);
+    if (canon) variants.add(canon);
+    const all: any[] = [];
+    for (const v of variants) {
+      try {
+        const snap = await getDocs(query(collection(db, "orders"), where("userPhone", "==", v)));
+        for (const d of snap.docs) all.push(d);
+      } catch {}
+    }
+    const seen = new Set<string>();
+    await Promise.all(
+      all
+        .filter((d) => {
+          if (seen.has(d.id)) return false;
+          seen.add(d.id);
+          return true;
+        })
+        .map((d) => deleteDoc(d.ref).catch(() => {}))
+    );
+  },
+
   async saveSettings(settings: object) {
     await setDoc(doc(db, "config", "main"), settings);
   },

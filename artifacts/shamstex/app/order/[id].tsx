@@ -9,8 +9,11 @@ import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { persistImageUri } from "@/utils/persistImage";
 import { saveImageToDevice, shareImage } from "@/utils/imageActions";
+import { buildInvoiceHtml } from "@/utils/invoiceHtml";
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
@@ -112,8 +115,7 @@ export default function OrderDetailScreen() {
   const [returnItemWeights, setReturnItemWeights] = useState<Record<number, number>>({});
   const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
   const [returnWeightTexts, setReturnWeightTexts] = useState<Record<number, string>>({});
-  const [showInvoiceImage, setShowInvoiceImage] = useState(false);
-  const [uploadingInvoice, setUploadingInvoice] = useState(false);
+  const [printingInvoice, setPrintingInvoice] = useState(false);
   const [returnInvoiceImage, setReturnInvoiceImage] = useState<string | null>(null);
   const [uploadingReturnInvoice, setUploadingReturnInvoice] = useState(false);
   const [uploadingTransferProof, setUploadingTransferProof] = useState(false);
@@ -591,101 +593,81 @@ export default function OrderDetailScreen() {
           })()}
         </View>
 
-        {order.invoiceImage && (
-          <View style={[styles.invoiceCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <Icon name="file-text" size={18} color={colors.gold} />
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, textAlign: "right" }}>
-                الفاتورة
+        {(isStaff || order.status === "ready" || order.status === "delivered") && (
+          <View style={{ gap: 8 }}>
+            <Pressable
+              onPress={async () => {
+                try {
+                  setPrintingInvoice(true);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const html = buildInvoiceHtml(order, settings);
+                  await Print.printAsync({ html });
+                } catch (e: any) {
+                  if (!/cancel/i.test(String(e?.message ?? ""))) {
+                    Alert.alert("خطأ", "تعذّر فتح نافذة الطباعة");
+                  }
+                } finally {
+                  setPrintingInvoice(false);
+                }
+              }}
+              style={({ pressed }) => [{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 12,
+                backgroundColor: colors.gold + "15",
+                borderColor: colors.gold + "44",
+                borderWidth: 1,
+                borderRadius: colors.radius - 4,
+                opacity: pressed ? 0.7 : 1,
+              }]}
+            >
+              <Icon name="printer" size={16} color={colors.gold} />
+              <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                {printingInvoice ? "جاري التحضير..." : "اطبع الفاتورة"}
               </Text>
-            </View>
-            <Pressable onPress={() => setShowInvoiceImage(true)} style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}>
-              <Image
-                source={{ uri: order.invoiceImage }}
-                style={{ width: "100%", height: 200, borderRadius: colors.radius - 4, backgroundColor: colors.surface }}
-                resizeMode="cover"
-              />
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center", marginTop: 6 }}>
-                اضغط لعرض الفاتورة بالحجم الكامل
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                try {
+                  setPrintingInvoice(true);
+                  const html = buildInvoiceHtml(order, settings);
+                  const { uri } = await Print.printToFileAsync({ html, base64: false });
+                  if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(uri, {
+                      mimeType: "application/pdf",
+                      dialogTitle: `فاتورة #${order.id.slice(0, 8)}`,
+                      UTI: "com.adobe.pdf",
+                    });
+                  } else {
+                    Alert.alert("تم الإنشاء", "تم إنشاء ملف الفاتورة.");
+                  }
+                } catch {
+                  Alert.alert("خطأ", "تعذّر إنشاء ملف الفاتورة");
+                } finally {
+                  setPrintingInvoice(false);
+                }
+              }}
+              style={({ pressed }) => [{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 10,
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: colors.radius - 4,
+                opacity: pressed ? 0.7 : 1,
+              }]}
+            >
+              <Icon name="share-2" size={14} color={colors.foreground} />
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                مشاركة كملف PDF
               </Text>
             </Pressable>
           </View>
-        )}
-
-        {isStaff && order.status === "ready" && !isLockedByOther && (
-          <Pressable
-            onPress={async () => {
-              try {
-                setUploadingInvoice(true);
-                const uri = await pickImage();
-                if (uri) {
-                  await setOrderInvoiceImage(order.id, uri);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  Alert.alert("تم", "تم رفع صورة الفاتورة وإشعار العميل");
-                }
-              } catch {
-                Alert.alert("خطأ", "تعذّر رفع الصورة");
-              } finally {
-                setUploadingInvoice(false);
-              }
-            }}
-            style={({ pressed }) => [{
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              paddingVertical: 12,
-              backgroundColor: order.invoiceImage ? colors.surface : colors.gold + "15",
-              borderColor: order.invoiceImage ? colors.border : colors.gold + "44",
-              borderWidth: 1,
-              borderRadius: colors.radius - 4,
-              opacity: pressed ? 0.7 : 1,
-            }]}
-          >
-            <Icon name={order.invoiceImage ? "refresh-cw" : "camera"} size={16} color={order.invoiceImage ? colors.mutedForeground : colors.gold} />
-            <Text style={{ color: order.invoiceImage ? colors.mutedForeground : colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-              {uploadingInvoice ? "جاري الرفع..." : order.invoiceImage ? "تغيير صورة الفاتورة" : "رفع صورة الفاتورة"}
-            </Text>
-          </Pressable>
-        )}
-
-        {isStaff && order.invoiceImage && order.status === "ready" && !isLockedByOther && (
-          <Pressable
-            onPress={() => {
-              Alert.alert(
-                "حذف الصورة",
-                "هل تريد حذف صورة الفاتورة؟",
-                [
-                  { text: "إلغاء", style: "cancel" },
-                  {
-                    text: "حذف",
-                    style: "destructive",
-                    onPress: async () => {
-                      await setOrderInvoiceImage(order.id, null);
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    },
-                  },
-                ]
-              );
-            }}
-            style={({ pressed }) => [{
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              paddingVertical: 10,
-              backgroundColor: "#C0392B11",
-              borderColor: "#C0392B44",
-              borderWidth: 1,
-              borderRadius: colors.radius - 4,
-              opacity: pressed ? 0.7 : 1,
-            }]}
-          >
-            <Icon name="trash-2" size={14} color="#C0392B" />
-            <Text style={{ color: "#C0392B", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-              حذف صورة الفاتورة
-            </Text>
-          </Pressable>
         )}
 
         {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || (order.status === "delivered" && !!order.transferProofImage)) && (() => {
@@ -950,14 +932,6 @@ export default function OrderDetailScreen() {
                 <GoldButton
                   label={nextAction.label}
                   onPress={() => {
-                    // Fix 5: block "تأكيد التسليم" if no invoice photo (admin bypass)
-                    if (nextAction.next === "delivered" && !order.invoiceImage && !isAdmin) {
-                      Alert.alert(
-                        "صورة الفاتورة مطلوبة",
-                        "لا يمكن تأكيد تسليم الطلب قبل رفع صورة الفاتورة. يرجى رفع الصورة أولاً ثم المحاولة مرة أخرى."
-                      );
-                      return;
-                    }
                     // Instant single-tap advance — no confirmation dialog.
                     // User explicitly requested instant transitions even on repeat taps.
                     if (nextAction.next === "ready") {
@@ -1599,39 +1573,6 @@ export default function OrderDetailScreen() {
         </Pressable>
       </Modal>
 
-      {order.invoiceImage && (
-        <Modal visible={showInvoiceImage} transparent animationType="fade" onRequestClose={() => setShowInvoiceImage(false)}>
-          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" }}>
-            <Pressable
-              onPress={() => setShowInvoiceImage(false)}
-              style={{ position: "absolute", top: insets.top + 16, right: 16, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}
-            >
-              <Icon name="x" size={22} color="#fff" />
-            </Pressable>
-            <Image
-              source={{ uri: order.invoiceImage }}
-              style={{ width: "92%", height: "65%", borderRadius: 12 }}
-              resizeMode="contain"
-            />
-            <View style={{ position: "absolute", bottom: insets.bottom + 24, left: 16, right: 16, flexDirection: "row-reverse", gap: 10 }}>
-              <Pressable
-                onPress={() => order.invoiceImage && saveImageToDevice(order.invoiceImage, `invoice_${order.id.slice(0, 8)}`)}
-                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.15)", opacity: pressed ? 0.7 : 1 })}
-              >
-                <Icon name="download" size={18} color="#fff" />
-                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>حفظ في الجهاز</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => order.invoiceImage && shareImage(order.invoiceImage, `invoice_${order.id.slice(0, 8)}`)}
-                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.gold, opacity: pressed ? 0.7 : 1 })}
-              >
-                <Icon name="share-2" size={18} color="#000" />
-                <Text style={{ color: "#000", fontFamily: "Inter_700Bold", fontSize: 13 }}>مشاركة</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
     </View>
   );
 }

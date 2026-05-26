@@ -252,6 +252,13 @@ export default function AdminUsersScreen() {
 
       saveCustomerChange({ ...updated, role: newRole, permissions: perms, upgradeStatus: undefined, lastUpdated: new Date().toISOString() } as any);
 
+      // Wipe any pending orders for this user so they don't carry over across
+      // roles (e.g. a customer becoming merchant shouldn't see old retail orders
+      // sitting in the queue). Best-effort, never blocks the UI.
+      if (updated.phone) {
+        FS.deleteOrdersForUserPhone(updated.phone).catch(() => {});
+      }
+
       if (user) {
         FS.appendAuditLog({
           actorId: user.id,
@@ -310,6 +317,11 @@ export default function AdminUsersScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const target = staffList.find((u) => u.id === userId);
     if (!target) return;
+    // Wipe pending orders for this staff member too — they may have placed
+    // orders as a customer/merchant before being promoted.
+    if (target.phone) {
+      FS.deleteOrdersForUserPhone(target.phone).catch(() => {});
+    }
     if (user) {
       FS.appendAuditLog({
         actorId: user.id,
@@ -510,6 +522,10 @@ export default function AdminUsersScreen() {
           text: "ترقية",
           onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            // Wipe pending orders on role promotion to keep queues clean.
+            if (u.phone) {
+              FS.deleteOrdersForUserPhone(u.phone).catch(() => {});
+            }
             saveStaffMember({ ...u, role: "admin", permissions: [] });
             addNotification({
               id: `role_admin_${u.id}_${Date.now()}`,
