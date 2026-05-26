@@ -299,10 +299,10 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       <div class="label" style="margin-top:6px">طريقة الاستلام</div>
       <div class="val">${fulfillmentLabel}</div>
       ${waybillNumber ? `<div class="label" style="margin-top:6px">رقم بوليصة الشحن</div><div class="val">${waybillNumber}</div>` : ""}
+      ${shippingAddress ? `<div class="label" style="margin-top:6px">📍 عنوان الشحن</div><div class="val">${shippingAddress}</div>` : ""}
     </div>
   </div>
 
-  ${shippingAddress ? `<div class="addr-box"><div class="label">📍 عنوان الشحن</div><div class="val">${shippingAddress}</div></div>` : ""}
 
   ${isShipping ? `<div style="margin-bottom:18px;padding:12px 16px;background:#fff4e5;border:1px solid #f5a623;border-radius:10px;font-size:13px;color:#8a4b00;font-weight:700;text-align:center">⚠ السعر غير شامل ثمن الشحن</div>` : ""}
 

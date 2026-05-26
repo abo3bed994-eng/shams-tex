@@ -467,6 +467,230 @@ export default function OrderDetailScreen() {
           );
         })()}
 
+
+        {/* Invoice view button moved BELOW payment instructions */}
+
+        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || order.status === "ready_to_ship" || (order.status === "delivered" && !!order.transferProofImage) || (order.status === "shipped" && !!order.transferProofImage)) && (() => {
+          const pm = order.paymentMethod as PaymentMethod;
+          const ps = settings.payment;
+          const wallets = ps?.ewallets ?? (ps?.ewalletNumber ? [{ id: "_l", number: ps.ewalletNumber, name: ps.ewalletName ?? "", provider: "" }] : []);
+          const ipays = ps?.instapays ?? (ps?.instapayNumber ? [{ id: "_l", handle: ps.instapayNumber, name: ps.instapayName ?? "" }] : []);
+          const overrideHandleVal = order.paymentOverrideHandle;
+          const overrideNameVal = order.paymentOverrideName;
+          const copyText = async (text: string) => {
+            try {
+              const Clipboard = await import("expo-clipboard");
+              await Clipboard.setStringAsync(text);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Alert.alert("تم النسخ", text);
+            } catch {}
+          };
+          const Row = ({ label, value }: { label: string; value: string }) => (
+            <Pressable onPress={() => copyText(value)} style={({ pressed }) => [{
+              flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
+              padding: 10, borderRadius: colors.radius - 6, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1, gap: 8,
+            }]}>
+              <View style={{ flex: 1, alignItems: "flex-end" }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>{label}</Text>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }} numberOfLines={1}>{value}</Text>
+              </View>
+              <Icon name="copy" size={16} color={colors.gold} />
+            </Pressable>
+          );
+          return (
+            <View style={{ backgroundColor: colors.card, borderColor: colors.gold + "44", borderWidth: 1, borderRadius: colors.radius, padding: 14, gap: 10 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <Icon name="credit-card" size={18} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14, flex: 1, textAlign: "right" }}>
+                  بيانات السداد
+                </Text>
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
+                يرجى سداد قيمة الفاتورة على الحساب التالي ثم رفع صورة الإيصال:
+              </Text>
+              {overrideHandleVal ? (
+                <Row label={overrideNameVal ? `${overrideNameVal}` : "رقم السداد"} value={overrideHandleVal} />
+              ) : pm === "bank_transfer" ? (
+                <View style={{ gap: 6 }}>
+                  {ps?.bankName ? <Row label="البنك" value={ps.bankName} /> : null}
+                  {ps?.bankAccountName ? <Row label="اسم صاحب الحساب" value={ps.bankAccountName} /> : null}
+                  {ps?.bankAccountNumber ? <Row label="رقم الحساب" value={ps.bankAccountNumber} /> : null}
+                  {ps?.bankIBAN ? <Row label="IBAN" value={ps.bankIBAN} /> : null}
+                </View>
+              ) : pm === "ewallet" ? (
+                <View style={{ gap: 6 }}>
+                  {wallets.length === 0 && <Text style={{ color: colors.mutedForeground, textAlign: "right" }}>لم تُضف محافظ بعد</Text>}
+                  {wallets.map((w) => (
+                    <Row key={w.id} label={`${w.provider || "محفظة"}${w.name ? " — " + w.name : ""}`} value={w.number} />
+                  ))}
+                </View>
+              ) : pm === "instapay" ? (
+                <View style={{ gap: 6 }}>
+                  {ipays.length === 0 && <Text style={{ color: colors.mutedForeground, textAlign: "right" }}>لم تُضف حسابات انستاباي بعد</Text>}
+                  {ipays.map((ip) => (
+                    <Row key={ip.id} label={ip.name || "انستاباي"} value={ip.handle} />
+                  ))}
+                </View>
+              ) : null}
+
+              {isStaff && !isLockedByOther && (
+                <View style={{ marginTop: 4, gap: 6 }}>
+                  {!showOverrideInput ? (
+                    <Pressable
+                      onPress={() => {
+                        setOverrideHandle(order.paymentOverrideHandle ?? "");
+                        setOverrideName(order.paymentOverrideName ?? "");
+                        setShowOverrideInput(true);
+                      }}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, padding: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.border }}
+                    >
+                      <Icon name="edit-2" size={14} color={colors.gold} />
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                        {order.paymentOverrideHandle ? "تعديل رقم السداد المخصص" : "إضافة رقم سداد مخصص لهذا الطلب"}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <View style={{ gap: 6, padding: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.gold + "55", backgroundColor: colors.gold + "08" }}>
+                      <TextInput
+                        value={overrideHandle}
+                        onChangeText={setOverrideHandle}
+                        placeholder="رقم/حساب السداد"
+                        placeholderTextColor={colors.mutedForeground}
+                        style={{ backgroundColor: colors.input, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10, color: colors.foreground, textAlign: "right", fontFamily: "Inter_400Regular" }}
+                      />
+                      <TextInput
+                        value={overrideName}
+                        onChangeText={setOverrideName}
+                        placeholder="اسم صاحب الحساب (اختياري)"
+                        placeholderTextColor={colors.mutedForeground}
+                        style={{ backgroundColor: colors.input, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10, color: colors.foreground, textAlign: "right", fontFamily: "Inter_400Regular" }}
+                      />
+                      <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                        <Pressable
+                          onPress={async () => {
+                            const h = overrideHandle.trim();
+                            try {
+                              await setOrderPaymentOverride(order.id, h ? h : null, overrideName.trim() || null);
+                              setShowOverrideInput(false);
+                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            } catch {
+                              Alert.alert("خطأ", "تعذّر حفظ بيانات الدفع");
+                            }
+                          }}
+                          style={{ flex: 1, padding: 10, backgroundColor: colors.gold, borderRadius: 8, alignItems: "center" }}
+                        >
+                          <Text style={{ color: colors.background, fontFamily: "Inter_700Bold" }}>حفظ</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setShowOverrideInput(false)}
+                          style={{ flex: 1, padding: 10, borderRadius: 8, alignItems: "center", borderWidth: 1, borderColor: colors.border }}
+                        >
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>إلغاء</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Transfer proof image: visible to BOTH customer and staff so the
+                  team can verify the transfer. Customer also gets an upload/replace
+                  button below. */}
+              {order.transferProofImage ? (
+                <Pressable onPress={() => setShowTransferProof(true)} style={{ marginTop: 4 }}>
+                  <Image source={{ uri: order.transferProofImage }} style={{ width: "100%", height: 180, borderRadius: colors.radius - 6, backgroundColor: colors.surface }} resizeMode="cover" />
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "center", marginTop: 4, fontFamily: "Inter_400Regular" }}>
+                    {isStaff ? "إيصال التحويل من العميل — اضغط للعرض" : "صورة إيصال التحويل — اضغط للعرض"}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {isCustomer && (
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  <Pressable
+                    onPress={async () => {
+                      try {
+                        setUploadingTransferProof(true);
+                        const uri = await pickImage();
+                        if (uri) {
+                          await setOrderTransferProof(order.id, uri);
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          Alert.alert("تم", "تم رفع إيصال التحويل وإشعار الفريق");
+                        }
+                      } catch {
+                        Alert.alert("خطأ", "تعذّر رفع الصورة");
+                      } finally {
+                        setUploadingTransferProof(false);
+                      }
+                    }}
+                    style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, borderRadius: colors.radius - 6, backgroundColor: colors.gold + "15", borderWidth: 1, borderColor: colors.gold + "44" }}
+                  >
+                    <Icon name={order.transferProofImage ? "refresh-cw" : "upload"} size={16} color={colors.gold} />
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                      {uploadingTransferProof ? "جاري الرفع..." : order.transferProofImage ? "تغيير صورة الإيصال" : "رفع صورة إيصال التحويل"}
+                    </Text>
+                  </Pressable>
+
+                  {order.status === "pending" && (
+                    <Pressable
+                      onPress={() => setShowChangeMethodModal(true)}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, padding: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.border }}
+                    >
+                      <Icon name="repeat" size={14} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                        تغيير طريقة الدفع
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </View>
+          );
+        })()}
+
+        {order.paymentMethod && (() => {
+          const pm = order.paymentMethod as PaymentMethod;
+          const pmColors: Record<PaymentMethod, string> = {
+            cash: "#27AE60",
+            bank_transfer: colors.gold,
+            ewallet: "#9B59B6",
+            instapay: "#2ECC71",
+          };
+          const pmShort: Record<PaymentMethod, string> = {
+            cash: "كاش (الدفع عند الاستلام)",
+            bank_transfer: "تحويل بنكي",
+            ewallet: "محفظة إلكترونية",
+            instapay: "انستاباي",
+          };
+          const pmColor = pmColors[pm] ?? colors.gold;
+          return (
+            <View style={[styles.paymentMethodCard, { backgroundColor: pmColor + "11", borderColor: pmColor + "33", borderRadius: colors.radius }]}>
+              <View style={styles.paymentMethodRow}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: pmColor + "22" }]}>
+                  <Icon name={PAYMENT_METHOD_ICONS[pm] ?? "credit-card"} size={18} color={pmColor} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>طريقة الدفع</Text>
+                  <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                    {pmShort[pm] ?? pm}
+                  </Text>
+                </View>
+              </View>
+              {pm === "ewallet" && (order.paymentFee ?? 0) > 0 && (
+                <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: pmColor + "22", paddingTop: 8, marginTop: 4 }}>
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>رسوم المحفظة</Text>
+                    <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>+{order.paymentFee} ج.م</Text>
+                  </View>
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                    <Text style={{ color: pmColor, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>الإجمالي مع الرسوم</Text>
+                    <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 15 }}>{order.totalWithFee} ج.م</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          );
+        })()}
         <View style={[styles.itemsSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
             المنتجات المطلوبة
@@ -761,231 +985,22 @@ export default function OrderDetailScreen() {
           })()}
         </View>
 
-        {/* Invoice view button moved BELOW payment instructions */}
-
-        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || order.status === "ready_to_ship" || (order.status === "delivered" && !!order.transferProofImage) || (order.status === "shipped" && !!order.transferProofImage)) && (() => {
-          const pm = order.paymentMethod as PaymentMethod;
-          const ps = settings.payment;
-          const wallets = ps?.ewallets ?? (ps?.ewalletNumber ? [{ id: "_l", number: ps.ewalletNumber, name: ps.ewalletName ?? "", provider: "" }] : []);
-          const ipays = ps?.instapays ?? (ps?.instapayNumber ? [{ id: "_l", handle: ps.instapayNumber, name: ps.instapayName ?? "" }] : []);
-          const overrideHandleVal = order.paymentOverrideHandle;
-          const overrideNameVal = order.paymentOverrideName;
-          const copyText = async (text: string) => {
-            try {
-              const Clipboard = await import("expo-clipboard");
-              await Clipboard.setStringAsync(text);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Alert.alert("تم النسخ", text);
-            } catch {}
-          };
-          const Row = ({ label, value }: { label: string; value: string }) => (
-            <Pressable onPress={() => copyText(value)} style={({ pressed }) => [{
-              flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
-              padding: 10, borderRadius: colors.radius - 6, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1, gap: 8,
-            }]}>
-              <View style={{ flex: 1, alignItems: "flex-end" }}>
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>{label}</Text>
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }} numberOfLines={1}>{value}</Text>
-              </View>
-              <Icon name="copy" size={16} color={colors.gold} />
-            </Pressable>
-          );
+        {(() => {
+          // Staff: only show invoice button at the second-to-last stage onwards
+          // (pickup: ready/delivered, shipping: shipped/delivered).
+          // Customers: keep the existing behavior (visible from ready/ready_to_ship onwards).
+          const isFinalOrNear =
+            order.status === "ready" ||
+            order.status === "delivered" ||
+            order.status === "shipped";
+          const isCustomerVisible =
+            order.status === "ready" ||
+            order.status === "delivered" ||
+            order.status === "ready_to_ship" ||
+            order.status === "shipped";
+          const visible = isStaff ? isFinalOrNear : isCustomerVisible;
+          if (!visible) return null;
           return (
-            <View style={{ backgroundColor: colors.card, borderColor: colors.gold + "44", borderWidth: 1, borderRadius: colors.radius, padding: 14, gap: 10 }}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                <Icon name="credit-card" size={18} color={colors.gold} />
-                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14, flex: 1, textAlign: "right" }}>
-                  بيانات السداد
-                </Text>
-              </View>
-              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
-                يرجى سداد قيمة الفاتورة على الحساب التالي ثم رفع صورة الإيصال:
-              </Text>
-              {overrideHandleVal ? (
-                <Row label={overrideNameVal ? `${overrideNameVal}` : "رقم السداد"} value={overrideHandleVal} />
-              ) : pm === "bank_transfer" ? (
-                <View style={{ gap: 6 }}>
-                  {ps?.bankName ? <Row label="البنك" value={ps.bankName} /> : null}
-                  {ps?.bankAccountName ? <Row label="اسم صاحب الحساب" value={ps.bankAccountName} /> : null}
-                  {ps?.bankAccountNumber ? <Row label="رقم الحساب" value={ps.bankAccountNumber} /> : null}
-                  {ps?.bankIBAN ? <Row label="IBAN" value={ps.bankIBAN} /> : null}
-                </View>
-              ) : pm === "ewallet" ? (
-                <View style={{ gap: 6 }}>
-                  {wallets.length === 0 && <Text style={{ color: colors.mutedForeground, textAlign: "right" }}>لم تُضف محافظ بعد</Text>}
-                  {wallets.map((w) => (
-                    <Row key={w.id} label={`${w.provider || "محفظة"}${w.name ? " — " + w.name : ""}`} value={w.number} />
-                  ))}
-                </View>
-              ) : pm === "instapay" ? (
-                <View style={{ gap: 6 }}>
-                  {ipays.length === 0 && <Text style={{ color: colors.mutedForeground, textAlign: "right" }}>لم تُضف حسابات انستاباي بعد</Text>}
-                  {ipays.map((ip) => (
-                    <Row key={ip.id} label={ip.name || "انستاباي"} value={ip.handle} />
-                  ))}
-                </View>
-              ) : null}
-
-              {isStaff && !isLockedByOther && (
-                <View style={{ marginTop: 4, gap: 6 }}>
-                  {!showOverrideInput ? (
-                    <Pressable
-                      onPress={() => {
-                        setOverrideHandle(order.paymentOverrideHandle ?? "");
-                        setOverrideName(order.paymentOverrideName ?? "");
-                        setShowOverrideInput(true);
-                      }}
-                      style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, padding: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.border }}
-                    >
-                      <Icon name="edit-2" size={14} color={colors.gold} />
-                      <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                        {order.paymentOverrideHandle ? "تعديل رقم السداد المخصص" : "إضافة رقم سداد مخصص لهذا الطلب"}
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <View style={{ gap: 6, padding: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.gold + "55", backgroundColor: colors.gold + "08" }}>
-                      <TextInput
-                        value={overrideHandle}
-                        onChangeText={setOverrideHandle}
-                        placeholder="رقم/حساب السداد"
-                        placeholderTextColor={colors.mutedForeground}
-                        style={{ backgroundColor: colors.input, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10, color: colors.foreground, textAlign: "right", fontFamily: "Inter_400Regular" }}
-                      />
-                      <TextInput
-                        value={overrideName}
-                        onChangeText={setOverrideName}
-                        placeholder="اسم صاحب الحساب (اختياري)"
-                        placeholderTextColor={colors.mutedForeground}
-                        style={{ backgroundColor: colors.input, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10, color: colors.foreground, textAlign: "right", fontFamily: "Inter_400Regular" }}
-                      />
-                      <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-                        <Pressable
-                          onPress={async () => {
-                            const h = overrideHandle.trim();
-                            try {
-                              await setOrderPaymentOverride(order.id, h ? h : null, overrideName.trim() || null);
-                              setShowOverrideInput(false);
-                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            } catch {
-                              Alert.alert("خطأ", "تعذّر حفظ بيانات الدفع");
-                            }
-                          }}
-                          style={{ flex: 1, padding: 10, backgroundColor: colors.gold, borderRadius: 8, alignItems: "center" }}
-                        >
-                          <Text style={{ color: colors.background, fontFamily: "Inter_700Bold" }}>حفظ</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => setShowOverrideInput(false)}
-                          style={{ flex: 1, padding: 10, borderRadius: 8, alignItems: "center", borderWidth: 1, borderColor: colors.border }}
-                        >
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>إلغاء</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Transfer proof image: visible to BOTH customer and staff so the
-                  team can verify the transfer. Customer also gets an upload/replace
-                  button below. */}
-              {order.transferProofImage ? (
-                <Pressable onPress={() => setShowTransferProof(true)} style={{ marginTop: 4 }}>
-                  <Image source={{ uri: order.transferProofImage }} style={{ width: "100%", height: 180, borderRadius: colors.radius - 6, backgroundColor: colors.surface }} resizeMode="cover" />
-                  <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "center", marginTop: 4, fontFamily: "Inter_400Regular" }}>
-                    {isStaff ? "إيصال التحويل من العميل — اضغط للعرض" : "صورة إيصال التحويل — اضغط للعرض"}
-                  </Text>
-                </Pressable>
-              ) : null}
-
-              {isCustomer && (
-                <View style={{ gap: 8, marginTop: 4 }}>
-                  <Pressable
-                    onPress={async () => {
-                      try {
-                        setUploadingTransferProof(true);
-                        const uri = await pickImage();
-                        if (uri) {
-                          await setOrderTransferProof(order.id, uri);
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                          Alert.alert("تم", "تم رفع إيصال التحويل وإشعار الفريق");
-                        }
-                      } catch {
-                        Alert.alert("خطأ", "تعذّر رفع الصورة");
-                      } finally {
-                        setUploadingTransferProof(false);
-                      }
-                    }}
-                    style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, borderRadius: colors.radius - 6, backgroundColor: colors.gold + "15", borderWidth: 1, borderColor: colors.gold + "44" }}
-                  >
-                    <Icon name={order.transferProofImage ? "refresh-cw" : "upload"} size={16} color={colors.gold} />
-                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-                      {uploadingTransferProof ? "جاري الرفع..." : order.transferProofImage ? "تغيير صورة الإيصال" : "رفع صورة إيصال التحويل"}
-                    </Text>
-                  </Pressable>
-
-                  {order.status === "pending" && (
-                    <Pressable
-                      onPress={() => setShowChangeMethodModal(true)}
-                      style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, padding: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.border }}
-                    >
-                      <Icon name="repeat" size={14} color={colors.mutedForeground} />
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
-                        تغيير طريقة الدفع
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              )}
-            </View>
-          );
-        })()}
-
-        {order.paymentMethod && (() => {
-          const pm = order.paymentMethod as PaymentMethod;
-          const pmColors: Record<PaymentMethod, string> = {
-            cash: "#27AE60",
-            bank_transfer: colors.gold,
-            ewallet: "#9B59B6",
-            instapay: "#2ECC71",
-          };
-          const pmShort: Record<PaymentMethod, string> = {
-            cash: "كاش (الدفع عند الاستلام)",
-            bank_transfer: "تحويل بنكي",
-            ewallet: "محفظة إلكترونية",
-            instapay: "انستاباي",
-          };
-          const pmColor = pmColors[pm] ?? colors.gold;
-          return (
-            <View style={[styles.paymentMethodCard, { backgroundColor: pmColor + "11", borderColor: pmColor + "33", borderRadius: colors.radius }]}>
-              <View style={styles.paymentMethodRow}>
-                <View style={[styles.paymentMethodIcon, { backgroundColor: pmColor + "22" }]}>
-                  <Icon name={PAYMENT_METHOD_ICONS[pm] ?? "credit-card"} size={18} color={pmColor} />
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>طريقة الدفع</Text>
-                  <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
-                    {pmShort[pm] ?? pm}
-                  </Text>
-                </View>
-              </View>
-              {pm === "ewallet" && (order.paymentFee ?? 0) > 0 && (
-                <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: pmColor + "22", paddingTop: 8, marginTop: 4 }}>
-                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>رسوم المحفظة</Text>
-                    <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>+{order.paymentFee} ج.م</Text>
-                  </View>
-                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                    <Text style={{ color: pmColor, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>الإجمالي مع الرسوم</Text>
-                    <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 15 }}>{order.totalWithFee} ج.م</Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          );
-        })()}
-
-        {(isStaff || order.status === "ready" || order.status === "delivered" || order.status === "ready_to_ship" || order.status === "shipped") && (
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1009,7 +1024,8 @@ export default function OrderDetailScreen() {
               عرض الفاتورة
             </Text>
           </Pressable>
-        )}
+          );
+        })()}
 
         {isStaff && !!order.assignedToName && (
           <View style={[styles.assignedCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -1062,33 +1078,41 @@ export default function OrderDetailScreen() {
                       ]);
                       return;
                     }
-                    // Instant single-tap advance — no confirmation dialog.
-                    // User explicitly requested instant transitions even on repeat taps.
-                    if (nextAction.next === "ready") {
-                      const hasPiecesWithoutWeight = order.items.some(
-                        (i) => i.orderType === "pieces" && !i.actualWeight
-                      );
-                      if (hasPiecesWithoutWeight) {
-                        const newItems = order.items.map((i) => {
-                          if (i.orderType === "pieces" && !i.actualWeight) {
-                            return { ...i, actualWeight: i.quantity * 20 };
-                          }
-                          return i;
-                        });
-                        const weightTotal = newItems
-                          .filter((i) => i.orderType === "weight")
-                          .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                        const piecesTotal = newItems
-                          .filter((i) => i.orderType === "pieces")
-                          .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
-                        updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                    const doAdvance = () => {
+                      if (nextAction.next === "ready") {
+                        const hasPiecesWithoutWeight = order.items.some(
+                          (i) => i.orderType === "pieces" && !i.actualWeight
+                        );
+                        if (hasPiecesWithoutWeight) {
+                          const newItems = order.items.map((i) => {
+                            if (i.orderType === "pieces" && !i.actualWeight) {
+                              return { ...i, actualWeight: i.quantity * 20 };
+                            }
+                            return i;
+                          });
+                          const weightTotal = newItems
+                            .filter((i) => i.orderType === "weight")
+                            .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                          const piecesTotal = newItems
+                            .filter((i) => i.orderType === "pieces")
+                            .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                          updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                        }
                       }
-                    }
-                    if (nextAction.next === "received" && user?.role !== "admin") {
-                      updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
-                    } else {
-                      updateOrderStatus(order.id, nextAction.next);
-                    }
+                      if (nextAction.next === "received" && user?.role !== "admin") {
+                        updateOrderStatus(order.id, nextAction.next, user?.id, user?.name);
+                      } else {
+                        updateOrderStatus(order.id, nextAction.next);
+                      }
+                    };
+                    Alert.alert(
+                      "تأكيد الانتقال للمرحلة التالية",
+                      `هل تريد بالتأكيد "${nextAction.label}"؟ سيتم إعلام العميل بتغير حالة الطلب.`,
+                      [
+                        { text: "إلغاء", style: "cancel" },
+                        { text: "نعم، تابع", style: "default", onPress: doAdvance },
+                      ]
+                    );
                   }}
                   style={{ flex: 1 }}
                 />
