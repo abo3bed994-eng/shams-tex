@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS } from "@/context/AppContext";
+import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import { isWithinWorkingHours, nextWorkingTime, formatNextOpenTime } from "@/lib/workingHours";
@@ -42,10 +42,10 @@ export default function CartScreen() {
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [selectedShippingProviderId, setSelectedShippingProviderId] = useState<string | null>(null);
+  const [shippingAddress, setShippingAddress] = useState<string>("");
   const params = useLocalSearchParams<{ editOrderId?: string }>();
   const paramEditId = params.editOrderId;
   const editOrderId = paramEditId || editingOrderId;
-  const editOrder = editOrderId ? orders.find((o) => o.id === editOrderId) : null;
 
   const editLoadedRef = useRef(false);
   useEffect(() => {
@@ -144,6 +144,11 @@ export default function CartScreen() {
       return;
     }
 
+    if (!editOrderId && fulfillmentType === "shipping" && shippingAddress.trim().length < 10) {
+      Alert.alert("عنوان الشحن مطلوب", "يرجى كتابة عنوان الشحن بالتفصيل (محافظة، مدينة، شارع، علامة مميزة).");
+      return;
+    }
+
     const weightItems = cart.filter((i) => i.orderType === "weight");
     for (const item of weightItems) {
       const prod = products.find((p) => p.id === item.productId);
@@ -210,6 +215,7 @@ export default function CartScreen() {
             ? {
                 shippingProviderId: selectedShippingProviderId,
                 shippingProviderName: shippingProvidersList.find((p) => p.id === selectedShippingProviderId)?.name,
+                shippingAddress: shippingAddress.trim(),
               }
             : {}),
         };
@@ -730,6 +736,34 @@ export default function CartScreen() {
                           </Pressable>
                         );
                       })}
+                    </View>
+                    <View style={{ gap: 6, marginTop: 8 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "right" }}>
+                        عنوان الشحن <Text style={{ color: "#E74C3C" }}>*</Text>
+                      </Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                        المحافظة، المدينة، الشارع، رقم العقار، علامة مميزة
+                      </Text>
+                      <TextInput
+                        value={shippingAddress}
+                        onChangeText={setShippingAddress}
+                        placeholder="مثال: القاهرة - مدينة نصر - شارع مكرم عبيد - عقار 25 - بجوار صيدلية..."
+                        placeholderTextColor={colors.mutedForeground}
+                        multiline
+                        numberOfLines={3}
+                        style={{
+                          backgroundColor: colors.input,
+                          borderColor: shippingAddress.trim().length >= 10 ? colors.gold + "55" : colors.border,
+                          borderWidth: 1,
+                          borderRadius: 8,
+                          padding: 10,
+                          color: colors.foreground,
+                          textAlign: "right",
+                          textAlignVertical: "top",
+                          fontFamily: "Inter_400Regular",
+                          minHeight: 70,
+                        }}
+                      />
                     </View>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: "#F5A62315", borderColor: "#F5A62344", borderWidth: 1, borderRadius: colors.radius - 6, marginTop: 4 }}>
                       <Icon name="alert-triangle" size={14} color="#F5A623" />

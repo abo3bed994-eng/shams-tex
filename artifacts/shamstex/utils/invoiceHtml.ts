@@ -1,4 +1,4 @@
-import type { Order, AppSettings, PaymentMethod } from "@/context/AppContext";
+import type { Order, AppSettings, PaymentMethod, ProductUnit } from "@/context/AppContext";
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cash: "كاش عند الاستلام",
@@ -23,6 +23,11 @@ const FULFILLMENT_LABELS: Record<string, string> = {
   store: "استلام من المحل",
   branch: "استلام من الفرع",
   shipping: "شحن",
+};
+
+const UNIT_LABEL_AR: Record<ProductUnit, string> = {
+  kilo: "كجم",
+  meter: "متر",
 };
 
 function escapeHtml(s: string): string {
@@ -54,9 +59,21 @@ function formatMoney(n: number): string {
   return v.toLocaleString("en-EG", { maximumFractionDigits: 2 });
 }
 
+function piecesUnitAr(u?: ProductUnit): string {
+  return u === "meter" ? "ثوب (متر)" : "ثوب";
+}
+
+function isPrintableLogoUri(uri: string): boolean {
+  return /^(https?:|data:)/i.test(uri);
+}
+
 export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
-  const business = escapeHtml(settings.aboutTitle || "شمس تكس");
-  const logoUri = settings.logoUri ? escapeHtml(settings.logoUri) : "";
+  // Always use the latin brand name at the top of the invoice
+  const brandLatin = "Shams Tex";
+  const businessSubtitle = escapeHtml(settings.aboutTitle || "شمس تكس للأقمشة");
+  const rawLogo = settings.logoUri ?? "";
+  const logoUri = rawLogo && isPrintableLogoUri(rawLogo) ? escapeHtml(rawLogo) : "";
+
   const phoneContact = (settings.contacts || []).find((c) =>
     /مبيعات|دعم|wholesale|sales/i.test(c.label),
   );
@@ -65,9 +82,10 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   const itemsRows = order.items
     .map((it, idx) => {
       const isWeight = it.orderType === "weight";
+      const unitAr = UNIT_LABEL_AR[it.unit ?? "kilo"];
       const qtyDisplay = isWeight
-        ? `${formatMoney(it.actualWeight ?? it.weight ?? it.quantity)} كغ`
-        : `${it.quantity} ${it.unit ?? "ثوب"}`;
+        ? `${formatMoney(it.actualWeight ?? it.weight ?? it.quantity)} ${unitAr}`
+        : `${it.quantity} ${piecesUnitAr(it.unit)}`;
       const lineTotal = isWeight
         ? (it.actualWeight ?? it.weight ?? 0) * it.unitPrice
         : it.quantity * it.unitPrice;
@@ -106,13 +124,14 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   }
   fulfillmentLabel = escapeHtml(fulfillmentLabel);
   const waybillNumber = order.shippingWaybillNumber ? escapeHtml(order.shippingWaybillNumber) : "";
+  const shippingAddress = isShipping && order.shippingAddress ? escapeHtml(order.shippingAddress) : "";
 
   return `<!doctype html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>فاتورة #${escapeHtml(order.id.slice(0, 8))}</title>
+<title>Invoice #${escapeHtml(order.id.slice(0, 8))}</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -132,8 +151,15 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
     margin-bottom: 22px;
   }
   .brand { display: flex; align-items: center; gap: 14px; }
-  .brand img { width: 60px; height: 60px; object-fit: contain; border-radius: 8px; }
-  .brand-name { font-size: 22px; font-weight: 800; color: #000; }
+  .brand .logo-box {
+    width: 64px; height: 64px; border-radius: 10px;
+    background: #111; color: #d4a017;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 22px; letter-spacing: 1px;
+    overflow: hidden;
+  }
+  .brand .logo-box img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+  .brand-name { font-size: 24px; font-weight: 800; color: #000; letter-spacing: 0.5px; direction: ltr; }
   .brand-sub { font-size: 12px; color: #666; margin-top: 2px; }
   .invoice-title { text-align: left; }
   .invoice-title .t { font-size: 28px; font-weight: 800; color: #d4a017; letter-spacing: 1px; }
@@ -151,6 +177,17 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   .meta .row { font-size: 13px; line-height: 1.7; }
   .meta .label { color: #777; font-size: 11px; }
   .meta .val { color: #111; font-weight: 600; }
+  .addr-box {
+    background: #fff8e7;
+    border: 1px solid #e0b73a;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .addr-box .label { color: #8a4b00; font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+  .addr-box .val { color: #111; font-weight: 600; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -190,11 +227,7 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
     border-radius: 50%;
     border: 1px solid #ddd;
   }
-  .totals {
-    display: flex;
-    justify-content: flex-start;
-    margin-top: 10px;
-  }
+  .totals { display: flex; justify-content: flex-start; margin-top: 10px; }
   .totals-box {
     min-width: 280px;
     background: #faf7ee;
@@ -202,12 +235,7 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
     border-radius: 10px;
     padding: 14px 18px;
   }
-  .totals-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 0;
-    font-size: 13px;
-  }
+  .totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
   .totals-row.grand {
     border-top: 2px solid #d4a017;
     margin-top: 8px;
@@ -216,8 +244,20 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
     font-weight: 800;
     color: #000;
   }
+  .notice-box {
+    margin-top: 22px;
+    padding: 12px 16px;
+    background: #fff4e5;
+    border: 1px solid #f5a623;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #8a4b00;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.6;
+  }
   .footer {
-    margin-top: 30px;
+    margin-top: 22px;
     padding-top: 14px;
     border-top: 1px dashed #ccc;
     text-align: center;
@@ -231,10 +271,12 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
 <body>
   <div class="header">
     <div class="brand">
-      ${logoUri ? `<img src="${logoUri}" alt="logo" />` : ""}
+      <div class="logo-box">
+        ${logoUri ? `<img src="${logoUri}" alt="logo" />` : "ST"}
+      </div>
       <div>
-        <div class="brand-name">${business}</div>
-        ${phone ? `<div class="brand-sub">${phone}</div>` : ""}
+        <div class="brand-name">${brandLatin}</div>
+        <div class="brand-sub">${businessSubtitle}${phone ? ` • ${phone}` : ""}</div>
       </div>
     </div>
     <div class="invoice-title">
@@ -262,6 +304,8 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       ${waybillNumber ? `<div class="label" style="margin-top:6px">رقم بوليصة الشحن</div><div class="val">${waybillNumber}</div>` : ""}
     </div>
   </div>
+
+  ${shippingAddress ? `<div class="addr-box"><div class="label">📍 عنوان الشحن</div><div class="val">${shippingAddress}</div></div>` : ""}
 
   ${isShipping ? `<div style="margin-bottom:18px;padding:12px 16px;background:#fff4e5;border:1px solid #f5a623;border-radius:10px;font-size:13px;color:#8a4b00;font-weight:700;text-align:center">⚠ السعر غير شامل ثمن الشحن</div>` : ""}
 
@@ -294,9 +338,12 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
 
   ${order.notes ? `<div style="margin-top:18px;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:12px;color:#555"><b>ملاحظات: </b>${escapeHtml(order.notes)}</div>` : ""}
 
+  <div class="notice-box">
+    ⚠ لسنا مسؤولين عن القماش بعد القص أو الطباعة
+  </div>
+
   <div class="footer">
-    <div class="thanks">شكراً لتعاملكم مع ${business}</div>
-    <div>هذه الفاتورة مُولّدة تلقائياً ولا تحتاج إلى ختم.</div>
+    <div class="thanks">شكراً لتعاملكم مع ${brandLatin}</div>
   </div>
 </body>
 </html>`;

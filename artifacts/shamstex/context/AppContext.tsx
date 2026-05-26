@@ -156,6 +156,7 @@ export interface Order {
   shippingProviderName?: string;
   shippingWaybillImage?: string;
   shippingWaybillNumber?: string;
+  shippingAddress?: string;
   shippedAt?: string;
 }
 

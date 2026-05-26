@@ -142,7 +142,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, setOrderInvoiceImage, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder, setOrderTransferProof, setOrderPaymentMethod, setOrderPaymentOverride, setOrderShipping } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder, setOrderTransferProof, setOrderPaymentMethod, setOrderPaymentOverride, setOrderShipping } = useApp();
   const [showMsgInput, setShowMsgInput] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -168,6 +168,7 @@ export default function OrderDetailScreen() {
   const [waybillProviderInput, setWaybillProviderInput] = useState<ShippingProviderId | null>(null);
   const [uploadingWaybill, setUploadingWaybill] = useState(false);
   const [showWaybillPreview, setShowWaybillPreview] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -415,6 +416,17 @@ export default function OrderDetailScreen() {
                       <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
                         شركة الشحن: {providerName}
                       </Text>
+                    </View>
+                  ) : null}
+                  {order.shippingAddress ? (
+                    <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", gap: 6, padding: 10, backgroundColor: colors.gold + "11", borderColor: colors.gold + "33", borderWidth: 1, borderRadius: colors.radius - 6 }}>
+                      <Icon name="map-pin" size={14} color={colors.gold} style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 12, textAlign: "right" }}>عنوان الشحن</Text>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
+                          {order.shippingAddress}
+                        </Text>
+                      </View>
                     </View>
                   ) : null}
                   {order.shippingWaybillNumber ? (
@@ -748,82 +760,7 @@ export default function OrderDetailScreen() {
           })()}
         </View>
 
-        {(isStaff || order.status === "ready" || order.status === "delivered" || order.status === "ready_to_ship" || order.status === "shipped") && (
-          <View style={{ gap: 8 }}>
-            <Pressable
-              onPress={async () => {
-                try {
-                  setPrintingInvoice(true);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  const html = buildInvoiceHtml(order, settings);
-                  await Print.printAsync({ html });
-                } catch (e: any) {
-                  if (!/cancel/i.test(String(e?.message ?? ""))) {
-                    Alert.alert("خطأ", "تعذّر فتح نافذة الطباعة");
-                  }
-                } finally {
-                  setPrintingInvoice(false);
-                }
-              }}
-              style={({ pressed }) => [{
-                flexDirection: "row-reverse",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                paddingVertical: 12,
-                backgroundColor: colors.gold + "15",
-                borderColor: colors.gold + "44",
-                borderWidth: 1,
-                borderRadius: colors.radius - 4,
-                opacity: pressed ? 0.7 : 1,
-              }]}
-            >
-              <Icon name="printer" size={16} color={colors.gold} />
-              <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-                {printingInvoice ? "جاري التحضير..." : "اطبع الفاتورة"}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={async () => {
-                try {
-                  setPrintingInvoice(true);
-                  const html = buildInvoiceHtml(order, settings);
-                  const { uri } = await Print.printToFileAsync({ html, base64: false });
-                  if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(uri, {
-                      mimeType: "application/pdf",
-                      dialogTitle: `فاتورة #${order.id.slice(0, 8)}`,
-                      UTI: "com.adobe.pdf",
-                    });
-                  } else {
-                    Alert.alert("تم الإنشاء", "تم إنشاء ملف الفاتورة.");
-                  }
-                } catch {
-                  Alert.alert("خطأ", "تعذّر إنشاء ملف الفاتورة");
-                } finally {
-                  setPrintingInvoice(false);
-                }
-              }}
-              style={({ pressed }) => [{
-                flexDirection: "row-reverse",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                paddingVertical: 10,
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: 1,
-                borderRadius: colors.radius - 4,
-                opacity: pressed ? 0.7 : 1,
-              }]}
-            >
-              <Icon name="share-2" size={14} color={colors.foreground} />
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-                مشاركة كملف PDF
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        {/* Invoice view button moved BELOW payment instructions */}
 
         {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || order.status === "ready_to_ship" || (order.status === "delivered" && !!order.transferProofImage) || (order.status === "shipped" && !!order.transferProofImage)) && (() => {
           const pm = order.paymentMethod as PaymentMethod;
@@ -1046,6 +983,32 @@ export default function OrderDetailScreen() {
             </View>
           );
         })()}
+
+        {(isStaff || order.status === "ready" || order.status === "delivered" || order.status === "ready_to_ship" || order.status === "shipped") && (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowInvoiceModal(true);
+            }}
+            style={({ pressed }) => [{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 14,
+              backgroundColor: colors.gold + "15",
+              borderColor: colors.gold + "55",
+              borderWidth: 1.5,
+              borderRadius: colors.radius - 4,
+              opacity: pressed ? 0.7 : 1,
+            }]}
+          >
+            <Icon name="file-text" size={18} color={colors.gold} />
+            <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+              عرض الفاتورة
+            </Text>
+          </Pressable>
+        )}
 
         {isStaff && !!order.assignedToName && (
           <View style={[styles.assignedCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -1694,6 +1657,157 @@ export default function OrderDetailScreen() {
           </View>
         </Modal>
       )}
+
+      <Modal visible={showInvoiceModal} transparent animationType="slide" onRequestClose={() => setShowInvoiceModal(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)" }}>
+          <View style={{ flex: 1, marginTop: insets.top + 40, backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: "hidden" }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12 }}>
+              <Icon name="file-text" size={20} color={colors.gold} />
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, flex: 1, textAlign: "right" }}>
+                فاتورة #{order.id.slice(0, 8)}
+              </Text>
+              <Pressable onPress={() => setShowInvoiceModal(false)} style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }}>
+                <Icon name="x" size={18} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, gap: 14 }}>
+              <View style={{ alignItems: "center", paddingVertical: 18, borderBottomWidth: 2, borderBottomColor: colors.gold, gap: 4 }}>
+                {settings.logoUri ? (
+                  <Image source={{ uri: settings.logoUri }} style={{ width: 70, height: 70, borderRadius: 10, marginBottom: 6 }} resizeMode="contain" />
+                ) : (
+                  <View style={{ width: 70, height: 70, borderRadius: 10, backgroundColor: "#111", alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_800ExtraBold", fontSize: 24 }}>ST</Text>
+                  </View>
+                )}
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_800ExtraBold", fontSize: 22, letterSpacing: 1 }}>Shams Tex</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                  {settings.aboutTitle || "شمس تكس للأقمشة"}
+                </Text>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right" }}>العميل</Text>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>{order.userName} — {order.userPhone}</Text>
+              </View>
+
+              {order.shippingAddress ? (
+                <View style={{ gap: 4, padding: 10, backgroundColor: colors.gold + "11", borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "33" }}>
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 11, textAlign: "right" }}>📍 عنوان الشحن</Text>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
+                    {order.shippingAddress}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={{ gap: 8, paddingTop: 8 }}>
+                {order.items.map((it, idx) => {
+                  const isWeight = it.orderType === "weight";
+                  const unitAr = it.unit === "meter" ? "متر" : "كجم";
+                  const qty = isWeight
+                    ? `${(it.actualWeight ?? it.weight ?? it.quantity).toLocaleString("en-EG")} ${unitAr}`
+                    : `${it.quantity} ${it.unit === "meter" ? "ثوب (متر)" : "ثوب"}`;
+                  const line = isWeight
+                    ? (it.actualWeight ?? it.weight ?? 0) * it.unitPrice
+                    : it.quantity * it.unitPrice;
+                  return (
+                    <View key={idx} style={{ padding: 10, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 4 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: it.colorHex || "#000", borderWidth: 1, borderColor: colors.border }} />
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, flex: 1, textAlign: "right" }}>
+                          {it.productName} — {it.colorName}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                        <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{qty} × {it.unitPrice} ج.م</Text>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>{line.toLocaleString("en-EG")} ج.م</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <View style={{ padding: 12, borderRadius: 8, backgroundColor: colors.gold + "11", borderWidth: 1, borderColor: colors.gold + "44", gap: 6 }}>
+                <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>المجموع الفرعي</Text>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>{order.total.toLocaleString("en-EG")} ج.م</Text>
+                </View>
+                {(order.paymentFee ?? 0) > 0 && (
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>رسوم الدفع</Text>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>{order.paymentFee} ج.م</Text>
+                  </View>
+                )}
+                <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", borderTopWidth: 1.5, borderTopColor: colors.gold, paddingTop: 6, marginTop: 2 }}>
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_800ExtraBold", fontSize: 15 }}>الإجمالي</Text>
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_800ExtraBold", fontSize: 17 }}>
+                    {(order.totalWithFee ?? order.total).toLocaleString("en-EG")} ج.م
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ padding: 10, backgroundColor: "#FFF4E5", borderRadius: 8, borderWidth: 1, borderColor: "#F5A623" }}>
+                <Text style={{ color: "#8A4B00", fontFamily: "Inter_700Bold", fontSize: 12, textAlign: "center", lineHeight: 18 }}>
+                  ⚠ لسنا مسؤولين عن القماش بعد القص أو الطباعة
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={{ flexDirection: "row-reverse", gap: 10, padding: 14, paddingBottom: insets.bottom + 14, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+              <Pressable
+                onPress={async () => {
+                  try {
+                    setPrintingInvoice(true);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    const html = buildInvoiceHtml(order, settings);
+                    await Print.printAsync({ html });
+                  } catch (e: any) {
+                    if (!/cancel/i.test(String(e?.message ?? ""))) {
+                      Alert.alert("خطأ", "تعذّر فتح نافذة الطباعة");
+                    }
+                  } finally {
+                    setPrintingInvoice(false);
+                  }
+                }}
+                disabled={printingInvoice}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: colors.radius - 4, backgroundColor: colors.gold, opacity: (pressed || printingInvoice) ? 0.7 : 1 })}
+              >
+                <Icon name="printer" size={18} color="#000" />
+                <Text style={{ color: "#000", fontFamily: "Inter_800ExtraBold", fontSize: 14 }}>
+                  {printingInvoice ? "جاري التحضير..." : "طباعة"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  try {
+                    setPrintingInvoice(true);
+                    const html = buildInvoiceHtml(order, settings);
+                    const { uri } = await Print.printToFileAsync({ html, base64: false });
+                    if (await Sharing.isAvailableAsync()) {
+                      await Sharing.shareAsync(uri, {
+                        mimeType: "application/pdf",
+                        dialogTitle: `فاتورة #${order.id.slice(0, 8)}`,
+                        UTI: "com.adobe.pdf",
+                      });
+                    } else {
+                      Alert.alert("تم الإنشاء", "تم إنشاء ملف الفاتورة.");
+                    }
+                  } catch {
+                    Alert.alert("خطأ", "تعذّر إنشاء ملف الفاتورة");
+                  } finally {
+                    setPrintingInvoice(false);
+                  }
+                }}
+                disabled={printingInvoice}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: colors.radius - 4, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.gold + "55", opacity: (pressed || printingInvoice) ? 0.7 : 1 })}
+              >
+                <Icon name="file-down" size={18} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>PDF</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {order.shippingWaybillImage && (
         <Modal visible={showWaybillPreview} transparent animationType="fade" onRequestClose={() => setShowWaybillPreview(false)}>
