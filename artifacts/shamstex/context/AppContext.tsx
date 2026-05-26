@@ -783,17 +783,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
         if (!isFirstNotifLoad) {
           const me = userRef.current;
-          const meIsStaff = me && me.role !== "customer";
+          const meIsStaff = !!me && me.role !== "customer" && me.role !== "merchant";
           const newOnes = freshNotifs.filter((n) => !prevIds.has(n.id));
           const forMe = newOnes.filter((n) => {
+            if (!me) return false;
             if (n.targetUserId === "self") return false;
-            if (me && n.sourceUserId === me.id) return false;
-            if (n.targetUserId && me && n.targetUserId === me.id) return true;
-            if (n.targetRole === "staff" && meIsStaff) return true;
+            if (n.sourceUserId === me.id) return false;
+            // Direct-to-user notifications: only the targeted user.
+            if (n.targetUserId) return n.targetUserId === me.id;
+            // Role-targeted notifications: must match role exactly or be a
+            // staff/all broadcast that the current user is allowed to see.
+            if (n.targetRole === "staff") return meIsStaff;
             if (n.targetRole === "all") return true;
-            if (n.targetRole && me && n.targetRole === me.role) return true;
-            if (!n.targetUserId && !n.targetRole) return true;
-            return false;
+            if (n.targetRole === "employee") return me.role === "employee" || me.role === "supervisor" || me.role === "admin";
+            if (n.targetRole === "supervisor") return me.role === "supervisor" || me.role === "admin";
+            if (n.targetRole) return n.targetRole === me.role;
+            // Untargeted broadcasts go to everyone.
+            return true;
           });
           if (forMe.length > 0) {
             if (Platform.OS !== "web") {
