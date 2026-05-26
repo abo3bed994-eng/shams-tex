@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS } from "@/context/AppContext";
+import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import { isWithinWorkingHours, nextWorkingTime, formatNextOpenTime } from "@/lib/workingHours";
@@ -39,6 +39,8 @@ export default function CartScreen() {
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>("store");
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const params = useLocalSearchParams<{ editOrderId?: string }>();
   const paramEditId = params.editOrderId;
   const editOrderId = paramEditId || editingOrderId;
@@ -53,6 +55,8 @@ export default function CartScreen() {
       if (order) {
         setCart([...order.items]);
         if (order.notes) setNotes(order.notes);
+        if (order.fulfillmentType) setFulfillmentType(order.fulfillmentType);
+        if (order.branchId) setSelectedBranchId(order.branchId);
       }
     }
   }, [paramEditId]);
@@ -81,13 +85,27 @@ export default function CartScreen() {
 
   const paymentSettings = settings.payment;
   const ewalletFee = paymentSettings?.ewalletFeePercent ?? 1;
+  const branchesList = settings.branches ?? [];
+  const shippingProvidersList = (settings.shippingProviders && settings.shippingProviders.length > 0)
+    ? settings.shippingProviders
+    : SHIPPING_PROVIDER_DEFAULTS;
+  const hasEnabledShippingProvider = shippingProvidersList.some((p) => p.enabled !== false);
+  const fulfillmentAvail = paymentSettings?.fulfillmentAvailability;
   const PAYMENT_METHODS = ALL_PAYMENT_METHODS.filter((pm) => {
-    if (pm.key === "cash") return paymentSettings?.cashEnabled !== false;
-    if (pm.key === "bank_transfer") return paymentSettings?.bankTransferEnabled !== false;
-    if (pm.key === "ewallet") return paymentSettings?.ewalletEnabled !== false;
-    if (pm.key === "instapay") return paymentSettings?.instapayEnabled !== false;
+    if (pm.key === "cash" && paymentSettings?.cashEnabled === false) return false;
+    if (pm.key === "bank_transfer" && paymentSettings?.bankTransferEnabled === false) return false;
+    if (pm.key === "ewallet" && paymentSettings?.ewalletEnabled === false) return false;
+    if (pm.key === "instapay" && paymentSettings?.instapayEnabled === false) return false;
+    const allow = fulfillmentAvail?.[pm.key]?.[fulfillmentType];
+    if (allow === false) return false;
     return true;
   });
+
+  useEffect(() => {
+    if (selectedPayment && !PAYMENT_METHODS.some((p) => p.key === selectedPayment)) {
+      setSelectedPayment(null);
+    }
+  }, [fulfillmentType, selectedPayment]);
   const feeAmount = selectedPayment === "ewallet" ? Math.ceil(totalPrice * ewalletFee / 100) : 0;
   const totalWithFee = totalPrice + feeAmount;
 
@@ -109,6 +127,11 @@ export default function CartScreen() {
 
     if (!editOrderId && !selectedPayment) {
       Alert.alert("طريقة الدفع", "يرجى اختيار طريقة الدفع قبل إتمام الطلب.");
+      return;
+    }
+
+    if (!editOrderId && fulfillmentType === "branch" && !selectedBranchId) {
+      Alert.alert("اختر الفرع", "يرجى اختيار الفرع للاستلام منه.");
       return;
     }
 
@@ -134,7 +157,13 @@ export default function CartScreen() {
 
     try {
       if (editOrderId) {
-        await updateOrderItems(editOrderId, [...cart], totalPrice, false, notes);
+        await updateOrderItems(editOrderId, [...cart], totalPrice, false, notes, {
+          fulfillmentType,
+          branchId: fulfillmentType === "branch" ? selectedBranchId ?? undefined : undefined,
+          branchName: fulfillmentType === "branch"
+            ? branchesList.find((b) => b.id === selectedBranchId)?.name
+            : undefined,
+        });
         clearCart();
         setEditingOrderId(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -161,6 +190,13 @@ export default function CartScreen() {
           paymentFee: feeAmount,
           totalWithFee: totalWithFee,
           scheduledFor: willSchedule && nextOpen ? nextOpen.toISOString() : undefined,
+          fulfillmentType,
+          ...(fulfillmentType === "branch" && selectedBranchId
+            ? {
+                branchId: selectedBranchId,
+                branchName: branchesList.find((b) => b.id === selectedBranchId)?.name,
+              }
+            : {}),
         };
         await addOrder(order);
         clearCart();
@@ -586,6 +622,89 @@ export default function CartScreen() {
                     </Text>
                   </View>
                 ))}
+              </View>
+            )}
+
+            {!editOrderId && (
+              <View style={[styles.paymentSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+                <View style={styles.paymentHeader}>
+                  <Icon name="truck" size={18} color={colors.gold} />
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, flex: 1, textAlign: "right" }}>
+                    طريقة الاستلام
+                  </Text>
+                </View>
+
+                <View style={{ gap: 8 }}>
+                  {(["store", "branch", "shipping"] as FulfillmentType[]).map((ft) => {
+                    if (ft === "branch" && branchesList.length === 0) return null;
+                    if (ft === "shipping" && !hasEnabledShippingProvider) return null;
+                    const isSel = fulfillmentType === ft;
+                    const label = ft === "store" ? "استلام من المحل الرئيسي" : ft === "branch" ? "استلام من فرع" : "شحن";
+                    const desc = ft === "store" ? "زيارة المحل الرئيسي" : ft === "branch" ? "اختر الفرع المناسب لك" : "توصيل عبر شركة شحن (السعر غير شامل ثمن الشحن)";
+                    const icn = ft === "store" ? "store" : ft === "branch" ? "map-pin" : "truck";
+                    return (
+                      <Pressable
+                        key={ft}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setFulfillmentType(ft);
+                          if (ft !== "branch") setSelectedBranchId(null);
+                        }}
+                        style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, padding: 12, borderRadius: colors.radius - 4, borderWidth: isSel ? 1.5 : 1, borderColor: isSel ? colors.gold : colors.border, backgroundColor: isSel ? colors.gold + "12" : colors.surface }}
+                      >
+                        <Icon name={icn as any} size={18} color={isSel ? colors.gold : colors.mutedForeground} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: isSel ? colors.gold : colors.foreground, fontFamily: isSel ? "Inter_700Bold" : "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>{label}</Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", marginTop: 2 }}>{desc}</Text>
+                        </View>
+                        {isSel && (
+                          <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}>
+                            <Icon name="check" size={11} color={colors.background} />
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {fulfillmentType === "branch" && branchesList.length > 0 && (
+                  <View style={{ gap: 6, marginTop: 4 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "right" }}>اختر الفرع</Text>
+                    {branchesList.map((b) => {
+                      const sel = selectedBranchId === b.id;
+                      return (
+                        <Pressable
+                          key={b.id}
+                          onPress={() => setSelectedBranchId(b.id)}
+                          style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: sel ? colors.gold : colors.border, backgroundColor: sel ? colors.gold + "12" : colors.surface, gap: 4 }}
+                        >
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                            <Icon name={sel ? "check-circle" : "circle"} size={14} color={sel ? colors.gold : colors.mutedForeground} />
+                            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, flex: 1, textAlign: "right" }}>{b.name}</Text>
+                          </View>
+                          {b.address ? (
+                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>{b.address}</Text>
+                          ) : null}
+                          {b.mapsUrl ? (
+                            <Pressable onPress={() => Linking.openURL(b.mapsUrl!).catch(() => {})} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                              <Icon name="map" size={11} color="#3498DB" />
+                              <Text style={{ color: "#3498DB", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>اللوكيشن</Text>
+                            </Pressable>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {fulfillmentType === "shipping" && (
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: "#F5A62315", borderColor: "#F5A62344", borderWidth: 1, borderRadius: colors.radius - 6, marginTop: 4 }}>
+                    <Icon name="alert-triangle" size={14} color="#F5A623" />
+                    <Text style={{ color: "#B5790E", fontFamily: "Inter_700Bold", fontSize: 12, flex: 1, textAlign: "right" }}>
+                      السعر غير شامل ثمن الشحن
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
 

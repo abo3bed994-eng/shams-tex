@@ -17,7 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, AppSettings, ContactEntry, SocialEntry, WorkingDay, PaymentSettings, WalletEntry, InstapayEntry } from "@/context/AppContext";
+import { useApp, AppSettings, ContactEntry, SocialEntry, WorkingDay, PaymentSettings, WalletEntry, InstapayEntry, Branch, ShippingProviderConfig, ShippingProviderId, SHIPPING_PROVIDER_DEFAULTS, FulfillmentType, PaymentMethod, PAYMENT_METHOD_LABELS } from "@/context/AppContext";
 import { persistImageUri } from "@/utils/persistImage";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
@@ -733,6 +733,96 @@ export default function AdminSettingsScreen() {
           />
         </Card>
 
+        <Card title="🏬 الفروع">
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
+            أضف فروع الاستلام (تشمل المحل الرئيسي). كل فرع له اسم، عنوان، وهاتف اختياري ورابط خرائط.
+          </Text>
+          {(() => {
+            const branches = draft.branches ?? [];
+            const updateBranch = (id: string, field: keyof Branch, value: string) => {
+              setDraft((d) => ({
+                ...d,
+                branches: (d.branches ?? []).map((b) => (b.id === id ? { ...b, [field]: value } : b)),
+              }));
+            };
+            const removeBranch = (id: string) => {
+              setDraft((d) => ({ ...d, branches: (d.branches ?? []).filter((b) => b.id !== id) }));
+            };
+            const addBranch = () => {
+              setDraft((d) => ({
+                ...d,
+                branches: [
+                  ...(d.branches ?? []),
+                  { id: `br_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name: "", address: "", phone: "", mapsUrl: "" },
+                ],
+              }));
+            };
+            return (
+              <View style={{ gap: 10 }}>
+                {branches.length === 0 && (
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", fontStyle: "italic" }}>
+                    لا توجد فروع — أضف الفرع الأول
+                  </Text>
+                )}
+                {branches.map((b, idx) => (
+                  <View key={b.id} style={{ padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, gap: 8, backgroundColor: colors.surface }}>
+                    <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>فرع #{idx + 1}</Text>
+                      <Pressable onPress={() => removeBranch(b.id)} style={{ padding: 6 }}>
+                        <Icon name="trash-2" size={16} color="#E74C3C" />
+                      </Pressable>
+                    </View>
+                    <Field label="اسم الفرع" value={b.name} onChange={(v) => updateBranch(b.id, "name", v)} placeholder="المحل الرئيسي / فرع المنصورة..." />
+                    <Field label="العنوان" value={b.address ?? ""} onChange={(v) => updateBranch(b.id, "address", v)} placeholder="شارع... رقم..." />
+                    <Field label="الهاتف (اختياري)" value={b.phone ?? ""} onChange={(v) => updateBranch(b.id, "phone", v)} placeholder="01000000000" keyboardType="phone-pad" />
+                    <Field label="رابط الخرائط (Google Maps)" value={b.mapsUrl ?? ""} onChange={(v) => updateBranch(b.id, "mapsUrl", v)} placeholder="https://maps.app.goo.gl/..." />
+                  </View>
+                ))}
+                <GoldButton label="+ إضافة فرع جديد" onPress={addBranch} variant="outline" size="sm" style={{ width: "100%" }} />
+              </View>
+            );
+          })()}
+        </Card>
+
+        <Card title="🚚 شركات الشحن">
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
+            فعّل/عطّل شركات الشحن المتاحة للعميل. ثمن الشحن لا يُحسب داخل التطبيق ويُتفق عليه خارجياً.
+          </Text>
+          {(() => {
+            const current = draft.shippingProviders && draft.shippingProviders.length > 0
+              ? draft.shippingProviders
+              : SHIPPING_PROVIDER_DEFAULTS;
+            const setProviderEnabled = (id: ShippingProviderId, enabled: boolean) => {
+              setDraft((d) => {
+                const base = d.shippingProviders && d.shippingProviders.length > 0 ? d.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
+                const next: ShippingProviderConfig[] = base.map((p) => (p.id === id ? { ...p, enabled } : p));
+                return { ...d, shippingProviders: next };
+              });
+            };
+            return (
+              <View style={{ gap: 8 }}>
+                {current.map((p) => {
+                  const enabled = p.enabled !== false;
+                  return (
+                    <View key={p.id} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.surface }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, flex: 1 }}>
+                        <Icon name="package" size={16} color={enabled ? colors.gold : colors.mutedForeground} />
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>{p.name}</Text>
+                      </View>
+                      <Switch
+                        value={enabled}
+                        onValueChange={(v) => setProviderEnabled(p.id, v)}
+                        trackColor={{ true: colors.gold, false: colors.border }}
+                        thumbColor={enabled ? colors.gold : colors.mutedForeground}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })()}
+        </Card>
+
         <Card title="إعدادات الدفع">
           <View style={{ gap: 14 }}>
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: colors.gold + "11", borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "33" }}>
@@ -770,6 +860,69 @@ export default function AdminSettingsScreen() {
                     </View>
                   );
                 })}
+              </View>
+            )}
+
+            {(user?.role === "admin" || (user?.permissions ?? []).includes("manage_payments")) && (
+              <View style={{ gap: 8, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.surface }}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                  توفّر وسائل الدفع حسب طريقة الاستلام
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                  مثال: تعطيل الكاش عند الشحن
+                </Text>
+                {(() => {
+                  const methods: { key: PaymentMethod }[] = [
+                    { key: "cash" },
+                    { key: "bank_transfer" },
+                    { key: "ewallet" },
+                    { key: "instapay" },
+                  ];
+                  const fts: { key: FulfillmentType; label: string }[] = [
+                    { key: "store", label: "المحل" },
+                    { key: "branch", label: "فرع" },
+                    { key: "shipping", label: "شحن" },
+                  ];
+                  const setAvail = (m: PaymentMethod, ft: FulfillmentType, v: boolean) => {
+                    setDraft((d) => {
+                      const cur = d.payment?.fulfillmentAvailability ?? {};
+                      const inner = { ...(cur[m] ?? {}), [ft]: v };
+                      const nextAvail = { ...cur, [m]: inner };
+                      return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), fulfillmentAvailability: nextAvail } };
+                    });
+                  };
+                  return (
+                    <View style={{ gap: 6 }}>
+                      <View style={{ flexDirection: "row-reverse", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                        <Text style={{ flex: 1.4, color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "right" }}>وسيلة الدفع</Text>
+                        {fts.map((f) => (
+                          <Text key={f.key} style={{ flex: 1, color: colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "center" }}>{f.label}</Text>
+                        ))}
+                      </View>
+                      {methods.map((m) => (
+                        <View key={m.key} style={{ flexDirection: "row-reverse", alignItems: "center", paddingVertical: 4 }}>
+                          <Text style={{ flex: 1.4, color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "right" }}>
+                            {PAYMENT_METHOD_LABELS[m.key]}
+                          </Text>
+                          {fts.map((f) => {
+                            const cur = draft.payment?.fulfillmentAvailability?.[m.key]?.[f.key];
+                            const allowed = cur !== false;
+                            return (
+                              <View key={f.key} style={{ flex: 1, alignItems: "center" }}>
+                                <Pressable
+                                  onPress={() => setAvail(m.key, f.key, !allowed)}
+                                  style={{ width: 26, height: 26, borderRadius: 6, borderWidth: 1, borderColor: allowed ? colors.gold : colors.border, backgroundColor: allowed ? colors.gold : "transparent", alignItems: "center", justifyContent: "center" }}
+                                >
+                                  {allowed ? <Icon name="check" size={14} color={colors.background} /> : <Icon name="x" size={14} color={colors.mutedForeground} />}
+                                </Pressable>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
               </View>
             )}
 

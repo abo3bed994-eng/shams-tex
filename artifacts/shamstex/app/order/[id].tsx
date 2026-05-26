@@ -4,7 +4,8 @@ import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, OrderStatus, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS } from "@/context/AppContext";
+import { useApp, OrderStatus, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS, SHIPPING_PROVIDER_DEFAULTS, ShippingProviderId } from "@/context/AppContext";
+import { Linking } from "react-native";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import * as Haptics from "expo-haptics";
@@ -15,7 +16,7 @@ import { persistImageUri } from "@/utils/persistImage";
 import { saveImageToDevice, shareImage } from "@/utils/imageActions";
 import { buildInvoiceHtml } from "@/utils/invoiceHtml";
 
-const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
+const PICKUP_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
   { key: "received", label: "تم استلام الطلب", icon: "inbox" },
   { key: "preparing", label: "جاري تجهيز الطلب", icon: "package" },
@@ -23,29 +24,67 @@ const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "delivered", label: "تم التسليم", icon: "check-circle" },
 ];
 
+const SHIPPING_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
+  { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
+  { key: "received", label: "تم استلام الطلب", icon: "inbox" },
+  { key: "preparing", label: "جاري تجهيز الطلب", icon: "package" },
+  { key: "ready_to_ship", label: "جاهز للشحن", icon: "package" },
+  { key: "shipped", label: "تم الشحن", icon: "truck" },
+];
+
+function getStatusSteps(fulfillmentType?: string) {
+  return fulfillmentType === "shipping" ? SHIPPING_STEPS : PICKUP_STEPS;
+}
+
 const STATUS_COLORS: Record<OrderStatus, string> = {
   scheduled: "#D4A017",
   pending: "#9B59B6",
   received: "#3498DB",
   preparing: "#F39C12",
   ready: "#27AE60",
+  ready_to_ship: "#16A085",
+  shipped: "#1ABC9C",
   delivered: "#2ECC71",
   cancelled: "#E74C3C",
 };
 
-const NEXT_ACTION: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
-  scheduled: { next: "received",  label: "استلام مبكر (خارج الدوام)" },
-  pending:   { next: "received",  label: "استلام الطلب" },
-  received:  { next: "preparing", label: "بدء التجهيز" },
-  preparing: { next: "ready",     label: "تأكيد الجاهزية" },
-  ready:     { next: "delivered", label: "تأكيد التسليم" },
-};
-const PREV_ACTION: Partial<Record<OrderStatus, { prev: OrderStatus; label: string }>> = {
-  received:  { prev: "pending",   label: "إلغاء الاستلام" },
-  preparing: { prev: "received",  label: "رجوع لاستلام" },
-  ready:     { prev: "preparing", label: "رجوع لتجهيز" },
-  delivered: { prev: "ready",     label: "رجوع لجاهز" },
-};
+function getNextAction(status: OrderStatus, fulfillmentType?: string): { next: OrderStatus; label: string } | undefined {
+  const isShipping = fulfillmentType === "shipping";
+  const map: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = isShipping
+    ? {
+        scheduled: { next: "received", label: "استلام مبكر (خارج الدوام)" },
+        pending: { next: "received", label: "استلام الطلب" },
+        received: { next: "preparing", label: "بدء التجهيز" },
+        preparing: { next: "ready_to_ship", label: "جاهز للشحن" },
+        ready_to_ship: { next: "shipped", label: "تأكيد الشحن" },
+      }
+    : {
+        scheduled: { next: "received", label: "استلام مبكر (خارج الدوام)" },
+        pending: { next: "received", label: "استلام الطلب" },
+        received: { next: "preparing", label: "بدء التجهيز" },
+        preparing: { next: "ready", label: "تأكيد الجاهزية" },
+        ready: { next: "delivered", label: "تأكيد التسليم" },
+      };
+  return map[status];
+}
+
+function getPrevAction(status: OrderStatus, fulfillmentType?: string): { prev: OrderStatus; label: string } | undefined {
+  const isShipping = fulfillmentType === "shipping";
+  const map: Partial<Record<OrderStatus, { prev: OrderStatus; label: string }>> = isShipping
+    ? {
+        received: { prev: "pending", label: "إلغاء الاستلام" },
+        preparing: { prev: "received", label: "رجوع لاستلام" },
+        ready_to_ship: { prev: "preparing", label: "رجوع لتجهيز" },
+        shipped: { prev: "ready_to_ship", label: "رجوع لجاهز للشحن" },
+      }
+    : {
+        received: { prev: "pending", label: "إلغاء الاستلام" },
+        preparing: { prev: "received", label: "رجوع لاستلام" },
+        ready: { prev: "preparing", label: "رجوع لتجهيز" },
+        delivered: { prev: "ready", label: "رجوع لجاهز" },
+      };
+  return map[status];
+}
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
@@ -103,7 +142,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, setOrderInvoiceImage, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder, setOrderTransferProof, setOrderPaymentMethod, setOrderPaymentOverride } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, setOrderInvoiceImage, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder, setOrderTransferProof, setOrderPaymentMethod, setOrderPaymentOverride, setOrderShipping } = useApp();
   const [showMsgInput, setShowMsgInput] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -124,6 +163,11 @@ export default function OrderDetailScreen() {
   const [showOverrideInput, setShowOverrideInput] = useState(false);
   const [overrideHandle, setOverrideHandle] = useState("");
   const [overrideName, setOverrideName] = useState("");
+  const [showWaybillModal, setShowWaybillModal] = useState(false);
+  const [waybillNumberInput, setWaybillNumberInput] = useState("");
+  const [waybillProviderInput, setWaybillProviderInput] = useState<ShippingProviderId | null>(null);
+  const [uploadingWaybill, setUploadingWaybill] = useState(false);
+  const [showWaybillPreview, setShowWaybillPreview] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -136,6 +180,7 @@ export default function OrderDetailScreen() {
 
   const isCancelled = order?.status === "cancelled";
   const isScheduled = order?.status === "scheduled";
+  const STATUS_STEPS = getStatusSteps(order?.fulfillmentType);
   const currentStep = isCancelled || isScheduled ? 0 : STATUS_STEPS.findIndex((s) => s.key === order?.status);
 
   if (!order) {
@@ -298,6 +343,116 @@ export default function OrderDetailScreen() {
             )}
           </View>
         )}
+
+        {(() => {
+          const ft = order.fulfillmentType ?? "store";
+          const branches = settings.branches ?? [];
+          const branch = order.branchId ? branches.find((b) => b.id === order.branchId) : null;
+          const providers = (settings.shippingProviders && settings.shippingProviders.length > 0)
+            ? settings.shippingProviders
+            : SHIPPING_PROVIDER_DEFAULTS;
+          const providerName = order.shippingProviderName
+            || providers.find((p) => p.id === order.shippingProviderId)?.name
+            || "";
+          const fulfillmentTitle = ft === "shipping" ? "الشحن" : ft === "branch" ? "الاستلام من فرع" : "الاستلام من المحل الرئيسي";
+          const fulfillmentIcon = ft === "shipping" ? "truck" : ft === "branch" ? "map-pin" : "store";
+          const fulfillmentColor = ft === "shipping" ? "#1ABC9C" : ft === "branch" ? "#3498DB" : colors.gold;
+          const canEditWaybill = isStaff && !isLockedByOther && (order.status === "ready_to_ship" || order.status === "shipped" || order.status === "preparing");
+          return (
+            <View style={[{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius, padding: 14, gap: 10 }]}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <Icon name={fulfillmentIcon as any} size={18} color={fulfillmentColor} />
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, textAlign: "right" }}>
+                  طريقة الاستلام: {fulfillmentTitle}
+                </Text>
+              </View>
+
+              {ft === "shipping" && (
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: "#F5A62315", borderColor: "#F5A62344", borderWidth: 1, borderRadius: colors.radius - 6 }}>
+                  <Icon name="alert-triangle" size={16} color="#F5A623" />
+                  <Text style={{ color: "#B5790E", fontFamily: "Inter_700Bold", fontSize: 12, flex: 1, textAlign: "right" }}>
+                    السعر غير شامل ثمن الشحن
+                  </Text>
+                </View>
+              )}
+
+              {ft === "branch" && branch && (
+                <View style={{ gap: 6 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>{branch.name}</Text>
+                  {branch.address ? (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>{branch.address}</Text>
+                  ) : null}
+                  {branch.phone ? (
+                    <Pressable
+                      onPress={() => Linking.openURL(`tel:${branch.phone!.replace(/\s/g, "")}`)}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}
+                    >
+                      <Icon name="phone" size={13} color={colors.gold} />
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{branch.phone}</Text>
+                    </Pressable>
+                  ) : null}
+                  {branch.mapsUrl ? (
+                    <Pressable
+                      onPress={() => Linking.openURL(branch.mapsUrl!).catch(() => Alert.alert("خطأ", "تعذّر فتح الخريطة"))}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 10, backgroundColor: "#3498DB15", borderColor: "#3498DB44", borderWidth: 1, borderRadius: colors.radius - 6, marginTop: 4 }}
+                    >
+                      <Icon name="map" size={15} color="#3498DB" />
+                      <Text style={{ color: "#3498DB", fontFamily: "Inter_700Bold", fontSize: 13 }}>فتح اللوكيشن في الخرائط</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              )}
+
+              {ft === "branch" && !branch && order.branchName && (
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13, textAlign: "right" }}>{order.branchName}</Text>
+              )}
+
+              {ft === "shipping" && (
+                <View style={{ gap: 8 }}>
+                  {providerName ? (
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                      <Icon name="package" size={14} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                        شركة الشحن: {providerName}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {order.shippingWaybillNumber ? (
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                      <Icon name="hash" size={14} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13, letterSpacing: 0.5 }}>
+                        رقم البوليصة: {order.shippingWaybillNumber}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {order.shippingWaybillImage ? (
+                    <Pressable onPress={() => setShowWaybillPreview(true)}>
+                      <Image source={{ uri: order.shippingWaybillImage }} style={{ width: "100%", height: 180, borderRadius: colors.radius - 6, backgroundColor: colors.surface }} resizeMode="cover" />
+                      <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "center", marginTop: 4, fontFamily: "Inter_400Regular" }}>
+                        صورة بوليصة الشحن — اضغط للعرض
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {canEditWaybill && (
+                    <Pressable
+                      onPress={() => {
+                        setWaybillNumberInput(order.shippingWaybillNumber ?? "");
+                        setWaybillProviderInput(order.shippingProviderId ?? null);
+                        setShowWaybillModal(true);
+                      }}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, borderRadius: colors.radius - 6, backgroundColor: colors.gold + "15", borderWidth: 1, borderColor: colors.gold + "44" }}
+                    >
+                      <Icon name={order.shippingWaybillImage ? "edit-3" : "upload"} size={16} color={colors.gold} />
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                        {order.shippingWaybillImage ? "تعديل بيانات الشحن" : "رفع بوليصة الشحن"}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         <View style={[styles.itemsSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
@@ -593,7 +748,7 @@ export default function OrderDetailScreen() {
           })()}
         </View>
 
-        {(isStaff || order.status === "ready" || order.status === "delivered") && (
+        {(isStaff || order.status === "ready" || order.status === "delivered" || order.status === "ready_to_ship" || order.status === "shipped") && (
           <View style={{ gap: 8 }}>
             <Pressable
               onPress={async () => {
@@ -670,7 +825,7 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || (order.status === "delivered" && !!order.transferProofImage)) && (() => {
+        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || order.status === "ready_to_ship" || (order.status === "delivered" && !!order.transferProofImage) || (order.status === "shipped" && !!order.transferProofImage)) && (() => {
           const pm = order.paymentMethod as PaymentMethod;
           const ps = settings.payment;
           const wallets = ps?.ewallets ?? (ps?.ewalletNumber ? [{ id: "_l", number: ps.ewalletNumber, name: ps.ewalletName ?? "", provider: "" }] : []);
@@ -902,8 +1057,8 @@ export default function OrderDetailScreen() {
         )}
 
         {isStaff && order.status !== "cancelled" && (() => {
-          const nextAction = NEXT_ACTION[order.status];
-          const prevAction = PREV_ACTION[order.status];
+          const nextAction = getNextAction(order.status, order.fulfillmentType);
+          const prevAction = getPrevAction(order.status, order.fulfillmentType);
           // Fix 6: staff can revert ANY non-final stage; once delivered, only admin can revert
           const canStaffRevert = isAdmin || (isStaff && order.status !== "delivered");
           return (
@@ -932,6 +1087,17 @@ export default function OrderDetailScreen() {
                 <GoldButton
                   label={nextAction.label}
                   onPress={() => {
+                    if (nextAction.next === "shipped" && !order.shippingWaybillImage) {
+                      Alert.alert("بوليصة الشحن مطلوبة", "يجب رفع صورة بوليصة الشحن واختيار شركة الشحن قبل تأكيد الشحن.", [
+                        { text: "حسناً", style: "cancel" },
+                        { text: "رفع البوليصة", onPress: () => {
+                          setWaybillNumberInput(order.shippingWaybillNumber ?? "");
+                          setWaybillProviderInput(order.shippingProviderId ?? null);
+                          setShowWaybillModal(true);
+                        }},
+                      ]);
+                      return;
+                    }
                     // Instant single-tap advance — no confirmation dialog.
                     // User explicitly requested instant transitions even on repeat taps.
                     if (nextAction.next === "ready") {
@@ -1528,6 +1694,132 @@ export default function OrderDetailScreen() {
           </View>
         </Modal>
       )}
+
+      {order.shippingWaybillImage && (
+        <Modal visible={showWaybillPreview} transparent animationType="fade" onRequestClose={() => setShowWaybillPreview(false)}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" }}>
+            <Pressable
+              onPress={() => setShowWaybillPreview(false)}
+              style={{ position: "absolute", top: insets.top + 16, right: 16, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}
+            >
+              <Icon name="x" size={22} color="#fff" />
+            </Pressable>
+            <Image source={{ uri: order.shippingWaybillImage }} style={{ width: "92%", height: "65%", borderRadius: 12 }} resizeMode="contain" />
+            <View style={{ position: "absolute", bottom: insets.bottom + 24, left: 16, right: 16, flexDirection: "row-reverse", gap: 10 }}>
+              <Pressable
+                onPress={() => order.shippingWaybillImage && saveImageToDevice(order.shippingWaybillImage, `waybill_${order.id.slice(0, 8)}`)}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.15)", opacity: pressed ? 0.7 : 1 })}
+              >
+                <Icon name="download" size={18} color="#fff" />
+                <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>حفظ في الجهاز</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => order.shippingWaybillImage && shareImage(order.shippingWaybillImage, `waybill_${order.id.slice(0, 8)}`)}
+                style={({ pressed }) => ({ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: colors.gold, opacity: pressed ? 0.7 : 1 })}
+              >
+                <Icon name="share-2" size={18} color="#000" />
+                <Text style={{ color: "#000", fontFamily: "Inter_700Bold", fontSize: 13 }}>مشاركة</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      <Modal visible={showWaybillModal} transparent animationType="fade" onRequestClose={() => setShowWaybillModal(false)}>
+        <Pressable onPress={() => setShowWaybillModal(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 20 }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: colors.card, borderRadius: colors.radius, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, textAlign: "right" }}>بيانات الشحن</Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "right" }}>اختر شركة الشحن</Text>
+            <View style={{ gap: 6 }}>
+              {((settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS)
+                .filter((p) => p.enabled !== false)
+                .map((p) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setWaybillProviderInput(p.id)}
+                    style={{ flexDirection: "row-reverse", alignItems: "center", padding: 10, borderRadius: 8, borderWidth: 1, borderColor: waybillProviderInput === p.id ? colors.gold : colors.border, backgroundColor: waybillProviderInput === p.id ? colors.gold + "15" : colors.surface }}
+                  >
+                    <Icon name={waybillProviderInput === p.id ? "check-circle" : "circle"} size={16} color={waybillProviderInput === p.id ? colors.gold : colors.mutedForeground} />
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, flex: 1, textAlign: "right", marginRight: 8 }}>{p.name}</Text>
+                  </Pressable>
+                ))}
+            </View>
+            <TextInput
+              value={waybillNumberInput}
+              onChangeText={setWaybillNumberInput}
+              placeholder="رقم البوليصة (اختياري)"
+              placeholderTextColor={colors.mutedForeground}
+              style={{ backgroundColor: colors.input, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10, color: colors.foreground, textAlign: "right", fontFamily: "Inter_500Medium" }}
+            />
+            <Pressable
+              onPress={async () => {
+                if (!waybillProviderInput) {
+                  Alert.alert("تنبيه", "اختر شركة الشحن أولاً");
+                  return;
+                }
+                try {
+                  setUploadingWaybill(true);
+                  const uri = await pickImage();
+                  if (!uri && !order.shippingWaybillImage) {
+                    setUploadingWaybill(false);
+                    return;
+                  }
+                  const providers = (settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
+                  const providerName = providers.find((p) => p.id === waybillProviderInput)?.name ?? "";
+                  await setOrderShipping(order.id, {
+                    providerId: waybillProviderInput,
+                    providerName,
+                    waybillImage: uri ?? order.shippingWaybillImage ?? null,
+                    waybillNumber: waybillNumberInput.trim() || null,
+                  });
+                  setShowWaybillModal(false);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                } catch {
+                  Alert.alert("خطأ", "تعذّر حفظ بيانات الشحن");
+                } finally {
+                  setUploadingWaybill(false);
+                }
+              }}
+              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, borderRadius: 8, backgroundColor: colors.gold }}
+            >
+              <Icon name={order.shippingWaybillImage ? "edit-3" : "upload"} size={16} color={colors.background} />
+              <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                {uploadingWaybill ? "جاري الرفع..." : order.shippingWaybillImage ? "تحديث (مع تغيير الصورة)" : "اختيار صورة البوليصة وحفظ"}
+              </Text>
+            </Pressable>
+            {order.shippingWaybillImage && (
+              <Pressable
+                onPress={async () => {
+                  if (!waybillProviderInput) {
+                    Alert.alert("تنبيه", "اختر شركة الشحن أولاً");
+                    return;
+                  }
+                  try {
+                    const providers = (settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
+                    const providerName = providers.find((p) => p.id === waybillProviderInput)?.name ?? "";
+                    await setOrderShipping(order.id, {
+                      providerId: waybillProviderInput,
+                      providerName,
+                      waybillImage: order.shippingWaybillImage ?? null,
+                      waybillNumber: waybillNumberInput.trim() || null,
+                    });
+                    setShowWaybillModal(false);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  } catch {
+                    Alert.alert("خطأ", "تعذّر الحفظ");
+                  }
+                }}
+                style={{ padding: 10, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>حفظ بدون تغيير الصورة</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={() => setShowWaybillModal(false)} style={{ padding: 10, alignItems: "center" }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>إلغاء</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={showChangeMethodModal} transparent animationType="fade" onRequestClose={() => setShowChangeMethodModal(false)}>
         <Pressable onPress={() => setShowChangeMethodModal(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 20 }}>

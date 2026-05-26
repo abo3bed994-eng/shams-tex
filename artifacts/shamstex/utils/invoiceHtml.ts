@@ -13,8 +13,16 @@ const STATUS_LABELS: Record<string, string> = {
   received: "تم الاستلام",
   preparing: "قيد التحضير",
   ready: "جاهز",
+  ready_to_ship: "جاهز للشحن",
+  shipped: "تم الشحن",
   delivered: "تم التسليم",
   cancelled: "ملغي",
+};
+
+const FULFILLMENT_LABELS: Record<string, string> = {
+  store: "استلام من المحل",
+  branch: "استلام من الفرع",
+  shipping: "شحن",
 };
 
 function escapeHtml(s: string): string {
@@ -87,6 +95,17 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   const subtotal = order.total;
   const fee = order.paymentFee ?? 0;
   const grand = order.totalWithFee ?? order.total;
+
+  const fulfillmentType = order.fulfillmentType ?? "store";
+  const isShipping = fulfillmentType === "shipping";
+  let fulfillmentLabel = FULFILLMENT_LABELS[fulfillmentType] || "استلام من المحل";
+  if (fulfillmentType === "branch" && order.branchName) {
+    fulfillmentLabel = `استلام من فرع: ${order.branchName}`;
+  } else if (isShipping && (order.shippingProviderName || order.shippingProviderId)) {
+    fulfillmentLabel = `شحن — ${order.shippingProviderName ?? order.shippingProviderId}`;
+  }
+  fulfillmentLabel = escapeHtml(fulfillmentLabel);
+  const waybillNumber = order.shippingWaybillNumber ? escapeHtml(order.shippingWaybillNumber) : "";
 
   return `<!doctype html>
 <html dir="rtl" lang="ar">
@@ -238,8 +257,13 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       <div class="val">${statusLabel}</div>
       <div class="label" style="margin-top:6px">طريقة الدفع</div>
       <div class="val">${paymentLabel}</div>
+      <div class="label" style="margin-top:6px">طريقة الاستلام</div>
+      <div class="val">${fulfillmentLabel}</div>
+      ${waybillNumber ? `<div class="label" style="margin-top:6px">رقم بوليصة الشحن</div><div class="val">${waybillNumber}</div>` : ""}
     </div>
   </div>
+
+  ${isShipping ? `<div style="margin-bottom:18px;padding:12px 16px;background:#fff4e5;border:1px solid #f5a623;border-radius:10px;font-size:13px;color:#8a4b00;font-weight:700;text-align:center">⚠ السعر غير شامل ثمن الشحن</div>` : ""}
 
   <table>
     <thead>

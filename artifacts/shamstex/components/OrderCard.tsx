@@ -19,29 +19,53 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: s
   received: { label: "تم استلام الطلب", color: "#3498DB", icon: "inbox" },
   preparing: { label: "جاري التجهيز", color: "#F39C12", icon: "package" },
   ready: { label: "جاهز للاستلام", color: "#27AE60", icon: "check-circle" },
+  ready_to_ship: { label: "جاهز للشحن", color: "#16A085", icon: "package" },
+  shipped: { label: "تم الشحن", color: "#1ABC9C", icon: "truck" },
   delivered: { label: "تم التسليم", color: "#2ECC71", icon: "check-circle" },
   cancelled: { label: "ملغي من الزبون", color: "#E74C3C", icon: "x-circle" },
 };
 
-const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
-  pending: { next: "received", label: "استلام" },
-  received: { next: "preparing", label: "تجهيز" },
-  preparing: { next: "ready", label: "جاهز" },
-  ready: { next: "delivered", label: "تسليم" },
-};
+function nextStatusFor(order: Order): { next: OrderStatus; label: string } | undefined {
+  const isShipping = order.fulfillmentType === "shipping";
+  const map: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = isShipping
+    ? {
+        pending: { next: "received", label: "استلام" },
+        received: { next: "preparing", label: "تجهيز" },
+        preparing: { next: "ready_to_ship", label: "جاهز للشحن" },
+        ready_to_ship: { next: "shipped", label: "تم الشحن" },
+      }
+    : {
+        pending: { next: "received", label: "استلام" },
+        received: { next: "preparing", label: "تجهيز" },
+        preparing: { next: "ready", label: "جاهز" },
+        ready: { next: "delivered", label: "تسليم" },
+      };
+  return map[order.status];
+}
 
-const PREV_STATUS: Partial<Record<OrderStatus, { prev: OrderStatus; label: string }>> = {
-  received: { prev: "pending", label: "إلغاء الاستلام" },
-  preparing: { prev: "received", label: "رجوع لاستلام" },
-  ready: { prev: "preparing", label: "رجوع لتجهيز" },
-  delivered: { prev: "ready", label: "رجوع لجاهز" },
-};
+function prevStatusFor(order: Order): { prev: OrderStatus; label: string } | undefined {
+  const isShipping = order.fulfillmentType === "shipping";
+  const map: Partial<Record<OrderStatus, { prev: OrderStatus; label: string }>> = isShipping
+    ? {
+        received: { prev: "pending", label: "إلغاء الاستلام" },
+        preparing: { prev: "received", label: "رجوع لاستلام" },
+        ready_to_ship: { prev: "preparing", label: "رجوع لتجهيز" },
+        shipped: { prev: "ready_to_ship", label: "رجوع لجاهز للشحن" },
+      }
+    : {
+        received: { prev: "pending", label: "إلغاء الاستلام" },
+        preparing: { prev: "received", label: "رجوع لاستلام" },
+        ready: { prev: "preparing", label: "رجوع لتجهيز" },
+        delivered: { prev: "ready", label: "رجوع لجاهز" },
+      };
+  return map[order.status];
+}
 
 export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onPrevStatus, canControl }: OrderCardProps) {
   const colors = useColors();
   const statusInfo = STATUS_CONFIG[order.status];
-  const nextAction = NEXT_STATUS[order.status];
-  const prevAction = PREV_STATUS[order.status];
+  const nextAction = nextStatusFor(order);
+  const prevAction = prevStatusFor(order);
 
   const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
   const date = new Date(order.createdAt).toLocaleDateString("ar-EG", {

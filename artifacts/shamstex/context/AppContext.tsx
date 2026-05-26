@@ -75,9 +75,35 @@ export interface CartItem {
   unit?: ProductUnit;
 }
 
-export type OrderStatus = "scheduled" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled";
+export type OrderStatus = "scheduled" | "pending" | "received" | "preparing" | "ready" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
 
 export type PaymentMethod = "cash" | "bank_transfer" | "ewallet" | "instapay";
+
+// "store" = pickup from main store (default), "branch" = pickup from any other branch, "shipping" = courier delivery
+export type FulfillmentType = "store" | "branch" | "shipping";
+
+// Three fixed shipping companies. IDs are stable across versions.
+export type ShippingProviderId = "etihad" | "esprent" | "urgent";
+
+export interface ShippingProviderConfig {
+  id: ShippingProviderId;
+  name: string;
+  enabled: boolean;
+}
+
+export const SHIPPING_PROVIDER_DEFAULTS: ShippingProviderConfig[] = [
+  { id: "etihad", name: "الاتحاد", enabled: true },
+  { id: "esprent", name: "إسبرنت", enabled: true },
+  { id: "urgent", name: "إيرجنت", enabled: true },
+];
+
+export interface Branch {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  mapsUrl?: string;
+}
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: "كاش (الدفع عند الاستلام)",
@@ -120,6 +146,16 @@ export interface Order {
   paymentOverrideHandle?: string;
   paymentOverrideName?: string;
   transferProofImage?: string;
+  // Fulfillment: how the customer receives the order
+  fulfillmentType?: FulfillmentType; // undefined = legacy = "store"
+  branchId?: string;
+  branchName?: string;
+  // Shipping-specific
+  shippingProviderId?: ShippingProviderId;
+  shippingProviderName?: string;
+  shippingWaybillImage?: string;
+  shippingWaybillNumber?: string;
+  shippedAt?: string;
 }
 
 export type ReturnStatus = "pending" | "returned" | "settled" | "cancelled";
@@ -220,6 +256,9 @@ export interface PaymentSettings {
   bankTransferEnabled?: boolean;
   ewalletEnabled?: boolean;
   instapayEnabled?: boolean;
+  // Per-fulfillment availability: undefined = available everywhere (default true).
+  // Example: { cash: { shipping: false } } disables cash on shipping orders.
+  fulfillmentAvailability?: Partial<Record<PaymentMethod, Partial<Record<FulfillmentType, boolean>>>>;
 }
 
 export interface AppSettings {
@@ -236,6 +275,8 @@ export interface AppSettings {
   stats: { clients: string; products: string; years: string };
   workingHours?: WorkingDay[];
   payment?: PaymentSettings;
+  branches?: Branch[];
+  shippingProviders?: ShippingProviderConfig[];
   logoUri?: string;
   minVersion?: string;
   updateUrl?: string;
@@ -345,11 +386,12 @@ interface AppContextType {
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
   setOrderInvoiceImage: (orderId: string, imageUri: string | null) => Promise<void>;
   setOrderTransferProof: (orderId: string, imageUri: string | null) => Promise<void>;
+  setOrderShipping: (orderId: string, data: { providerId?: ShippingProviderId | null; providerName?: string | null; waybillImage?: string | null; waybillNumber?: string | null }) => Promise<void>;
   setOrderPaymentMethod: (orderId: string, method: PaymentMethod) => Promise<void>;
   setOrderPaymentOverride: (orderId: string, handle: string | null, name?: string | null) => Promise<void>;
   setCustomerPin: (phone: string, pin: string) => Promise<void>;
   verifyCustomerPin: (phone: string, pin: string) => boolean;
-  updateOrderItems: (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string) => Promise<void>;
+  updateOrderItems: (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string, fulfillment?: { fulfillmentType?: FulfillmentType; branchId?: string; branchName?: string }) => Promise<void>;
   editingOrderId: string | null;
   setEditingOrderId: (id: string | null) => void;
   returnRequests: ReturnRequest[];
@@ -1509,6 +1551,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (status === "delivered") {
         patch.deliveredAt = new Date().toISOString();
       }
+      // Shipping invariant: cannot advance to "shipped" without waybill image + provider
+      if (status === "shipped" && (prevOrder.fulfillmentType ?? "store") === "shipping") {
+        if (!prevOrder.shippingWaybillImage || !prevOrder.shippingProviderId) {
+          Alert.alert("بوليصة الشحن مطلوبة", "يجب رفع صورة بوليصة الشحن واختيار شركة الشحن قبل تأكيد الشحن.");
+          return;
+        }
+        patch.shippedAt = new Date().toISOString();
+      }
 
       // INSTANT optimistic UI update FIRST — never wait for Firestore.
       const updated = ordersRef.current.map((o) => (o.id !== orderId ? o : { ...o, ...patch }));
@@ -1552,6 +1602,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           received: "تم استلام طلبك",
           preparing: "طلبك قيد التجهيز",
           ready: "طلبك جاهز للاستلام",
+          ready_to_ship: "طلبك جاهز للشحن",
+          shipped: "تم شحن طلبك",
           delivered: "تم تسليم طلبك بنجاح",
           pending: "تم إلغاء استلام طلبك — سيتم مراجعته مجدداً",
         };
@@ -1767,6 +1819,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const setOrderShipping = useCallback(
+    async (orderId: string, data: { providerId?: ShippingProviderId | null; providerName?: string | null; waybillImage?: string | null; waybillNumber?: string | null }) => {
+      const updated = ordersRef.current.map((o) => {
+        if (o.id !== orderId) return o;
+        const next = { ...o };
+        if (data.providerId !== undefined) {
+          if (data.providerId === null) delete next.shippingProviderId;
+          else next.shippingProviderId = data.providerId;
+        }
+        if (data.providerName !== undefined) {
+          if (data.providerName === null) delete next.shippingProviderName;
+          else next.shippingProviderName = data.providerName;
+        }
+        if (data.waybillImage !== undefined) {
+          if (data.waybillImage === null) delete next.shippingWaybillImage;
+          else next.shippingWaybillImage = data.waybillImage;
+        }
+        if (data.waybillNumber !== undefined) {
+          if (!data.waybillNumber) delete next.shippingWaybillNumber;
+          else next.shippingWaybillNumber = data.waybillNumber;
+        }
+        return next;
+      });
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) await FS.saveOrder(updatedOrder);
+    },
+    []
+  );
+
   const setOrderPaymentMethod = useCallback(
     async (orderId: string, method: PaymentMethod) => {
       const ewalletPct = settings.payment?.ewalletFeePercent ?? 1;
@@ -1840,7 +1924,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateOrderItems = useCallback(
-    async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string) => {
+    async (orderId: string, items: CartItem[], total: number, staffEdit?: boolean, notes?: string, fulfillment?: { fulfillmentType?: FulfillmentType; branchId?: string; branchName?: string }) => {
       const updated = ordersRef.current.map((o) => {
         if (o.id !== orderId) return o;
         const ewalletPct = settings.payment?.ewalletFeePercent ?? 1;
@@ -1852,6 +1936,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           paymentFee: fee,
           totalWithFee: total + fee,
           ...(notes !== undefined ? { notes } : {}),
+          ...(fulfillment?.fulfillmentType !== undefined ? { fulfillmentType: fulfillment.fulfillmentType } : {}),
+          ...(fulfillment?.branchId !== undefined ? { branchId: fulfillment.branchId } : {}),
+          ...(fulfillment?.branchName !== undefined ? { branchName: fulfillment.branchName } : {}),
           ...(staffEdit ? {} : { editable: false, edited: true, editedAt: new Date().toISOString() }),
         };
       });
@@ -2195,6 +2282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setOrderEditable,
         setOrderInvoiceImage,
         setOrderTransferProof,
+        setOrderShipping,
         setOrderPaymentMethod,
         setOrderPaymentOverride,
         setCustomerPin,
