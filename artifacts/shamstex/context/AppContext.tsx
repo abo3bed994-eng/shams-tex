@@ -2342,6 +2342,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (canTogglePricing && (pricingView === "wholesale" || pricingView === "retail")) {
       return pricingView;
     }
+    // When the toggle permission is locked for staff, default to customer
+    // (retail) prices rather than merchant (wholesale) prices.
+    if (!canTogglePricing) return "retail";
     return "wholesale";
   }, [user?.role, pricingView, canTogglePricing]);
 
