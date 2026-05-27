@@ -1,5 +1,9 @@
 import type { User, Notification } from "@/context/AppContext";
 
+// Captured once at module load — used as a stable fallback "registered at"
+// cutoff for legacy accounts that never had registeredAt persisted.
+const SESSION_START_ISO = new Date().toISOString();
+
 export function filterNotificationsForUser(notifications: Notification[], user: User | null): Notification[] {
   if (!user) return [];
 
@@ -7,9 +11,10 @@ export function filterNotificationsForUser(notifications: Notification[], user: 
   // account was created. Staff can see the full history.
   const isStaff = user.role !== "customer" && user.role !== "merchant";
   // Fallback: if the user record has no registeredAt (legacy users / failed
-  // write), use the moment the app first loaded them in this session so they
-  // don't see months-old broadcast spam on first open.
-  const registeredAt = user.registeredAt || (typeof globalThis !== "undefined" && (globalThis as any).__sessionStart) || new Date().toISOString();
+  // write), use the stable module-load timestamp (close to app cold-start) so
+  // the cutoff doesn't drift on every render and silently hide brand-new
+  // broadcasts that arrive during the session.
+  const registeredAt = user.registeredAt || SESSION_START_ISO;
 
   return notifications.filter((n) => {
     if (n.sourceUserId && n.sourceUserId === user.id) return false;
