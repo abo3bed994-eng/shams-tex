@@ -71,10 +71,7 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   // Always use the bundled app logo for the invoice header
   const logoUri = INVOICE_LOGO_DATA_URI;
 
-  const phoneContact = (settings.contacts || []).find((c) =>
-    /مبيعات|دعم|wholesale|sales/i.test(c.label),
-  );
-  const phone = phoneContact ? escapeHtml(phoneContact.number) : "";
+  const phone = "";
 
   const itemsRows = order.items
     .map((it, idx) => {

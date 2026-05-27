@@ -1,57 +1,57 @@
 const colors = {
   dark: {
-    text: "#EFE6D2",
+    text: "#E8DFCB",
     tint: "#D4B25C",
 
-    background: "#0B0908",
-    foreground: "#EFE6D2",
+    background: "#15120F",
+    foreground: "#E8DFCB",
 
-    card: "#15110E",
-    cardForeground: "#EFE6D2",
+    card: "#1E1A16",
+    cardForeground: "#E8DFCB",
 
     primary: "#D4B25C",
-    primaryForeground: "#0B0908",
+    primaryForeground: "#15120F",
 
-    secondary: "#1C1814",
-    secondaryForeground: "#EFE6D2",
+    secondary: "#221E19",
+    secondaryForeground: "#E8DFCB",
 
-    muted: "#1C1814",
-    mutedForeground: "#9A8E78",
+    muted: "#221E19",
+    mutedForeground: "#9E9381",
 
     accent: "#D4B25C",
-    accentForeground: "#0B0908",
+    accentForeground: "#15120F",
 
     destructive: "#C0392B",
     destructiveForeground: "#ffffff",
 
-    border: "#2A241D",
-    input: "#1C1814",
+    border: "#2E2820",
+    input: "#221E19",
 
     gold: "#D4B25C",
     goldLight: "#EAD080",
     goldDark: "#A0822F",
-    surface: "#120F0C",
-    surfaceElevated: "#1A1612",
+    surface: "#1A1713",
+    surfaceElevated: "#241F1A",
   },
 
   light: {
-    text: "#1F1A14",
+    text: "#2A241B",
     tint: "#B8923A",
 
-    background: "#FBF8F2",
-    foreground: "#1F1A14",
+    background: "#FCFAF5",
+    foreground: "#2A241B",
 
     card: "#FFFFFF",
-    cardForeground: "#1F1A14",
+    cardForeground: "#2A241B",
 
     primary: "#B8923A",
     primaryForeground: "#FFFFFF",
 
-    secondary: "#F2EBDC",
-    secondaryForeground: "#1F1A14",
+    secondary: "#F4EEE0",
+    secondaryForeground: "#2A241B",
 
-    muted: "#F2EBDC",
-    mutedForeground: "#7A6E55",
+    muted: "#F4EEE0",
+    mutedForeground: "#7B6F58",
 
     accent: "#B8923A",
     accentForeground: "#FFFFFF",
@@ -59,13 +59,13 @@ const colors = {
     destructive: "#C0392B",
     destructiveForeground: "#ffffff",
 
-    border: "#E8DEC8",
-    input: "#F6F0E1",
+    border: "#EADFCA",
+    input: "#F7F1E3",
 
     gold: "#B8923A",
     goldLight: "#D4AA55",
     goldDark: "#8A6B20",
-    surface: "#F6F0E1",
+    surface: "#F7F1E3",
     surfaceElevated: "#FFFFFF",
   },
 

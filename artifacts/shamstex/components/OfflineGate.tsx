@@ -16,12 +16,12 @@ import { useColors } from "@/hooks/useColors";
 //      device as offline. Re-checked on a slow heartbeat + whenever NetInfo
 //      fires a change event.
 const PING_URL = "https://www.gstatic.com/generate_204";
-const PING_TIMEOUT_MS = 20000;
-const PING_INTERVAL_MS = 60000;
-// Bumped from 2 → 4 so a heavy media upload (videos can saturate cellular for
-// minutes) doesn't trip the offline gate and cancel mid-upload UX with a
-// misleading "no network" overlay.
-const PING_FAILURES_TO_TRIP = 4;
+const PING_TIMEOUT_MS = 30000;
+const PING_INTERVAL_MS = 90000;
+// Bumped to 6 so a heavy media upload (videos saturate cellular for many minutes
+// during base64 fallback) cannot trip the offline gate and abort mid-upload with
+// a misleading "no network" overlay.
+const PING_FAILURES_TO_TRIP = 6;
 
 async function pingReachable(): Promise<boolean> {
   try {

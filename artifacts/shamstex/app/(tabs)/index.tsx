@@ -83,10 +83,15 @@ export default function HomeScreen() {
   const activeOrders = isStaff ? [] : orders.filter((o) => o.userId === user?.id && !["cancelled", "delivered"].includes(o.status));
 
   const STATUS_LABEL: Record<string, { text: string; color: string }> = {
+    scheduled: { text: t("scheduled"), color: "#D4A017" },
     pending: { text: t("awaitingPickup"), color: "#9B59B6" },
     received: { text: t("received"), color: "#3498DB" },
     preparing: { text: t("preparing"), color: "#F39C12" },
     ready: { text: t("ready"), color: "#27AE60" },
+    ready_to_ship: { text: t("ready_to_ship"), color: "#16A085" },
+    shipped: { text: t("shipped"), color: "#1ABC9C" },
+    delivered: { text: t("delivered"), color: "#2ECC71" },
+    cancelled: { text: t("cancelled"), color: "#E74C3C" },
   };
 
   const hasVideo = videos.length > 0;

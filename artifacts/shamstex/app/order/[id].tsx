@@ -1303,31 +1303,7 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {(() => {
-          const hasPieces = order.items.some((i) => i.orderType === "pieces");
-          const contactPhone = (isCustomer || hasPieces)
-            ? settings.contacts?.find((c) => c.label.includes("مبيعات") || c.label.includes("عملاء"))?.number
-            : (user?.role === "merchant")
-              ? settings.contacts?.find((c) => c.label.includes("جملة") || c.label.includes("تاجر"))?.number
-              : null;
-          const contactLabel = (isCustomer || hasPieces) ? "مسؤول المبيعات" : "مسؤول الجملة";
-
-          if (!contactPhone || isStaff) return null;
-          return (
-            <Pressable
-              onPress={() => {
-                const url = `tel:${contactPhone}`;
-                import("expo-linking").then((Linking) => Linking.openURL(url)).catch(() => {});
-              }}
-              style={[styles.contactCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
-            >
-              <Icon name="phone" size={13} color={colors.mutedForeground + "99"} />
-              <Text style={{ color: colors.mutedForeground + "99", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                {contactLabel} · {contactPhone}
-              </Text>
-            </Pressable>
-          );
-        })()}
+        {null /* Sales/wholesale contact card removed per request — keep customer-facing screens free of contact phone numbers. */}
 
         {(() => {
           const orderReturn = returnRequests.find((r) => r.orderId === order.id && r.status !== "cancelled");

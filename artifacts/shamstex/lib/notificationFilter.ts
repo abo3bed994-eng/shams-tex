@@ -6,14 +6,17 @@ export function filterNotificationsForUser(notifications: Notification[], user: 
   // Customers/merchants must NOT see broadcasts that were sent before their
   // account was created. Staff can see the full history.
   const isStaff = user.role !== "customer" && user.role !== "merchant";
-  const registeredAt = user.registeredAt || "";
+  // Fallback: if the user record has no registeredAt (legacy users / failed
+  // write), use the moment the app first loaded them in this session so they
+  // don't see months-old broadcast spam on first open.
+  const registeredAt = user.registeredAt || (typeof globalThis !== "undefined" && (globalThis as any).__sessionStart) || new Date().toISOString();
 
   return notifications.filter((n) => {
     if (n.sourceUserId && n.sourceUserId === user.id) return false;
 
     // Hide broadcasts (no targetUserId) that predate the user's registration,
     // but always allow direct-targeted notifications (e.g. order updates).
-    if (!isStaff && registeredAt && !n.targetUserId && n.createdAt && n.createdAt < registeredAt) {
+    if (!isStaff && !n.targetUserId && n.createdAt && n.createdAt < registeredAt) {
       return false;
     }
     if (user.role === "admin") {

@@ -204,6 +204,9 @@ const translations: Record<string, Record<Language, string>> = {
   returnStep2: { ar: "تم الاسترجاع", en: "Returned" },
   returnStep3: { ar: "تمت المخالصة", en: "Settlement Done" },
   awaitingPickup: { ar: "بانتظار الاستلام", en: "Awaiting Pickup" },
+  scheduled: { ar: "معلّق — خارج الدوام", en: "Scheduled" },
+  ready_to_ship: { ar: "جاهز للشحن", en: "Ready to Ship" },
+  shipped: { ar: "تم الشحن", en: "Shipped" },
 
   welcomeUser: { ar: "أهلاً بك،", en: "Welcome," },
   guest: { ar: "زائر", en: "Guest" },

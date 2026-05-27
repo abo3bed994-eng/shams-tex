@@ -28,7 +28,6 @@ export default function AdminFeaturedScreen() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const dirtyRef = useRef(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Re-sync local selection when settings change from elsewhere (e.g. another
   // device or first cloud load), but only if the user hasn't started editing.
@@ -38,20 +37,16 @@ export default function AdminFeaturedScreen() {
     }
   }, [settings.featuredProductIds]);
 
-  useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, []);
-
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const persist = async (ids: string[]) => {
+  const handleSave = async () => {
     setSaving(true);
     try {
-      await setSettings({ ...settings, featuredProductIds: ids });
+      await setSettings({ ...settings, featuredProductIds: featuredIds });
       setSavedAt(Date.now());
       dirtyRef.current = false;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showToast("تم حفظ المنتجات المميزة ✓", "success");
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showToast("تعذّر الحفظ — تأكد من اتصال الإنترنت ثم حاول مجدداً", "error");
@@ -63,14 +58,7 @@ export default function AdminFeaturedScreen() {
   const toggle = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     dirtyRef.current = true;
-    setFeaturedIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        persist(next);
-      }, 400);
-      return next;
-    });
+    setFeaturedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   return (
@@ -136,25 +124,27 @@ export default function AdminFeaturedScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: bottomPad + 16 }]}>
-        {saving ? (
-          <>
-            <ActivityIndicator size="small" color={colors.gold} />
-            <Text style={[styles.statusText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-              جاري الحفظ...
-            </Text>
-          </>
-        ) : savedAt ? (
-          <>
-            <Icon name="check" size={16} color={colors.gold} />
-            <Text style={[styles.statusText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
-              تم الحفظ تلقائياً ✓
-            </Text>
-          </>
-        ) : (
-          <Text style={[styles.statusText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            التغييرات تُحفظ تلقائياً
+        <Pressable
+          onPress={handleSave}
+          disabled={saving || !dirtyRef.current}
+          style={({ pressed }) => [
+            styles.saveBtn,
+            {
+              backgroundColor: dirtyRef.current ? colors.gold : colors.surface,
+              borderColor: dirtyRef.current ? colors.gold : colors.border,
+              opacity: pressed || saving ? 0.7 : 1,
+            },
+          ]}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={dirtyRef.current ? colors.background : colors.gold} />
+          ) : (
+            <Icon name="check" size={16} color={dirtyRef.current ? colors.background : colors.mutedForeground} />
+          )}
+          <Text style={{ color: dirtyRef.current ? colors.background : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+            {saving ? "جاري الحفظ..." : dirtyRef.current ? "حفظ التغييرات" : savedAt ? "تم الحفظ ✓" : "لا توجد تغييرات"}
           </Text>
-        )}
+        </Pressable>
       </View>
     </View>
   );
@@ -171,6 +161,7 @@ const styles = StyleSheet.create({
   productInfo: { flex: 1, gap: 3 },
   productThumb: { width: 52, height: 52, borderRadius: 8 },
   empty: { paddingVertical: 24, alignItems: "center", gap: 10 },
-  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8 },
+  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
+  saveBtn: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1 },
   statusText: { fontSize: 13 },
 });

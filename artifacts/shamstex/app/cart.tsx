@@ -725,64 +725,66 @@ export default function CartScreen() {
                     if (ft === "branch" && branchesList.length === 0) return null;
                     if (ft === "shipping" && !hasEnabledShippingProvider) return null;
                     const isSel = fulfillmentType === ft;
-                    const label = ft === "store" ? "استلام من المحل الرئيسي" : ft === "branch" ? "استلام من فرع" : "شحن";
+                    const label = ft === "store" ? "استلام من المحل الرئيسي" : ft === "branch" ? "استلام من أحد الفروع" : "شحن";
                     const desc = ft === "store" ? "زيارة المحل الرئيسي" : ft === "branch" ? "اختر الفرع المناسب لك" : "توصيل عبر شركة شحن (السعر غير شامل ثمن الشحن)";
                     const icn = ft === "store" ? "store" : ft === "branch" ? "map-pin" : "truck";
                     return (
-                      <Pressable
-                        key={ft}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setFulfillmentType(ft);
-                          if (ft !== "branch") setSelectedBranchId(null);
-                          if (ft !== "shipping") setSelectedShippingProviderId(null);
-                        }}
-                        style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, padding: 12, borderRadius: colors.radius - 4, borderWidth: isSel ? 1.5 : 1, borderColor: isSel ? colors.gold : colors.border, backgroundColor: isSel ? colors.gold + "12" : colors.surface }}
-                      >
-                        <Icon name={icn as any} size={18} color={isSel ? colors.gold : colors.mutedForeground} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: isSel ? colors.gold : colors.foreground, fontFamily: isSel ? "Inter_700Bold" : "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>{label}</Text>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", marginTop: 2 }}>{desc}</Text>
-                        </View>
-                        {isSel && (
-                          <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}>
-                            <Icon name="check" size={11} color={colors.background} />
+                      <React.Fragment key={ft}>
+                        <Pressable
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setFulfillmentType(ft);
+                            if (ft !== "branch") setSelectedBranchId(null);
+                            if (ft !== "shipping") setSelectedShippingProviderId(null);
+                          }}
+                          style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, padding: 12, borderRadius: colors.radius - 4, borderWidth: isSel ? 1.5 : 1, borderColor: isSel ? colors.gold : colors.border, backgroundColor: isSel ? colors.gold + "12" : colors.surface }}
+                        >
+                          <Icon name={icn as any} size={18} color={isSel ? colors.gold : colors.mutedForeground} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: isSel ? colors.gold : colors.foreground, fontFamily: isSel ? "Inter_700Bold" : "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>{label}</Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", marginTop: 2 }}>{desc}</Text>
+                          </View>
+                          {isSel && (
+                            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}>
+                              <Icon name="check" size={11} color={colors.background} />
+                            </View>
+                          )}
+                        </Pressable>
+
+                        {/* Branches list appears directly under the pickup-from-branch button when selected */}
+                        {ft === "branch" && isSel && branchesList.length > 0 && (
+                          <View style={{ gap: 6, marginRight: 12, marginLeft: 4 }}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "right" }}>اختر الفرع</Text>
+                            {branchesList.map((b) => {
+                              const sel = selectedBranchId === b.id;
+                              return (
+                                <Pressable
+                                  key={b.id}
+                                  onPress={() => setSelectedBranchId(b.id)}
+                                  style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: sel ? colors.gold : colors.border, backgroundColor: sel ? colors.gold + "12" : colors.surface, gap: 4 }}
+                                >
+                                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                                    <Icon name={sel ? "check-circle" : "circle"} size={14} color={sel ? colors.gold : colors.mutedForeground} />
+                                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, flex: 1, textAlign: "right" }}>{b.name}</Text>
+                                  </View>
+                                  {b.address ? (
+                                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>{b.address}</Text>
+                                  ) : null}
+                                  {b.mapsUrl ? (
+                                    <Pressable onPress={() => Linking.openURL(b.mapsUrl!).catch(() => {})} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                                      <Icon name="map" size={11} color="#3498DB" />
+                                      <Text style={{ color: "#3498DB", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>اللوكيشن</Text>
+                                    </Pressable>
+                                  ) : null}
+                                </Pressable>
+                              );
+                            })}
                           </View>
                         )}
-                      </Pressable>
+                      </React.Fragment>
                     );
                   })}
                 </View>
-
-                {fulfillmentType === "branch" && branchesList.length > 0 && (
-                  <View style={{ gap: 6, marginTop: 4 }}>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "right" }}>اختر الفرع</Text>
-                    {branchesList.map((b) => {
-                      const sel = selectedBranchId === b.id;
-                      return (
-                        <Pressable
-                          key={b.id}
-                          onPress={() => setSelectedBranchId(b.id)}
-                          style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: sel ? colors.gold : colors.border, backgroundColor: sel ? colors.gold + "12" : colors.surface, gap: 4 }}
-                        >
-                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                            <Icon name={sel ? "check-circle" : "circle"} size={14} color={sel ? colors.gold : colors.mutedForeground} />
-                            <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, flex: 1, textAlign: "right" }}>{b.name}</Text>
-                          </View>
-                          {b.address ? (
-                            <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>{b.address}</Text>
-                          ) : null}
-                          {b.mapsUrl ? (
-                            <Pressable onPress={() => Linking.openURL(b.mapsUrl!).catch(() => {})} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                              <Icon name="map" size={11} color="#3498DB" />
-                              <Text style={{ color: "#3498DB", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>اللوكيشن</Text>
-                            </Pressable>
-                          ) : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
 
                 {fulfillmentType === "shipping" && (
                   <>
