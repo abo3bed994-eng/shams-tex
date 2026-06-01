@@ -181,11 +181,17 @@ export const FS = {
       } catch {}
     }
     const seen = new Set<string>();
+    // Keep COMPLETED orders (delivered / shipped) — only those are a permanent
+    // record. Everything still in-flight is removed so it doesn't carry across a
+    // role change (retail ⇄ wholesale pricing would otherwise be inconsistent).
+    const COMPLETED = new Set(["delivered", "shipped"]);
     await Promise.all(
       all
         .filter((d) => {
           if (seen.has(d.id)) return false;
           seen.add(d.id);
+          const status = (d.data() as any)?.status;
+          if (COMPLETED.has(status)) return false;
           return true;
         })
         .map((d) => deleteDoc(d.ref).catch(() => {}))
