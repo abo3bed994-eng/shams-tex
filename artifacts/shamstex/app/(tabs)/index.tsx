@@ -80,7 +80,7 @@ export default function HomeScreen() {
       : products.slice(0, 4);
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
-  const activeOrders = isStaff ? [] : orders.filter((o) => o.userId === user?.id && !["cancelled", "delivered"].includes(o.status));
+  const activeOrders = isStaff ? [] : orders.filter((o) => o.userId === user?.id && !["cancelled", "delivered", "shipped"].includes(o.status));
 
   const STATUS_LABEL: Record<string, { text: string; color: string }> = {
     scheduled: { text: t("scheduled"), color: "#D4A017" },

@@ -384,7 +384,7 @@ export default function OrderDetailScreen() {
                   {branch.address ? (
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>{branch.address}</Text>
                   ) : null}
-                  {branch.phone ? (
+                  {isStaff && branch.phone ? (
                     <Pressable
                       onPress={() => Linking.openURL(`tel:${branch.phone!.replace(/\s/g, "")}`)}
                       style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}
