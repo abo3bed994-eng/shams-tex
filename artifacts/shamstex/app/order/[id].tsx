@@ -1077,7 +1077,7 @@ export default function OrderDetailScreen() {
                       return;
                     }
                     const doAdvance = () => {
-                      if (nextAction.next === "ready") {
+                      if (nextAction.next === "ready" || nextAction.next === "ready_to_ship") {
                         const hasPiecesWithoutWeight = order.items.some(
                           (i) => i.orderType === "pieces" && !i.actualWeight
                         );

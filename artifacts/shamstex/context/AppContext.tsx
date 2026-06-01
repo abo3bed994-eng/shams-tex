@@ -1654,8 +1654,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         patch.shippedAt = new Date().toISOString();
       }
 
+      // Invoice retention: a saved invoice is kept only once the order reaches
+      // its FINAL stage (shipping → "shipped", otherwise → "delivered"). Any
+      // status change to a non-final stage clears a previously saved invoice so
+      // stale invoices never carry across stages.
+      const finalStage: OrderStatus =
+        (prevOrder.fulfillmentType ?? "store") === "shipping" ? "shipped" : "delivered";
+      const clearInvoice = status !== finalStage;
+      const invoiceCleared = clearInvoice && prevOrder.invoiceImage !== undefined;
+
       // INSTANT optimistic UI update FIRST — never wait for Firestore.
-      const updated = ordersRef.current.map((o) => (o.id !== orderId ? o : { ...o, ...patch }));
+      const updated = ordersRef.current.map((o) => {
+        if (o.id !== orderId) return o;
+        const merged = { ...o, ...patch };
+        if (clearInvoice && merged.invoiceImage !== undefined) {
+          const { invoiceImage, ...rest } = merged;
+          return rest as typeof o;
+        }
+        return merged;
+      });
       const updatedOrder = updated.find((o) => o.id === orderId)!;
       setOrdersState(updated);
       ordersRef.current = updated;
@@ -1680,7 +1697,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Transaction failed (network) — retry via saveOrder as a fallback
             saveOrderWithRetry(updatedOrder, orderId);
           } else {
-            // Claim succeeded — clear pending flag after a short grace window
+            // Claim succeeded — the claim transaction only writes status/assignment
+            // fields, so if we cleared a stale invoice, persist the full order
+            // (setDoc full overwrite) to actually drop invoiceImage in Firestore.
+            if (invoiceCleared) saveOrderWithRetry(updatedOrder, orderId);
+            // Clear pending flag after a short grace window
             setTimeout(() => pendingOrderUpdatesRef.current.delete(orderId), 3000);
           }
         }).catch(() => {
