@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS, SavedAddress, formatAddress } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import GovernoratePicker from "@/components/GovernoratePicker";
 import { isWithinWorkingHours, nextWorkingTime, formatNextOpenTime } from "@/lib/workingHours";
 
 const ALL_PAYMENT_METHODS: { key: PaymentMethod; short: string; desc: string }[] = [
@@ -880,9 +881,30 @@ export default function CartScreen() {
                       {showAddAddressForm && (
                         <View style={{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "55", backgroundColor: colors.surface, gap: 8 }}>
                           <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "right" }}>عنوان جديد</Text>
+                          <TextInput
+                            value={newAddrLabel}
+                            onChangeText={setNewAddrLabel}
+                            placeholder="اسم مختصر (مثل: المنزل، الشغل) — اختياري"
+                            placeholderTextColor={colors.mutedForeground}
+                            style={{
+                              backgroundColor: colors.input,
+                              borderWidth: 1,
+                              borderColor: colors.gold + "44",
+                              borderRadius: 8,
+                              padding: 10,
+                              color: colors.foreground,
+                              textAlign: "right",
+                              fontFamily: "Inter_400Regular",
+                              fontSize: 13,
+                            }}
+                          />
+                          <GovernoratePicker
+                            value={newAddrCity}
+                            onChange={setNewAddrCity}
+                            invalid={!newAddrCity.trim()}
+                            placeholder="المحافظة *"
+                          />
                           {[
-                            { ph: "اسم مختصر (مثل: المنزل، الشغل) — اختياري", val: newAddrLabel, set: setNewAddrLabel, req: false },
-                            { ph: "المدينة / المحافظة *", val: newAddrCity, set: setNewAddrCity, req: true },
                             { ph: "الحي *", val: newAddrDistrict, set: setNewAddrDistrict, req: true },
                             { ph: "الشارع *", val: newAddrStreet, set: setNewAddrStreet, req: true },
                             { ph: "المبنى / رقم العقار (اختياري)", val: newAddrBuilding, set: setNewAddrBuilding, req: false },
@@ -994,12 +1016,6 @@ export default function CartScreen() {
                         {isSelected && (
                           <View style={[styles.paymentCheck, { backgroundColor: pmColor }]}>
                             <Icon name="check" size={10} color="#FFF" />
-                          </View>
-                        )}
-                        {pm.key === "ewallet" && isSelected && totalPrice > 0 && (
-                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 3, marginTop: 2 }}>
-                            <Icon name="alert-circle" size={10} color="#E74C3C" />
-                            <Text style={{ color: "#E74C3C", fontFamily: "Inter_400Regular", fontSize: 9 }}>+{ewalletFee}% رسوم</Text>
                           </View>
                         )}
                         {pm.key === "instapay" && isSelected && (

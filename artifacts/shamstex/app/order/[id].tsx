@@ -676,18 +676,6 @@ export default function OrderDetailScreen() {
                   </Text>
                 </View>
               </View>
-              {pm === "ewallet" && (order.paymentFee ?? 0) > 0 && (
-                <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: pmColor + "22", paddingTop: 8, marginTop: 4 }}>
-                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>رسوم المحفظة</Text>
-                    <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>+{order.paymentFee} ج.م</Text>
-                  </View>
-                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                    <Text style={{ color: pmColor, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>الإجمالي مع الرسوم</Text>
-                    <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 15 }}>{order.totalWithFee} ج.م</Text>
-                  </View>
-                </View>
-              )}
             </View>
           );
         })()}
@@ -983,21 +971,30 @@ export default function OrderDetailScreen() {
               </View>
             );
           })()}
+          {order.paymentMethod === "ewallet" && (order.paymentFee ?? 0) > 0 && (
+            <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 10 }}>
+              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>رسوم المحفظة الإلكترونية</Text>
+                <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>+{order.paymentFee} ج.م</Text>
+              </View>
+              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>الإجمالي مع الرسوم</Text>
+                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }}>{order.totalWithFee ?? (order.total + (order.paymentFee ?? 0))} ج.م</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {(() => {
           // Staff: only show invoice button at the second-to-last stage onwards
           // (pickup: ready/delivered, shipping: shipped/delivered).
-          // Customers: keep the existing behavior (visible from ready/ready_to_ship onwards).
+          // Customers: only at the final stage (delivered).
           const isFinalOrNear =
             order.status === "ready" ||
             order.status === "delivered" ||
             order.status === "shipped";
-          const isCustomerVisible =
-            order.status === "ready" ||
-            order.status === "delivered" ||
-            order.status === "ready_to_ship" ||
-            order.status === "shipped";
+          // Customers only see the invoice at the final stage (delivered).
+          const isCustomerVisible = order.status === "delivered";
           const visible = isStaff ? isFinalOrNear : isCustomerVisible;
           if (!visible) return null;
           return (
@@ -1721,8 +1718,8 @@ export default function OrderDetailScreen() {
                     } else {
                       Alert.alert("تم الإنشاء", "تم إنشاء ملف الفاتورة.");
                     }
-                  } catch {
-                    Alert.alert("خطأ", "تعذّر إنشاء ملف الفاتورة");
+                  } catch (e: any) {
+                    Alert.alert("خطأ", `تعذّر إنشاء ملف الفاتورة\n${String(e?.message ?? e ?? "")}`);
                   } finally {
                     setPrintingInvoice(false);
                   }
@@ -1790,7 +1787,7 @@ export default function OrderDetailScreen() {
             <TextInput
               value={waybillNumberInput}
               onChangeText={setWaybillNumberInput}
-              placeholder="رقم البوليصة (اختياري)"
+              placeholder="رقم البوليصة"
               placeholderTextColor={colors.mutedForeground}
               style={{ backgroundColor: colors.input, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10, color: colors.foreground, textAlign: "right", fontFamily: "Inter_500Medium" }}
             />
@@ -1827,34 +1824,76 @@ export default function OrderDetailScreen() {
             >
               <Icon name={order.shippingWaybillImage ? "edit-3" : "upload"} size={16} color={colors.background} />
               <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-                {uploadingWaybill ? "جاري الرفع..." : order.shippingWaybillImage ? "تحديث (مع تغيير الصورة)" : "اختيار صورة البوليصة وحفظ"}
+                {uploadingWaybill ? "جاري الرفع..." : order.shippingWaybillImage ? "تحديث الصورة وحفظ" : "اختيار صورة البوليصة وحفظ"}
               </Text>
             </Pressable>
-            {order.shippingWaybillImage && (
+            <Pressable
+              onPress={async () => {
+                if (!waybillProviderInput) {
+                  Alert.alert("تنبيه", "اختر شركة الشحن أولاً");
+                  return;
+                }
+                if (!waybillNumberInput.trim() && !order.shippingWaybillImage) {
+                  Alert.alert("تنبيه", "أدخل رقم البوليصة أو اختر صورة");
+                  return;
+                }
+                try {
+                  const providers = (settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
+                  const providerName = providers.find((p) => p.id === waybillProviderInput)?.name ?? "";
+                  await setOrderShipping(order.id, {
+                    providerId: waybillProviderInput,
+                    providerName,
+                    waybillImage: order.shippingWaybillImage ?? null,
+                    waybillNumber: waybillNumberInput.trim() || null,
+                  });
+                  setShowWaybillModal(false);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                } catch {
+                  Alert.alert("خطأ", "تعذّر الحفظ");
+                }
+              }}
+              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 11, borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "55", backgroundColor: colors.gold + "12" }}
+            >
+              <Icon name="hash" size={15} color={colors.gold} />
+              <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                {order.shippingWaybillImage ? "حفظ رقم البوليصة (بدون تغيير الصورة)" : "حفظ رقم البوليصة فقط (بدون صورة)"}
+              </Text>
+            </Pressable>
+            {(order.shippingProviderId || order.shippingWaybillImage || order.shippingWaybillNumber) && order.status !== "delivered" && (
               <Pressable
-                onPress={async () => {
-                  if (!waybillProviderInput) {
-                    Alert.alert("تنبيه", "اختر شركة الشحن أولاً");
-                    return;
-                  }
-                  try {
-                    const providers = (settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
-                    const providerName = providers.find((p) => p.id === waybillProviderInput)?.name ?? "";
-                    await setOrderShipping(order.id, {
-                      providerId: waybillProviderInput,
-                      providerName,
-                      waybillImage: order.shippingWaybillImage ?? null,
-                      waybillNumber: waybillNumberInput.trim() || null,
-                    });
-                    setShowWaybillModal(false);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  } catch {
-                    Alert.alert("خطأ", "تعذّر الحفظ");
-                  }
+                onPress={() => {
+                  Alert.alert(
+                    "حذف البوليصة",
+                    "هل تريد حذف بيانات الشحن (البوليصة والرقم والصورة)؟",
+                    [
+                      { text: "إلغاء", style: "cancel" },
+                      {
+                        text: "حذف",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            await setOrderShipping(order.id, {
+                              providerId: null,
+                              providerName: null,
+                              waybillImage: null,
+                              waybillNumber: null,
+                            });
+                            setWaybillNumberInput("");
+                            setWaybillProviderInput(null);
+                            setShowWaybillModal(false);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          } catch {
+                            Alert.alert("خطأ", "تعذّر حذف البوليصة");
+                          }
+                        },
+                      },
+                    ]
+                  );
                 }}
-                style={{ padding: 10, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
+                style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 11, borderRadius: 8, borderWidth: 1, borderColor: colors.destructive + "55" }}
               >
-                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>حفظ بدون تغيير الصورة</Text>
+                <Icon name="trash-2" size={15} color={colors.destructive} />
+                <Text style={{ color: colors.destructive, fontFamily: "Inter_700Bold", fontSize: 13 }}>حذف البوليصة</Text>
               </Pressable>
             )}
             <Pressable onPress={() => setShowWaybillModal(false)} style={{ padding: 10, alignItems: "center" }}>

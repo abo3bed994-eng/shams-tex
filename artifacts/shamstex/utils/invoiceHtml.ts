@@ -274,7 +274,7 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       </div>
     </div>
     <div class="invoice-title">
-      <div class="t">فاتورة</div>
+      <div class="t"></div>
       <div class="n">#${escapeHtml(order.id.slice(0, 8))}</div>
     </div>
   </div>
@@ -285,6 +285,10 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       <div class="val">${escapeHtml(order.userName || "—")}</div>
       <div class="label" style="margin-top:6px">رقم الهاتف</div>
       <div class="val">${escapeHtml(order.userPhone || "—")}</div>
+      <div class="label" style="margin-top:6px">طريقة الاستلام</div>
+      <div class="val">${fulfillmentLabel}</div>
+      ${shippingAddress ? `<div class="label" style="margin-top:6px">📍 عنوان الشحن</div><div class="val">${shippingAddress}</div>` : ""}
+      ${waybillNumber ? `<div class="label" style="margin-top:6px">رقم بوليصة الشحن</div><div class="val">${waybillNumber}</div>` : ""}
     </div>
     <div class="row">
       <div class="label">تاريخ الطلب</div>
@@ -293,10 +297,6 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       <div class="val">${statusLabel}</div>
       <div class="label" style="margin-top:6px">طريقة الدفع</div>
       <div class="val">${paymentLabel}</div>
-      <div class="label" style="margin-top:6px">طريقة الاستلام</div>
-      <div class="val">${fulfillmentLabel}</div>
-      ${waybillNumber ? `<div class="label" style="margin-top:6px">رقم بوليصة الشحن</div><div class="val">${waybillNumber}</div>` : ""}
-      ${shippingAddress ? `<div class="label" style="margin-top:6px">📍 عنوان الشحن</div><div class="val">${shippingAddress}</div>` : ""}
     </div>
   </div>
 

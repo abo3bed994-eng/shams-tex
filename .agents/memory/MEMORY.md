@@ -1,0 +1,1 @@
+- [expo-print version pin](expo-print-crash.md) — pin expo-print to the installed Expo SDK range; a future-SDK major crashes the PDF/print path at runtime.

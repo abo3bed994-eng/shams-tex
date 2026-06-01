@@ -7,6 +7,7 @@ import Icon from "@/components/Icon";
 import { useColors } from "@/hooks/useColors";
 import { useApp, SavedAddress, formatAddress } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
+import GovernoratePicker from "@/components/GovernoratePicker";
 
 type FormState = {
   label: string;
@@ -180,9 +181,30 @@ export default function AddressesScreen() {
             <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
               {editingId ? "تعديل العنوان" : "عنوان جديد"}
             </Text>
+            <TextInput
+              value={form.label}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, label: v }))}
+              placeholder="اسم مختصر (مثل: المنزل، الشغل) — اختياري"
+              placeholderTextColor={colors.mutedForeground}
+              style={{
+                backgroundColor: colors.input,
+                borderWidth: 1,
+                borderColor: colors.gold + "44",
+                borderRadius: 8,
+                padding: 11,
+                color: colors.foreground,
+                textAlign: "right",
+                fontFamily: "Inter_400Regular",
+                fontSize: 13,
+              }}
+            />
+            <GovernoratePicker
+              value={form.city}
+              onChange={(v) => setForm((prev) => ({ ...prev, city: v }))}
+              invalid={!form.city.trim()}
+              placeholder="المحافظة *"
+            />
             {[
-              { key: "label" as const, ph: "اسم مختصر (مثل: المنزل، الشغل) — اختياري", req: false },
-              { key: "city" as const, ph: "المدينة / المحافظة *", req: true },
               { key: "district" as const, ph: "الحي *", req: true },
               { key: "street" as const, ph: "الشارع *", req: true },
               { key: "building" as const, ph: "المبنى / رقم العقار (اختياري)", req: false },
