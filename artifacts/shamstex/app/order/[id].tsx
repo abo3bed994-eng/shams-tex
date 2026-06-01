@@ -1065,8 +1065,8 @@ export default function OrderDetailScreen() {
                 <GoldButton
                   label={nextAction.label}
                   onPress={() => {
-                    if (nextAction.next === "shipped" && !order.shippingWaybillImage) {
-                      Alert.alert("بوليصة الشحن مطلوبة", "يجب رفع صورة بوليصة الشحن واختيار شركة الشحن قبل تأكيد الشحن.", [
+                    if (nextAction.next === "shipped" && !order.shippingWaybillImage && !order.shippingWaybillNumber) {
+                      Alert.alert("بوليصة الشحن مطلوبة", "يجب رفع صورة بوليصة الشحن أو إدخال رقم البوليصة قبل تأكيد الشحن.", [
                         { text: "حسناً", style: "cancel" },
                         { text: "رفع البوليصة", onPress: () => {
                           setWaybillNumberInput(order.shippingWaybillNumber ?? "");
