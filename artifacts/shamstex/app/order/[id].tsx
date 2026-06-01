@@ -988,13 +988,14 @@ export default function OrderDetailScreen() {
         {(() => {
           // Staff: only show invoice button at the second-to-last stage onwards
           // (pickup: ready/delivered, shipping: shipped/delivered).
-          // Customers: only at the final stage (delivered).
+          // Customers: from the shipped stage onwards.
           const isFinalOrNear =
             order.status === "ready" ||
             order.status === "delivered" ||
             order.status === "shipped";
-          // Customers only see the invoice at the final stage (delivered).
-          const isCustomerVisible = order.status === "delivered";
+          // Customers see the invoice from the shipped stage onwards.
+          const isCustomerVisible =
+            order.status === "shipped" || order.status === "delivered";
           const visible = isStaff ? isFinalOrNear : isCustomerVisible;
           if (!visible) return null;
           return (
@@ -1859,7 +1860,7 @@ export default function OrderDetailScreen() {
                 {order.shippingWaybillImage ? "حفظ رقم البوليصة (بدون تغيير الصورة)" : "حفظ رقم البوليصة فقط (بدون صورة)"}
               </Text>
             </Pressable>
-            {(order.shippingProviderId || order.shippingWaybillImage || order.shippingWaybillNumber) && order.status !== "delivered" && (
+            {(order.shippingProviderId || order.shippingWaybillImage || order.shippingWaybillNumber) && order.status !== "shipped" && order.status !== "delivered" && (
               <Pressable
                 onPress={() => {
                   Alert.alert(
