@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  BackHandler,
   Image,
   Platform,
   Pressable,
@@ -37,8 +38,33 @@ export default function ProductDetailScreen() {
   const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
   const [orderType, setOrderType] = useState<"weight" | "pieces">("pieces");
   const [imgIdx, setImgIdx] = useState(0);
-  const [showColors, setShowColors] = useState(true);
   const imgWidth = windowWidth - 32;
+
+  const confirmLeave = React.useCallback(() => {
+    const has =
+      Object.values(selectedColors).some((v) => v > 0) ||
+      Object.values(colorWeights).some((v) => v > 0);
+    if (!has) {
+      router.back();
+      return;
+    }
+    Alert.alert(
+      "تنبيه",
+      "اختياراتك من هذا المنتج لن تحفظ",
+      [
+        { text: "استمرار", style: "cancel" },
+        { text: "تأكيد الخروج", style: "destructive", onPress: () => router.back() },
+      ]
+    );
+  }, [selectedColors, colorWeights]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      confirmLeave();
+      return true;
+    });
+    return () => sub.remove();
+  }, [confirmLeave]);
 
   useEffect(() => {
     const imgs = product?.images ?? [];
@@ -184,22 +210,17 @@ export default function ProductDetailScreen() {
 
   const colorsSection = (
     <View style={styles.colorsSection}>
-      <Pressable
-        onPress={() => setShowColors(!showColors)}
+      <View
         style={[
           styles.colorsDropdown,
           {
             backgroundColor: colors.surface,
-            borderColor: showColors ? colors.gold : colors.border,
+            borderColor: colors.gold,
             borderRadius: colors.radius - 4,
           },
         ]}
       >
-        <Icon
-          name={showColors ? "chevron-up" : "chevron-down"}
-          size={18}
-          color={showColors ? colors.gold : colors.mutedForeground}
-        />
+        <Icon name="layers" size={18} color={colors.gold} />
         <Text style={[styles.dropdownText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
           {orderType === "weight"
             ? weightColorCount > 0
@@ -209,16 +230,15 @@ export default function ProductDetailScreen() {
             ? `${selectedColorCount} لون مختار`
             : "اختر الألوان"}
         </Text>
-      </Pressable>
+      </View>
 
-      {showColors && (
-        <View
-          style={[
-            styles.colorsList,
-            { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 },
-          ]}
-        >
-          {product.colors.map((color, idx) => {
+      <View
+        style={[
+          styles.colorsList,
+          { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 },
+        ]}
+      >
+        {product.colors.map((color, idx) => {
             const isLast = idx === product.colors.length - 1;
 
             if (orderType === "weight") {
@@ -351,7 +371,6 @@ export default function ProductDetailScreen() {
             );
           })}
         </View>
-      )}
 
       {orderType === "weight" && totalWeight > 0 && (
         <View
@@ -388,7 +407,7 @@ export default function ProductDetailScreen() {
       <GoldHeader
         title={product.name}
         subtitle={product.category}
-        onBack={() => router.back()}
+        onBack={confirmLeave}
       />
 
       <ScrollView

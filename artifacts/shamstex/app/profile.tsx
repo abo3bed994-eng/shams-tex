@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useColorScheme,
   View,
 } from "react-native";
 import { router } from "expo-router";
@@ -23,6 +24,9 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme, language, setLanguage, registeredCustomers, settings } = useApp();
   const { t, isRTL } = useTranslation();
+  const systemScheme = useColorScheme();
+  const themeResolved: "dark" | "light" =
+    theme === "system" ? (systemScheme === "light" ? "light" : "dark") : theme;
   const [requestSent, setRequestSent] = useState(false);
   const ROLE_LABELS: Record<string, string> = {
     customer: t("roleCustomer"),
@@ -262,61 +266,58 @@ export default function ProfileScreen() {
 
         <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <View style={styles.themeHeader}>
-            <Icon name={theme === "system" ? "smartphone" : theme === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
+            <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
             <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               {isRTL ? "مظهر التطبيق" : "Appearance"}
             </Text>
           </View>
-          <View style={styles.themeButtons}>
-            <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme("system"); }}
-              style={[
-                styles.themeBtn,
-                {
-                  backgroundColor: theme === "system" ? colors.gold : colors.surface,
-                  borderColor: theme === "system" ? colors.gold : colors.border,
-                  borderRadius: colors.radius - 4,
-                },
-              ]}
-            >
-              <Icon name="smartphone" size={16} color={theme === "system" ? colors.background : colors.mutedForeground} />
-              <Text style={[styles.themeBtnText, { color: theme === "system" ? colors.background : colors.mutedForeground, fontFamily: theme === "system" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                {t("systemMode")}
+          <Pressable
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme(themeResolved === "dark" ? "light" : "dark"); }}
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "space-between",
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+              borderRadius: colors.radius - 4,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+            }}
+          >
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+              <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={18} color={colors.gold} />
+              <Text style={[styles.themeBtnText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                {themeResolved === "dark"
+                  ? (isRTL ? "الوضع الداكن" : "Dark mode")
+                  : (isRTL ? "الوضع الفاتح" : "Light mode")}
               </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme("dark"); }}
-              style={[
-                styles.themeBtn,
-                {
-                  backgroundColor: theme === "dark" ? colors.gold : colors.surface,
-                  borderColor: theme === "dark" ? colors.gold : colors.border,
-                  borderRadius: colors.radius - 4,
-                },
-              ]}
+            </View>
+            <View
+              style={{
+                width: 48,
+                height: 28,
+                borderRadius: 14,
+                padding: 3,
+                flexDirection: "row",
+                justifyContent: themeResolved === "dark" ? "flex-end" : "flex-start",
+                backgroundColor: themeResolved === "dark" ? colors.gold + "55" : colors.border,
+              }}
             >
-              <Icon name="moon" size={16} color={theme === "dark" ? colors.background : colors.mutedForeground} />
-              <Text style={[styles.themeBtnText, { color: theme === "dark" ? colors.background : colors.mutedForeground, fontFamily: theme === "dark" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                {t("darkMode")}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme("light"); }}
-              style={[
-                styles.themeBtn,
-                {
-                  backgroundColor: theme === "light" ? colors.gold : colors.surface,
-                  borderColor: theme === "light" ? colors.gold : colors.border,
-                  borderRadius: colors.radius - 4,
-                },
-              ]}
-            >
-              <Icon name="sun" size={16} color={theme === "light" ? colors.background : colors.mutedForeground} />
-              <Text style={[styles.themeBtnText, { color: theme === "light" ? colors.background : colors.mutedForeground, fontFamily: theme === "light" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                {t("lightMode")}
-              </Text>
-            </Pressable>
-          </View>
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: colors.gold,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={12} color={colors.background} />
+              </View>
+            </View>
+          </Pressable>
         </View>
 
         <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>

@@ -433,20 +433,6 @@ export default function OrdersScreen() {
                     : undefined
                 }
               />
-              {!isStaff && (order.status === "pending" || order.status === "scheduled") && canCancelOrder(order) && (
-                <Pressable
-                  onPress={() => handleCancelOrder(order)}
-                  style={[
-                    styles.deleteOrderBtn,
-                    { borderColor: "#E74C3C44", backgroundColor: "#E74C3C11" },
-                  ]}
-                >
-                  <Icon name="x-circle" size={14} color="#E74C3C" />
-                  <Text style={[{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 13 }]}>
-                    إلغاء الطلب (متاح 5 دقائق)
-                  </Text>
-                </Pressable>
-              )}
               {isStaff && user?.role === "admin" && (
                 <Pressable
                   onPress={() =>

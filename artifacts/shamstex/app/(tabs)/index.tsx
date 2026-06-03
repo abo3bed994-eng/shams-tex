@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AppState,
   Image,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -57,6 +59,39 @@ export default function HomeScreen() {
     });
     return () => sub.remove();
   }, [videos.length, player]);
+
+  const resumeVideo = useCallback(() => {
+    if (!currentVideoUri) return;
+    try {
+      if (!player.playing) player.play();
+    } catch {}
+  }, [player, currentVideoUri]);
+
+  useFocusEffect(
+    useCallback(() => {
+      resumeVideo();
+    }, [resumeVideo])
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") resumeVideo();
+    });
+    return () => sub.remove();
+  }, [resumeVideo]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    if (currentVideoUri) {
+      try {
+        player.replace(currentVideoUri);
+        player.muted = true;
+        player.play();
+      } catch {}
+    }
+    setTimeout(() => setRefreshing(false), 600);
+  }, [player, currentVideoUri]);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -166,6 +201,14 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 100 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.gold}
+            colors={[colors.gold]}
+          />
+        }
       >
         <View style={[styles.bannerCard, { borderColor: colors.gold + "33" }]}>
           {hasVideo ? (

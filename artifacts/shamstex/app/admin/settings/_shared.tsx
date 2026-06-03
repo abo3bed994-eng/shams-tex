@@ -58,6 +58,8 @@ export function SettingsScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        scrollEventThrottle={16}
       >
         {children}
       </ScrollView>

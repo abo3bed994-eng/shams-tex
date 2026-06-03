@@ -120,6 +120,7 @@ export default function AdminUsersScreen() {
   const [editingNameValue, setEditingNameValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("date");
+  const [custFilter, setCustFilter] = useState<"all" | "customers" | "merchants" | "banned">("all");
   const [confirmAction, setConfirmAction] = useState<{ userId: string; action: string; newRole?: UserRole } | null>(null);
   const [deletedStaffPhones, setDeletedStaffPhones] = useState<string[]>([]);
 
@@ -212,6 +213,13 @@ export default function AdminUsersScreen() {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter((u) => u.name.toLowerCase().includes(q) || u.phone.includes(q));
     }
+    if (custFilter === "customers") {
+      list = list.filter((u) => (u.role || "customer") === "customer" && !(u as any).banned);
+    } else if (custFilter === "merchants") {
+      list = list.filter((u) => u.role === "merchant" && !(u as any).banned);
+    } else if (custFilter === "banned") {
+      list = list.filter((u) => (u as any).banned);
+    }
     list = [...list].sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name, "ar");
       if (sortBy === "orders") {
@@ -222,7 +230,7 @@ export default function AdminUsersScreen() {
       return dateB.localeCompare(dateA);
     });
     return list;
-  }, [activeCustomers, searchQuery, sortBy, orderCountsByUser]);
+  }, [activeCustomers, searchQuery, sortBy, custFilter, orderCountsByUser]);
 
   const filteredStaff = useMemo(() => {
     if (!searchQuery.trim()) return staffList;
@@ -1056,6 +1064,36 @@ export default function AdminUsersScreen() {
                 <Text style={{
                   color: sortBy === opt.key ? colors.gold : colors.mutedForeground + "88",
                   fontFamily: sortBy === opt.key ? "Inter_600SemiBold" : "Inter_400Regular",
+                  fontSize: 11,
+                }}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+        {activeTab === "customers" && (
+          <View style={styles.sortRow}>
+            {([
+              { key: "all", label: "الكل" },
+              { key: "customers", label: "زبائن" },
+              { key: "merchants", label: "تجار" },
+              { key: "banned", label: "محظور" },
+            ] as const).map((opt) => (
+              <Pressable
+                key={opt.key}
+                onPress={() => setCustFilter(opt.key)}
+                style={[
+                  styles.sortBtn,
+                  {
+                    backgroundColor: custFilter === opt.key ? colors.gold + "22" : "transparent",
+                    borderColor: custFilter === opt.key ? colors.gold + "55" : "transparent",
+                  },
+                ]}
+              >
+                <Text style={{
+                  color: custFilter === opt.key ? colors.gold : colors.mutedForeground + "88",
+                  fontFamily: custFilter === opt.key ? "Inter_600SemiBold" : "Inter_400Regular",
                   fontSize: 11,
                 }}>
                   {opt.label}
