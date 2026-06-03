@@ -227,7 +227,7 @@ export default function OrderDetailScreen() {
           </Text>
           {isScheduled && order.scheduledFor && (
             <Text style={{ color: activeColor, fontFamily: "Inter_600SemiBold", fontSize: 13, marginTop: 8, textAlign: "center" }}>
-              سيُفتح للطاقم {new Date(order.scheduledFor).toLocaleString("ar-EG", { weekday: "long", hour: "2-digit", minute: "2-digit" })}
+              سيصل الطلب {new Date(order.scheduledFor).toLocaleString("ar-EG", { weekday: "long", hour: "2-digit", minute: "2-digit" })}
             </Text>
           )}
         </View>
