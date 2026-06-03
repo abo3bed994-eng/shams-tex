@@ -578,6 +578,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const readNotifIdsRef = React.useRef<Set<string>>(new Set());
   readNotifIdsRef.current = readNotifIds;
   const pendingOrderUpdatesRef = React.useRef<Map<string, number>>(new Map());
+  // Watermark (ISO timestamp): local OS notifications fire ONLY for items whose
+  // createdAt is strictly newer than this. Reset to "now" on every (re)login so
+  // historical notifications are never re-presented — neither after logout/login
+  // on the same device nor on a brand-new device that opens the same account.
+  const notifWatermarkRef = React.useRef<string>("");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error"; visible: boolean }>({ message: "", type: "success", visible: false });
   const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -728,6 +733,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const isStaff = user.role !== "customer" && user.role !== "merchant";
 
+    // (Re)set the notification watermark to NOW on every login. Anything that
+    // already exists is therefore "old" and will never be re-presented as an OS
+    // notification — fixing duplicate notifications after logout/login and on a
+    // second device opening the same account.
+    notifWatermarkRef.current = new Date().toISOString();
+
     let unsubCustomers: (() => void) | undefined;
     if (isStaff) {
       let isFirstCustomersLoad = true;
@@ -778,13 +789,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           isFirstNotifLoad = false;
           return;
         }
-        const prevIds = new Set(notificationsRef.current.map((n) => n.id));
         setNotifications(freshNotifs);
         AsyncStorage.setItem("notifications", JSON.stringify(freshNotifs)).catch(() => {});
-        if (!isFirstNotifLoad) {
+        {
           const me = userRef.current;
           const meIsStaff = !!me && me.role !== "customer" && me.role !== "merchant";
-          const newOnes = freshNotifs.filter((n) => !prevIds.has(n.id));
+          // Only items created strictly AFTER the watermark are genuinely new.
+          // This is immune to Firestore's two-batch snapshot merge and to the
+          // listener restarting on logout/login (the watermark resets to "now").
+          const wm = notifWatermarkRef.current;
+          const newOnes = freshNotifs.filter((n) => (n.createdAt || "") > wm);
+          // Advance the watermark past everything seen in this snapshot so the
+          // same items are never reconsidered (e.g. the second merge batch).
+          const maxCreated = freshNotifs.reduce(
+            (m, n) => ((n.createdAt || "") > m ? (n.createdAt || "") : m),
+            wm
+          );
+          notifWatermarkRef.current = maxCreated;
           const forMe = newOnes.filter((n) => {
             if (!me) return false;
             if (n.targetUserId === "self") return false;

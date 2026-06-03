@@ -1,1 +1,2 @@
 - [expo-print version pin](expo-print-crash.md) — pin expo-print to the installed Expo SDK range; a future-SDK major crashes the PDF/print path at runtime.
+- [Shams Tex notification de-dup](shamstex-notification-dedup.md) — local OS notifications de-duped via login-time createdAt watermark; never use in-memory prevIds (Firestore sends 2 merge batches).
