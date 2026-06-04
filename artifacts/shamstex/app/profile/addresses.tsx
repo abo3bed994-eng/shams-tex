@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -108,10 +107,10 @@ export default function AddressesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <GoldHeader title="عناويني" onBack={() => router.back()} />
-      <KeyboardAwareScrollView
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: bottomPad + 40 }}
         keyboardShouldPersistTaps="handled"
-        bottomOffset={20}
       >
         {addresses.length === 0 && !showForm && (
           <View style={{ alignItems: "center", padding: 24, gap: 10, borderRadius: colors.radius, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
@@ -261,7 +260,8 @@ export default function AddressesScreen() {
             </View>
           </View>
         )}
-      </KeyboardAwareScrollView>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

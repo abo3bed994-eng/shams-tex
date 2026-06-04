@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -16,7 +17,6 @@ import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useColors } from "@/hooks/useColors";
 import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS, SavedAddress, formatAddress } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
@@ -528,10 +528,10 @@ export default function CartScreen() {
         </View>
       ) : (
         <>
-          <KeyboardAwareScrollView
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            bottomOffset={20}
             contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 220 }]}
           >
             {cart.map((item, index) => (
@@ -972,12 +972,14 @@ export default function CartScreen() {
                         </View>
                       )}
                     </View>
+                    {!isStaff && (
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: "#F5A62315", borderColor: "#F5A62344", borderWidth: 1, borderRadius: colors.radius - 6, marginTop: 4 }}>
                       <Icon name="alert-triangle" size={14} color="#F5A623" />
                       <Text style={{ color: "#B5790E", fontFamily: "Inter_700Bold", fontSize: 12, flex: 1, textAlign: "right" }}>
                         السعر غير شامل ثمن الشحن
                       </Text>
                     </View>
+                    )}
                   </>
                 )}
               </View>
@@ -1050,7 +1052,8 @@ export default function CartScreen() {
                 </View>
               </View>
             )}
-          </KeyboardAwareScrollView>
+          </ScrollView>
+          </KeyboardAvoidingView>
 
           <View
             style={[

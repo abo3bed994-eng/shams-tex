@@ -799,6 +799,45 @@ export default function OrderDetailScreen() {
                   <Text style={{ color: colors.gold + "99", fontFamily: "Inter_500Medium", fontSize: 11 }}>
                     {item.unitPrice} ج.م/كغ
                   </Text>
+                  {isStaff && order.status === "preparing" && !isLockedByOther && (
+                    <Pressable
+                      onPress={() => {
+                        setAvailModalIndex(index);
+                        setAvailInput(item.stockStatus === "partial" && item.availableQuantity != null ? String(item.availableQuantity) : "");
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                      style={{
+                        alignSelf: "flex-start",
+                        marginTop: 6,
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        gap: 5,
+                        paddingHorizontal: 8,
+                        paddingVertical: 5,
+                        borderRadius: colors.radius - 6,
+                        borderWidth: 1,
+                        borderColor: item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.border,
+                        backgroundColor: item.stockStatus === "unavailable" ? "#E74C3C18" : item.stockStatus === "partial" ? "#F39C1218" : colors.surface,
+                      }}
+                    >
+                      <Icon
+                        name={item.stockStatus ? "alert-triangle" : "package"}
+                        size={12}
+                        color={item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.mutedForeground}
+                      />
+                      <Text style={{
+                        fontSize: 11,
+                        fontFamily: "Inter_600SemiBold",
+                        color: item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.mutedForeground,
+                      }}>
+                        {item.stockStatus === "unavailable"
+                          ? "غير متوفر"
+                          : item.stockStatus === "partial"
+                            ? `متوفر فقط: ${item.availableQuantity} ${item.orderType === "weight" ? "كغ" : "قطعة"}`
+                            : "تحديد المتوفر"}
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
               <View style={[styles.orderItemLeft, { gap: 10 }]}>
@@ -880,6 +919,54 @@ export default function OrderDetailScreen() {
                     {isStaff && order.status === "preparing" && !isLockedByOther && (
                       <View style={{ gap: 4, marginTop: 2 }}>
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
+                          عدد الأثواب:
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Pressable
+                            onPress={() => {
+                              const newQ = Math.max(1, item.quantity - 1);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * 20 } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="minus" size={12} color={colors.gold} />
+                          </Pressable>
+                          <TextInput
+                            style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
+                            value={weightTexts[`q_${index}`] !== undefined ? weightTexts[`q_${index}`] : String(item.quantity)}
+                            keyboardType="number-pad"
+                            onChangeText={(txt) => {
+                              if (!/^\d*$/.test(txt)) return;
+                              setWeightTexts(p => ({ ...p, [`q_${index}`]: txt }));
+                              const val = parseInt(txt, 10);
+                              if (isNaN(val) || val <= 0) return;
+                              const newQ = Math.max(1, val);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * 20 } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                            }}
+                            onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[`q_${index}`]; return n; })}
+                          />
+                          <Pressable
+                            onPress={() => {
+                              const newQ = item.quantity + 1;
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * 20 } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="plus" size={12} color={colors.background} />
+                          </Pressable>
+                        </View>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
                           الوزن الفعلي (كغ):
                         </Text>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -931,43 +1018,6 @@ export default function OrderDetailScreen() {
                       </View>
                     )}
                   </View>
-                )}
-                {isStaff && order.status === "preparing" && !isLockedByOther && (
-                  <Pressable
-                    onPress={() => {
-                      setAvailModalIndex(index);
-                      setAvailInput(item.stockStatus === "partial" && item.availableQuantity != null ? String(item.availableQuantity) : "");
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                    style={{
-                      flexDirection: "row-reverse",
-                      alignItems: "center",
-                      gap: 5,
-                      paddingHorizontal: 8,
-                      paddingVertical: 5,
-                      borderRadius: colors.radius - 6,
-                      borderWidth: 1,
-                      borderColor: item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.border,
-                      backgroundColor: item.stockStatus === "unavailable" ? "#E74C3C18" : item.stockStatus === "partial" ? "#F39C1218" : colors.surface,
-                    }}
-                  >
-                    <Icon
-                      name={item.stockStatus ? "alert-triangle" : "package"}
-                      size={12}
-                      color={item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.mutedForeground}
-                    />
-                    <Text style={{
-                      fontSize: 11,
-                      fontFamily: "Inter_600SemiBold",
-                      color: item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.mutedForeground,
-                    }}>
-                      {item.stockStatus === "unavailable"
-                        ? "غير متوفر"
-                        : item.stockStatus === "partial"
-                          ? `متوفر فقط: ${item.availableQuantity} ${item.orderType === "weight" ? "كغ" : "قطعة"}`
-                          : "تحديد التوفر"}
-                    </Text>
-                  </Pressable>
                 )}
                 {isStaff && order.editable && order.items.length > 1 && (
                   <Pressable
@@ -2213,7 +2263,7 @@ export default function OrderDetailScreen() {
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
                     <Icon name="package" size={18} color={colors.gold} />
                     <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, flex: 1, textAlign: "right" }}>
-                      تحديد التوفر
+                      تحديد المتوفر
                     </Text>
                   </View>
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
