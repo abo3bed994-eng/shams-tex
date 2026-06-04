@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Award,
@@ -51,6 +52,7 @@ import {
   PhoneCall,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Settings,
   Share2,
@@ -86,6 +88,7 @@ import {
 
 const iconMap: Record<string, React.ComponentType<any>> = {
   "alert-circle": AlertCircle,
+  "alert-triangle": AlertTriangle,
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
   award: Award,
@@ -135,6 +138,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   "phone-call": PhoneCall,
   plus: Plus,
   "refresh-cw": RefreshCw,
+  "rotate-ccw": RotateCcw,
   "file-text": FileText,
   search: Search,
   settings: Settings,

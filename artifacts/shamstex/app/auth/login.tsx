@@ -897,6 +897,16 @@ export default function LoginScreen() {
             </>
           )}
         </View>
+
+        <View style={styles.legalRow}>
+          <Pressable onPress={() => router.push("/legal/privacy" as any)} hitSlop={8}>
+            <Text style={[styles.legalLink, { color: colors.gold }]}>سياسة الخصوصية</Text>
+          </Pressable>
+          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>•</Text>
+          <Pressable onPress={() => router.push("/legal/terms" as any)} hitSlop={8}>
+            <Text style={[styles.legalLink, { color: colors.gold }]}>الشروط والأحكام</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <CountryPicker
@@ -952,6 +962,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   privacyText: { fontSize: 11, flex: 1, textAlign: "right", lineHeight: 17 },
+  legalRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 18 },
+  legalLink: { fontSize: 12, fontFamily: "Inter_600SemiBold", textDecorationLine: "underline" },
   errorBox: {
     flexDirection: "row-reverse",
     alignItems: "center",

@@ -130,6 +130,8 @@ function RootLayoutNav() {
         <Stack.Screen name="cart" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/privacy" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/terms" options={{ headerShown: false }} />
         <Stack.Screen name="admin/products" options={{ headerShown: false }} />
         <Stack.Screen name="admin/add-product" options={{ headerShown: false }} />
         <Stack.Screen name="admin/prices" options={{ headerShown: false }} />

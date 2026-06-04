@@ -93,6 +93,9 @@ export interface CartItem {
   weight?: number;
   actualWeight?: number;
   unit?: ProductUnit;
+  availableQuantity?: number;
+  stockStatus?: "partial" | "unavailable";
+  customerDecision?: "agree" | "disagree";
 }
 
 export type OrderStatus = "scheduled" | "pending" | "received" | "preparing" | "ready" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";

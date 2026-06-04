@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useApp, OrderStatus, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS, SHIPPING_PROVIDER_DEFAULTS, ShippingProviderId } from "@/context/AppContext";
+import { useApp, OrderStatus, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS, SHIPPING_PROVIDER_DEFAULTS, ShippingProviderId, CartItem } from "@/context/AppContext";
 import { Linking } from "react-native";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
@@ -170,6 +170,13 @@ export default function OrderDetailScreen() {
   const [uploadingWaybill, setUploadingWaybill] = useState(false);
   const [showWaybillPreview, setShowWaybillPreview] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const [editSectionY, setEditSectionY] = useState<number | null>(null);
+  const didScrollToEditRef = useRef(false);
+  const [availModalIndex, setAvailModalIndex] = useState<number | null>(null);
+  const [availInput, setAvailInput] = useState("");
+  const [itemDecisions, setItemDecisions] = useState<Record<number, "agree" | "disagree">>({});
+  const [confirmingEdit, setConfirmingEdit] = useState(false);
 
   const order = orders.find((o) => o.id === id);
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -185,6 +192,19 @@ export default function OrderDetailScreen() {
   const isScheduled = order?.status === "scheduled";
   const STATUS_STEPS = getStatusSteps(order?.fulfillmentType);
   const currentStep = isCancelled || isScheduled ? 0 : STATUS_STEPS.findIndex((s) => s.key === order?.status);
+
+  const hasAffectedItems = !!order && order.items.some((it) => it.stockStatus);
+
+  useEffect(() => {
+    if (didScrollToEditRef.current) return;
+    if (!order || !isCustomer || !order.editable || !hasAffectedItems) return;
+    if (editSectionY == null) return;
+    didScrollToEditRef.current = true;
+    const t = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, editSectionY - 20), animated: true });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [order, isCustomer, hasAffectedItems, editSectionY]);
 
   if (!order) {
     return (
@@ -206,6 +226,72 @@ export default function OrderDetailScreen() {
 
   const activeColor = STATUS_COLORS[order.status];
 
+  const unitWord = (it: typeof order.items[number]) => (it.orderType === "weight" ? "كغ" : "قطعة");
+
+  const handleConfirmEdit = async () => {
+    if (!order) return;
+    const partialMissingDecision = order.items.some(
+      (it, i) => it.stockStatus === "partial" && !(itemDecisions[i] ?? it.customerDecision)
+    );
+    if (partialMissingDecision) {
+      Alert.alert("يرجى الاختيار", "اختر «موافق» أو «غير موافق» لكل صنف متوفر جزئيًا قبل تأكيد التعديل.");
+      return;
+    }
+    const finalItems = order.items.reduce<typeof order.items>((acc, it, i) => {
+      const decision = itemDecisions[i] ?? it.customerDecision;
+      if (it.stockStatus === "unavailable") return acc;
+      if (it.stockStatus === "partial" && decision === "disagree") return acc;
+      const clean = { ...it };
+      if (it.stockStatus === "partial" && decision === "agree" && it.availableQuantity != null) {
+        if (it.orderType === "weight") {
+          clean.weight = it.availableQuantity;
+        } else {
+          clean.quantity = it.availableQuantity;
+          delete clean.actualWeight;
+        }
+      }
+      delete clean.stockStatus;
+      delete clean.availableQuantity;
+      delete clean.customerDecision;
+      acc.push(clean);
+      return acc;
+    }, []);
+
+    if (finalItems.length === 0) {
+      Alert.alert(
+        "لا يمكن تأكيد التعديل",
+        "جميع الأصناف غير متوفرة. يمكنك اختيار منتجات بديلة أو إلغاء الطلب.",
+      );
+      return;
+    }
+
+    const doConfirm = async () => {
+      try {
+        setConfirmingEdit(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        const weightTotal = finalItems.filter((i) => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+        const piecesTotal = finalItems.filter((i) => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+        await updateOrderItems(order.id, finalItems, weightTotal + piecesTotal);
+        setItemDecisions({});
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("تم", "تم تأكيد التعديل بنجاح وإبلاغ فريق العمل.");
+      } catch {
+        Alert.alert("خطأ", "تعذّر حفظ التعديل. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
+      } finally {
+        setConfirmingEdit(false);
+      }
+    };
+
+    Alert.alert(
+      "تأكيد التعديل",
+      "سيتم حذف الأصناف غير المتوفرة والأصناف المرفوضة وتعديل الكميات المتاحة. هل تريد المتابعة؟",
+      [
+        { text: "تراجع", style: "cancel" },
+        { text: "نعم، أكّد التعديل", onPress: doConfirm },
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader
@@ -215,6 +301,7 @@ export default function OrderDetailScreen() {
       />
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
@@ -835,6 +922,43 @@ export default function OrderDetailScreen() {
                     )}
                   </View>
                 )}
+                {isStaff && order.status === "preparing" && !isLockedByOther && (
+                  <Pressable
+                    onPress={() => {
+                      setAvailModalIndex(index);
+                      setAvailInput(item.stockStatus === "partial" && item.availableQuantity != null ? String(item.availableQuantity) : "");
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    style={{
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      gap: 5,
+                      paddingHorizontal: 8,
+                      paddingVertical: 5,
+                      borderRadius: colors.radius - 6,
+                      borderWidth: 1,
+                      borderColor: item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.border,
+                      backgroundColor: item.stockStatus === "unavailable" ? "#E74C3C18" : item.stockStatus === "partial" ? "#F39C1218" : colors.surface,
+                    }}
+                  >
+                    <Icon
+                      name={item.stockStatus ? "alert-triangle" : "package"}
+                      size={12}
+                      color={item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.mutedForeground}
+                    />
+                    <Text style={{
+                      fontSize: 11,
+                      fontFamily: "Inter_600SemiBold",
+                      color: item.stockStatus === "unavailable" ? "#E74C3C" : item.stockStatus === "partial" ? "#F39C12" : colors.mutedForeground,
+                    }}>
+                      {item.stockStatus === "unavailable"
+                        ? "غير متوفر"
+                        : item.stockStatus === "partial"
+                          ? `متوفر فقط: ${item.availableQuantity} ${item.orderType === "weight" ? "كغ" : "قطعة"}`
+                          : "تحديد التوفر"}
+                    </Text>
+                  </Pressable>
+                )}
                 {isStaff && order.editable && order.items.length > 1 && (
                   <Pressable
                     onPress={() => {
@@ -1278,7 +1402,10 @@ export default function OrderDetailScreen() {
         })()}
 
         {isCustomer && order.editable && (
-          <View style={[styles.editableCustomerCard, { backgroundColor: "#F39C1218", borderColor: "#F39C12", borderRadius: colors.radius }]}>
+          <View
+            onLayout={(e) => { const y = e.nativeEvent.layout.y; setEditSectionY((prev) => (prev === y ? prev : y)); }}
+            style={[styles.editableCustomerCard, { backgroundColor: "#F39C1218", borderColor: "#F39C12", borderRadius: colors.radius }]}
+          >
             <View style={styles.editableCustomerHeader}>
               <Icon name="alert-triangle" size={16} color="#F39C12" />
               <Text style={{ color: "#F39C12", fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right", flex: 1 }}>
@@ -1286,8 +1413,100 @@ export default function OrderDetailScreen() {
               </Text>
             </View>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
-              تم إعلامك بأن أحد الأصناف غير متوفر. يمكنك الآن تعديل الطلب واختيار بديل أو تعديل الكميات.
+              {hasAffectedItems
+                ? "حدّد فريق العمل الكميات المتوفرة من الأصناف التالية. راجع كل صنف ثم أكّد التعديل."
+                : "تم إعلامك بأن أحد الأصناف غير متوفر. يمكنك الآن تعديل الطلب واختيار بديل أو تعديل الكميات."}
             </Text>
+
+            {order.items.map((item, index) => {
+              if (!item.stockStatus) return null;
+              const decision = itemDecisions[index] ?? item.customerDecision;
+              const isUnavailable = item.stockStatus === "unavailable";
+              return (
+                <View
+                  key={`aff_${index}`}
+                  style={{
+                    backgroundColor: colors.card,
+                    borderWidth: 1,
+                    borderColor: isUnavailable ? "#E74C3C55" : "#F39C1255",
+                    borderRadius: colors.radius - 4,
+                    padding: 12,
+                    gap: 10,
+                  }}
+                >
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                    <View style={[styles.colorSwatch, { backgroundColor: item.colorHex, borderColor: colors.border }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
+                        {item.productName} — {item.colorName}
+                      </Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", marginTop: 2 }}>
+                        الكمية المطلوبة: {item.orderType === "weight" ? `${item.weight ?? 1} كغ` : `${item.quantity} قطعة`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {isUnavailable ? (
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#E74C3C18", borderRadius: colors.radius - 6, padding: 8 }}>
+                      <Icon name="x-circle" size={14} color="#E74C3C" />
+                      <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
+                        غير متوفر — سيُحذف عند تأكيد التعديل
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#F39C1218", borderRadius: colors.radius - 6, padding: 8 }}>
+                        <Icon name="alert-triangle" size={14} color="#F39C12" />
+                        <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
+                          متوفر فقط: {item.availableQuantity} {unitWord(item)}
+                        </Text>
+                      </View>
+                      {decision === "disagree" ? (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                          <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
+                            تم الرفض — سيُحذف عند التأكيد
+                          </Text>
+                          <Pressable
+                            onPress={() => {
+                              setItemDecisions((p) => { const n = { ...p }; delete n[index]; return n; });
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.gold + "18" }}
+                          >
+                            <Icon name="rotate-ccw" size={13} color={colors.gold} />
+                            <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>تراجع</Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                          <Pressable
+                            onPress={() => {
+                              setItemDecisions((p) => ({ ...p, [index]: "agree" }));
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            }}
+                            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: "#27AE60", backgroundColor: decision === "agree" ? "#27AE60" : "#27AE6018" }}
+                          >
+                            <Icon name="check" size={15} color={decision === "agree" ? colors.background : "#27AE60"} />
+                            <Text style={{ color: decision === "agree" ? colors.background : "#27AE60", fontFamily: "Inter_700Bold", fontSize: 13 }}>موافق</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => {
+                              setItemDecisions((p) => ({ ...p, [index]: "disagree" }));
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            }}
+                            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: "#E74C3C", backgroundColor: "#E74C3C18" }}
+                          >
+                            <Icon name="x" size={15} color="#E74C3C" />
+                            <Text style={{ color: "#E74C3C", fontFamily: "Inter_700Bold", fontSize: 13 }}>غير موافق</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+              );
+            })}
+
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -1300,6 +1519,30 @@ export default function OrderDetailScreen() {
                 اختيار منتجات بديلة
               </Text>
             </Pressable>
+
+            {hasAffectedItems && (
+              <Pressable
+                onPress={handleConfirmEdit}
+                disabled={confirmingEdit}
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingVertical: 14,
+                  borderRadius: colors.radius,
+                  borderWidth: 1,
+                  borderColor: "#27AE60",
+                  backgroundColor: "#27AE60",
+                  opacity: confirmingEdit ? 0.6 : 1,
+                }}
+              >
+                <Icon name="check-circle" size={18} color={colors.background} />
+                <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 15 }}>
+                  {confirmingEdit ? "جاري الحفظ..." : "تأكيد التعديل"}
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -1946,6 +2189,125 @@ export default function OrderDetailScreen() {
             <Pressable onPress={() => setShowChangeMethodModal(false)} style={{ padding: 10, alignItems: "center" }}>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>إلغاء</Text>
             </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={availModalIndex !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvailModalIndex(null)}
+      >
+        <Pressable onPress={() => setAvailModalIndex(null)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 20 }}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 14 }}>
+            {(() => {
+              const item = availModalIndex !== null ? order.items[availModalIndex] : null;
+              if (!item) return null;
+              const isWeight = item.orderType === "weight";
+              const orderedQty = isWeight ? (item.weight ?? 1) : item.quantity;
+              return (
+                <>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <Icon name="package" size={18} color={colors.gold} />
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, flex: 1, textAlign: "right" }}>
+                      تحديد التوفر
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
+                    {item.productName} — {item.colorName}{"\n"}
+                    الكمية المطلوبة: {orderedQty} {isWeight ? "كغ" : "قطعة"}
+                  </Text>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
+                    متوفر فقط ({isWeight ? "بالكيلو" : "بالعدد"}):
+                  </Text>
+                  <TextInput
+                    style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius - 4, color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, paddingHorizontal: 14, paddingVertical: 12, textAlign: "right" }}
+                    placeholder="اتركه فارغًا إذا كان غير متوفر نهائيًا"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={availInput}
+                    keyboardType={isWeight ? "decimal-pad" : "number-pad"}
+                    onChangeText={(txt) => { if (/^\d*\.?\d*$/.test(txt)) setAvailInput(txt); }}
+                  />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                    إذا تركت الخانة فارغة سيظهر الصنف للعميل كـ «غير متوفر» وسيُحذف عند تأكيد التعديل.
+                  </Text>
+
+                  <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                    <Pressable
+                      onPress={async () => {
+                        if (availModalIndex === null) return;
+                        const idx = availModalIndex;
+                        const val = parseFloat(availInput);
+                        const hasVal = availInput.trim() !== "" && !isNaN(val) && val > 0;
+                        const wasEditable = order.editable;
+                        const newItems = order.items.map((it, i) => {
+                          if (i !== idx) return it;
+                          const next = { ...it, customerDecision: undefined as CartItem["customerDecision"] };
+                          if (hasVal && val < orderedQty) {
+                            next.stockStatus = "partial";
+                            next.availableQuantity = val;
+                          } else if (hasVal && val >= orderedQty) {
+                            delete next.stockStatus;
+                            delete next.availableQuantity;
+                          } else {
+                            next.stockStatus = "unavailable";
+                            delete next.availableQuantity;
+                          }
+                          return next;
+                        });
+                        setAvailModalIndex(null);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        try {
+                          await updateOrderItems(order.id, newItems, order.total, true);
+                          const anyAffected = newItems.some((it) => it.stockStatus);
+                          if (anyAffected && !wasEditable) {
+                            await setOrderEditable(order.id, true);
+                          }
+                        } catch {
+                          Alert.alert("خطأ", "تعذّر حفظ التغيير. حاول مرة أخرى.");
+                        }
+                      }}
+                      style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: colors.radius - 4, backgroundColor: colors.gold }}
+                    >
+                      <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 14 }}>حفظ</Text>
+                    </Pressable>
+                    {item.stockStatus && (
+                      <Pressable
+                        onPress={async () => {
+                          if (availModalIndex === null) return;
+                          const idx = availModalIndex;
+                          const newItems = order.items.map((it, i) => {
+                            if (i !== idx) return it;
+                            const next = { ...it };
+                            delete next.stockStatus;
+                            delete next.availableQuantity;
+                            delete next.customerDecision;
+                            return next;
+                          });
+                          setAvailModalIndex(null);
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          try {
+                            await updateOrderItems(order.id, newItems, order.total, true);
+                          } catch {
+                            Alert.alert("خطأ", "تعذّر حفظ التغيير. حاول مرة أخرى.");
+                          }
+                        }}
+                        style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: colors.radius - 4, borderWidth: 1, borderColor: "#27AE60", backgroundColor: "#27AE6018" }}
+                      >
+                        <Text style={{ color: "#27AE60", fontFamily: "Inter_600SemiBold", fontSize: 14 }}>متاح بالكامل</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      onPress={() => setAvailModalIndex(null)}
+                      style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: colors.radius - 4, borderWidth: 1, borderColor: colors.border }}
+                    >
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }}>إلغاء</Text>
+                    </Pressable>
+                  </View>
+                </>
+              );
+            })()}
           </Pressable>
         </Pressable>
       </Modal>
