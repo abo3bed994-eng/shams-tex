@@ -30,6 +30,11 @@ export default function HomeScreen() {
   const [videoIdx, setVideoIdx] = useState(0);
   const currentVideoUri = videos[videoIdx] ?? null;
 
+  const bannerImages: string[] = (settings.bannerImageUris && settings.bannerImageUris.length > 0)
+    ? settings.bannerImageUris
+    : (settings.bannerImageUri ? [settings.bannerImageUri] : []);
+  const [imageIdx, setImageIdx] = useState(0);
+
   const player = useVideoPlayer(currentVideoUri, (p) => {
     p.muted = true;
     p.loop = false;
@@ -79,6 +84,14 @@ export default function HomeScreen() {
     });
     return () => sub.remove();
   }, [resumeVideo]);
+
+  useEffect(() => {
+    if (videos.length > 0 || bannerImages.length < 2) return;
+    const id = setInterval(() => {
+      setImageIdx((prev) => (prev + 1) % bannerImages.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [videos.length, bannerImages.length]);
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
@@ -130,7 +143,8 @@ export default function HomeScreen() {
   };
 
   const hasVideo = videos.length > 0;
-  const hasImage = !!settings.bannerImageUri;
+  const hasImage = bannerImages.length > 0;
+  const currentImageUri = bannerImages[imageIdx % Math.max(bannerImages.length, 1)] ?? bannerImages[0];
 
   const roleLabel =
     user?.vip
@@ -220,7 +234,7 @@ export default function HomeScreen() {
             />
           ) : hasImage ? (
             <Image
-              source={{ uri: settings.bannerImageUri }}
+              source={{ uri: currentImageUri }}
               style={StyleSheet.absoluteFill}
               resizeMode="cover"
             />
@@ -265,6 +279,20 @@ export default function HomeScreen() {
                   style={[
                     styles.dot,
                     { backgroundColor: i === videoIdx ? colors.gold : "rgba(255,255,255,0.4)" },
+                  ]}
+                />
+              ))}
+            </View>
+          )}
+
+          {videos.length === 0 && bannerImages.length > 1 && (
+            <View style={styles.dotsRow} pointerEvents="none">
+              {bannerImages.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    { backgroundColor: i === (imageIdx % bannerImages.length) ? colors.gold : "rgba(255,255,255,0.4)" },
                   ]}
                 />
               ))}

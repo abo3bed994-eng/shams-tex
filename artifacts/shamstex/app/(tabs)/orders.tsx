@@ -33,6 +33,7 @@ export default function OrdersScreen() {
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
   const canEditStatus = user?.role === "admin" || user?.role === "supervisor" || user?.role === "employee";
+  const canDeleteOrders = user?.role === "admin" || (isStaff && (user?.permissions ?? []).includes("delete_orders"));
 
   const myOrders = isStaff ? orders : orders.filter((o) => o.userId === user?.id);
   const myReturns = isStaff ? returnRequests : returnRequests.filter((r) => r.userId === user?.id);
@@ -433,7 +434,7 @@ export default function OrdersScreen() {
                     : undefined
                 }
               />
-              {isStaff && user?.role === "admin" && (
+              {canDeleteOrders && (
                 <Pressable
                   onPress={() =>
                     Alert.alert("حذف نهائي", "هل تريد حذف هذا الطلب نهائياً؟", [

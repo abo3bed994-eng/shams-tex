@@ -21,7 +21,7 @@ export default function ForceUpdateScreen() {
     <View style={styles.root}>
       <View style={styles.card}>
         <View style={styles.iconWrap}>
-          <Icon name="download-cloud" size={56} color="#D4AF37" />
+          <Icon name="download" size={56} color="#D4AF37" />
         </View>
         <Text style={styles.title}>تحديث مطلوب</Text>
         <Text style={styles.body}>

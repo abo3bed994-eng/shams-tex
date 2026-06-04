@@ -71,6 +71,16 @@ const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
   "toggle_price_view",
 ];
 
+// Permissions an admin may additionally grant to an employee via the permissions
+// grid (beyond their default set). Lets staff hold delete_orders, approvals, and
+// payment-method control without being promoted to supervisor.
+const EMPLOYEE_GRANTABLE: EmployeePermission[] = [
+  ...EMPLOYEE_PERMISSIONS,
+  "delete_orders",
+  "approve_upgrades",
+  "manage_payments",
+];
+
 const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "view_orders",
   "edit_orders",
@@ -126,6 +136,8 @@ export default function AdminUsersScreen() {
 
   const isDeletedStaff = (phone: string) =>
     deletedStaffPhones.some((d) => samePhone(d, phone));
+
+  const canApproveUpgrades = user?.role === "admin" || (user?.permissions ?? []).includes("approve_upgrades");
 
   // Build staff list with canonical-phone deduplication so the same person never
   // appears twice (e.g., once as "01221131138" demo seed and once as "+201221131138" registry).
@@ -309,6 +321,10 @@ export default function AdminUsersScreen() {
   };
 
   const handleApproveUpgrade = (userId: string) => {
+    if (!canApproveUpgrades) {
+      Alert.alert("غير مسموح", "ليس لديك صلاحية الموافقة على الترقيات.");
+      return;
+    }
     Alert.alert("تأكيد", "هل تريد ترقية هذا المستخدم إلى تاجر؟", [
       { text: "إلغاء", style: "cancel" },
       { text: "موافقة", onPress: () => handleChangeCustomerRole(userId, "merchant") },
@@ -874,7 +890,7 @@ export default function AdminUsersScreen() {
   const renderStaffCard = (u: User) => {
     const isExpanded = expandedUser === u.id;
     const showPermissions = (u.role === "employee" || u.role === "supervisor");
-    const allowedPerms = u.role === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_PERMISSIONS;
+    const allowedPerms = u.role === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_GRANTABLE;
     const activePermCount = (u.permissions ?? []).length;
 
     return (
@@ -1125,7 +1141,7 @@ export default function AdminUsersScreen() {
               ))}
             </View>
 
-            {pendingUpgrades.length > 0 && (
+            {pendingUpgrades.length > 0 && canApproveUpgrades && (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.sectionBadge, { backgroundColor: "#C0392B" + "22" }]}>

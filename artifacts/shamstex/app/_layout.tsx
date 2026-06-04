@@ -41,7 +41,6 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const { user, isLoading, settings } = useApp();
-  const updateRequired = isUpdateRequired((settings as any)?.minVersion);
   const [splashDone, setSplashDone] = useState(false);
   const navigated = useRef(false);
   const pushRegistered = useRef<string | null>(null);
@@ -111,12 +110,14 @@ function RootLayoutNav() {
     return <SplashScreenComponent onFinish={() => setSplashDone(true)} />;
   }
 
-  if (updateRequired) {
-    return <ForceUpdateScreen />;
-  }
-
   if (isLoading) {
     return <LoadingScreen />;
+  }
+
+  // Force-update gate runs only after settings have loaded, and admins bypass it
+  // so they can correct a mistaken minVersion from the admin panel.
+  if (user && user.role !== "admin" && isUpdateRequired((settings as any)?.minVersion)) {
+    return <ForceUpdateScreen />;
   }
 
   return (
@@ -193,7 +194,7 @@ export default function RootLayout() {
               <KeyboardProvider>
                 <KeyboardAvoidingView
                   style={{ flex: 1, backgroundColor: "#0A0A0A" }}
-                  behavior="padding"
+                  behavior={Platform.OS === "ios" ? "padding" : undefined}
                   keyboardVerticalOffset={0}
                 >
                   <RootLayoutNav />

@@ -176,6 +176,7 @@ export default function OrderDetailScreen() {
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
   const isAdmin = user?.role === "admin";
+  const canDeleteOrders = isAdmin || (isStaff && (user?.permissions ?? []).includes("delete_orders"));
   const isCustomer = user?.role === "customer" || user?.role === "merchant";
   const isAssignedToMe = order?.assignedTo === user?.id;
   const isLockedByOther = order?.assignedTo && !isAssignedToMe && !isAdmin;
@@ -347,7 +348,8 @@ export default function OrderDetailScreen() {
         )}
 
         {(() => {
-          const ft = order.fulfillmentType ?? "store";
+          // Legacy/undefined and old "store" orders are now treated as branch pickup.
+          const ft = order.fulfillmentType === "shipping" ? "shipping" : "branch";
           const branches = settings.branches ?? [];
           const branch = order.branchId ? branches.find((b) => b.id === order.branchId) : null;
           const providers = (settings.shippingProviders && settings.shippingProviders.length > 0)
@@ -356,9 +358,9 @@ export default function OrderDetailScreen() {
           const providerName = order.shippingProviderName
             || providers.find((p) => p.id === order.shippingProviderId)?.name
             || "";
-          const fulfillmentTitle = ft === "shipping" ? "الشحن" : ft === "branch" ? "الاستلام من فرع" : "الاستلام من المحل الرئيسي";
-          const fulfillmentIcon = ft === "shipping" ? "truck" : ft === "branch" ? "map-pin" : "store";
-          const fulfillmentColor = ft === "shipping" ? "#1ABC9C" : ft === "branch" ? "#3498DB" : colors.gold;
+          const fulfillmentTitle = ft === "shipping" ? "الشحن / التوصيل" : "الاستلام من فروعنا";
+          const fulfillmentIcon = ft === "shipping" ? "truck" : "map-pin";
+          const fulfillmentColor = ft === "shipping" ? "#1ABC9C" : "#3498DB";
           const canEditWaybill = isStaff && !isLockedByOther && (order.status === "ready_to_ship" || order.status === "shipped" || order.status === "preparing");
           return (
             <View style={[{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius, padding: 14, gap: 10 }]}>
@@ -1598,7 +1600,7 @@ export default function OrderDetailScreen() {
           );
         })()}
 
-        {isAdmin && (
+        {canDeleteOrders && (
           <Pressable
             onPress={() =>
               Alert.alert(

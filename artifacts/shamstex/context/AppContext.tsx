@@ -99,8 +99,8 @@ export type OrderStatus = "scheduled" | "pending" | "received" | "preparing" | "
 
 export type PaymentMethod = "cash" | "bank_transfer" | "ewallet" | "instapay";
 
-// "store" = pickup from main store (default), "branch" = pickup from any other branch, "shipping" = courier delivery
-export type FulfillmentType = "store" | "branch" | "shipping";
+// "branch" = pickup from one of our branches (default), "shipping" = courier delivery
+export type FulfillmentType = "branch" | "shipping";
 
 // Three fixed shipping companies. IDs are stable across versions.
 export type ShippingProviderId = string;
@@ -168,7 +168,7 @@ export interface Order {
   paymentOverrideName?: string;
   transferProofImage?: string;
   // Fulfillment: how the customer receives the order
-  fulfillmentType?: FulfillmentType; // undefined = legacy = "store"
+  fulfillmentType?: FulfillmentType; // undefined = legacy = "branch"
   branchId?: string;
   branchName?: string;
   // Shipping-specific
@@ -293,9 +293,11 @@ export interface AppSettings {
   subcategories: Record<string, string[]>;
   featuredProductIds: string[];
   bannerImageUri?: string;
+  bannerImageUris?: string[];
   bannerVideoUris?: string[];
   globalColors: ColorOption[];
   stats: { clients: string; products: string; years: string };
+  statLabels?: { clients: string; products: string; years: string };
   workingHours?: WorkingDay[];
   payment?: PaymentSettings;
   branches?: Branch[];
@@ -331,6 +333,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   featuredProductIds: ["1", "2", "3"],
   stats: { clients: "+500", products: "+50", years: "15+" },
+  statLabels: { clients: "عميل", products: "خامة", years: "سنة خبرة" },
   workingHours: [
     { day: "السبت", enabled: true, from: "09:00", to: "17:00" },
     { day: "الأحد", enabled: true, from: "09:00", to: "17:00" },
@@ -1667,7 +1670,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         patch.deliveredAt = new Date().toISOString();
       }
       // Shipping invariant: cannot advance to "shipped" without waybill image + provider
-      if (status === "shipped" && (prevOrder.fulfillmentType ?? "store") === "shipping") {
+      if (status === "shipped" && (prevOrder.fulfillmentType ?? "branch") === "shipping") {
         if (!prevOrder.shippingWaybillImage || !prevOrder.shippingProviderId) {
           Alert.alert("بوليصة الشحن مطلوبة", "يجب رفع صورة بوليصة الشحن واختيار شركة الشحن قبل تأكيد الشحن.");
           return;
@@ -1680,7 +1683,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // status change to a non-final stage clears a previously saved invoice so
       // stale invoices never carry across stages.
       const finalStage: OrderStatus =
-        (prevOrder.fulfillmentType ?? "store") === "shipping" ? "shipped" : "delivered";
+        (prevOrder.fulfillmentType ?? "branch") === "shipping" ? "shipped" : "delivered";
       const clearInvoice = status !== finalStage;
       const invoiceCleared = clearInvoice && prevOrder.invoiceImage !== undefined;
 

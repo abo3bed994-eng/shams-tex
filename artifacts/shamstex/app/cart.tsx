@@ -16,11 +16,13 @@ import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useColors } from "@/hooks/useColors";
 import { useApp, Order, CartItem, PaymentMethod, PAYMENT_METHOD_ICONS, FulfillmentType, SHIPPING_PROVIDER_DEFAULTS, SavedAddress, formatAddress } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 import GovernoratePicker from "@/components/GovernoratePicker";
+import CityPicker from "@/components/CityPicker";
 import { isWithinWorkingHours, nextWorkingTime, formatNextOpenTime } from "@/lib/workingHours";
 
 const ALL_PAYMENT_METHODS: { key: PaymentMethod; short: string; desc: string }[] = [
@@ -144,7 +146,17 @@ export default function CartScreen() {
     ? settings.shippingProviders
     : SHIPPING_PROVIDER_DEFAULTS;
   const hasEnabledShippingProvider = shippingProvidersList.some((p) => p.enabled !== false);
+  const methodGloballyEnabled = (key: PaymentMethod): boolean => {
+    const p = paymentSettings;
+    if (!p) return true;
+    if (key === "cash") return p.cashEnabled !== false;
+    if (key === "bank_transfer") return p.bankTransferEnabled !== false;
+    if (key === "ewallet") return p.ewalletEnabled !== false;
+    if (key === "instapay") return p.instapayEnabled !== false;
+    return true;
+  };
   const PAYMENT_METHODS = ALL_PAYMENT_METHODS.filter((pm) => {
+    if (!methodGloballyEnabled(pm.key)) return false;
     if (fulfillmentType === "branch" && selectedBranchId) {
       const b = branchesList.find((x) => x.id === selectedBranchId);
       const allowed = b?.allowedPayments;
@@ -263,7 +275,7 @@ export default function CartScreen() {
           paymentFee: feeAmount,
           totalWithFee: totalWithFee,
           scheduledFor: willSchedule && nextOpen ? nextOpen.toISOString() : undefined,
-          fulfillmentType: fulfillmentType ?? "store",
+          fulfillmentType: fulfillmentType ?? "branch",
           ...(fulfillmentType === "branch" && selectedBranchId
             ? {
                 branchId: selectedBranchId,
@@ -516,8 +528,10 @@ export default function CartScreen() {
         </View>
       ) : (
         <>
-          <ScrollView
+          <KeyboardAwareScrollView
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            bottomOffset={20}
             contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 220 }]}
           >
             {cart.map((item, index) => (
@@ -722,13 +736,13 @@ export default function CartScreen() {
                 </View>
 
                 <View style={{ gap: 8 }}>
-                  {(["store", "branch", "shipping"] as FulfillmentType[]).map((ft) => {
+                  {(["branch", "shipping"] as FulfillmentType[]).map((ft) => {
                     if (ft === "branch" && branchesList.length === 0) return null;
                     if (ft === "shipping" && !hasEnabledShippingProvider) return null;
                     const isSel = fulfillmentType === ft;
-                    const label = ft === "store" ? "استلام من المحل الرئيسي" : ft === "branch" ? "استلام من أحد الفروع" : "شحن";
-                    const desc = ft === "store" ? "زيارة المحل الرئيسي" : ft === "branch" ? "اختر الفرع المناسب لك" : "توصيل عبر شركة شحن (السعر غير شامل ثمن الشحن)";
-                    const icn = ft === "store" ? "store" : ft === "branch" ? "map-pin" : "truck";
+                    const label = ft === "branch" ? "الاستلام من فروعنا" : "شحن / توصيل";
+                    const desc = ft === "branch" ? "اختر الفرع المناسب لك" : "توصيل عبر شركة شحن (السعر غير شامل ثمن الشحن)";
+                    const icn = ft === "branch" ? "map-pin" : "truck";
                     return (
                       <React.Fragment key={ft}>
                         <Pressable
@@ -774,7 +788,7 @@ export default function CartScreen() {
                                   {b.mapsUrl ? (
                                     <Pressable onPress={() => Linking.openURL(b.mapsUrl!).catch(() => {})} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
                                       <Icon name="map" size={11} color="#3498DB" />
-                                      <Text style={{ color: "#3498DB", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>اللوكيشن</Text>
+                                      <Text style={{ color: "#3498DB", fontFamily: "Inter_600SemiBold", fontSize: 11 }}>موقع الفرع</Text>
                                     </Pressable>
                                   ) : null}
                                 </Pressable>
@@ -900,12 +914,18 @@ export default function CartScreen() {
                           />
                           <GovernoratePicker
                             value={newAddrCity}
-                            onChange={setNewAddrCity}
+                            onChange={(v) => { setNewAddrCity(v); setNewAddrDistrict(""); }}
                             invalid={!newAddrCity.trim()}
                             placeholder="المحافظة *"
                           />
+                          <CityPicker
+                            governorate={newAddrCity}
+                            value={newAddrDistrict}
+                            onChange={setNewAddrDistrict}
+                            invalid={!newAddrDistrict.trim()}
+                            placeholder="المدينة / المركز *"
+                          />
                           {[
-                            { ph: "الحي *", val: newAddrDistrict, set: setNewAddrDistrict, req: true },
                             { ph: "الشارع *", val: newAddrStreet, set: setNewAddrStreet, req: true },
                             { ph: "المبنى / رقم العقار (اختياري)", val: newAddrBuilding, set: setNewAddrBuilding, req: false },
                             { ph: "علامة مميزة (اختياري)", val: newAddrLandmark, set: setNewAddrLandmark, req: false },
@@ -1030,7 +1050,7 @@ export default function CartScreen() {
                 </View>
               </View>
             )}
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View
             style={[

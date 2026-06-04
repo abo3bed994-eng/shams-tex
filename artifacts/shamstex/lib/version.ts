@@ -14,7 +14,14 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+// Accepts only well-formed versions like "1", "1.2", "1.2.3" (1–3 numeric parts).
+export function isValidVersion(v: unknown): v is string {
+  return typeof v === "string" && /^\d+(\.\d+){0,2}$/.test(v.trim());
+}
+
 export function isUpdateRequired(minVersion: string | undefined | null): boolean {
-  if (!minVersion) return false;
-  return compareVersions(APP_VERSION, minVersion) < 0;
+  // A missing OR malformed minVersion must never trigger the force-update gate,
+  // otherwise a typo in the admin panel locks everyone out in a restart loop.
+  if (!isValidVersion(minVersion)) return false;
+  return compareVersions(APP_VERSION, minVersion.trim()) < 0;
 }

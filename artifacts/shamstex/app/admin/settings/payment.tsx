@@ -7,7 +7,7 @@ import { PaymentSettings, WalletEntry, InstapayEntry } from "@/context/AppContex
 import { Card, Field, SettingsScreen, useSettingsDraft } from "./_shared";
 
 export default function PaymentSettingsPage() {
-  useAdminGuard("manage_settings");
+  useAdminGuard("manage_payments");
   const { colors, bottomPad, draft, setDraft, saving, save } = useSettingsDraft();
 
   const wallets: WalletEntry[] = (draft.payment?.ewallets && draft.payment.ewallets.length > 0)
@@ -42,8 +42,39 @@ export default function PaymentSettingsPage() {
     return { ...d, payment: { ...(d.payment ?? {} as PaymentSettings), instapays: list, instapayNumber: undefined, instapayName: undefined } };
   });
 
+  const methodEnabled = (key: "cashEnabled" | "bankTransferEnabled" | "ewalletEnabled" | "instapayEnabled") =>
+    draft.payment?.[key] !== false;
+  const toggleMethod = (key: "cashEnabled" | "bankTransferEnabled" | "ewalletEnabled" | "instapayEnabled") =>
+    setDraft((d) => ({ ...d, payment: { ...(d.payment ?? {} as PaymentSettings), [key]: d.payment?.[key] === false } }));
+
+  const PAYMENT_TOGGLES: { key: "cashEnabled" | "bankTransferEnabled" | "ewalletEnabled" | "instapayEnabled"; label: string; icon: string }[] = [
+    { key: "cashEnabled", label: "الدفع نقدًا عند الاستلام", icon: "wallet" },
+    { key: "bankTransferEnabled", label: "التحويل البنكي", icon: "credit-card" },
+    { key: "ewalletEnabled", label: "المحافظ الإلكترونية", icon: "wallet" },
+    { key: "instapayEnabled", label: "انستاباي", icon: "wallet" },
+  ];
+
   return (
     <SettingsScreen title="إعدادات الدفع" bottomPad={bottomPad} save={save} saving={saving}>
+      <Card title="وسائل الدفع المتاحة">
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
+          فعّل أو عطّل أي وسيلة دفع — الوسائل المعطّلة لن تظهر للعميل عند الشراء.
+        </Text>
+        {PAYMENT_TOGGLES.map((m) => {
+          const on = methodEnabled(m.key);
+          return (
+            <Pressable
+              key={m.key}
+              onPress={() => toggleMethod(m.key)}
+              style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: on ? colors.gold + "55" : colors.border, borderRadius: 10, backgroundColor: on ? colors.gold + "11" : colors.surface }}
+            >
+              <Icon name={m.icon} size={18} color={on ? colors.gold : colors.mutedForeground} />
+              <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14, textAlign: "right" }}>{m.label}</Text>
+              <Icon name={on ? "check-circle" : "circle"} size={20} color={on ? colors.gold : colors.mutedForeground} />
+            </Pressable>
+          );
+        })}
+      </Card>
       <Card title="إعدادات الدفع">
         <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, backgroundColor: colors.gold + "11", borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "33" }}>
           <Icon name="wallet" size={18} color={colors.gold} />

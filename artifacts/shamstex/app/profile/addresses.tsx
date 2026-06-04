@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +9,7 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, SavedAddress, formatAddress } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GovernoratePicker from "@/components/GovernoratePicker";
+import CityPicker from "@/components/CityPicker";
 
 type FormState = {
   label: string;
@@ -106,7 +108,11 @@ export default function AddressesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <GoldHeader title="عناويني" onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: bottomPad + 40 }}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: bottomPad + 40 }}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={20}
+      >
         {addresses.length === 0 && !showForm && (
           <View style={{ alignItems: "center", padding: 24, gap: 10, borderRadius: colors.radius, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
             <Icon name="map-pin" size={36} color={colors.gold} />
@@ -200,12 +206,18 @@ export default function AddressesScreen() {
             />
             <GovernoratePicker
               value={form.city}
-              onChange={(v) => setForm((prev) => ({ ...prev, city: v }))}
+              onChange={(v) => setForm((prev) => ({ ...prev, city: v, district: "" }))}
               invalid={!form.city.trim()}
               placeholder="المحافظة *"
             />
+            <CityPicker
+              governorate={form.city}
+              value={form.district}
+              onChange={(v) => setForm((prev) => ({ ...prev, district: v }))}
+              invalid={!form.district.trim()}
+              placeholder="المدينة / المركز *"
+            />
             {[
-              { key: "district" as const, ph: "الحي *", req: true },
               { key: "street" as const, ph: "الشارع *", req: true },
               { key: "building" as const, ph: "المبنى / رقم العقار (اختياري)", req: false },
               { key: "landmark" as const, ph: "علامة مميزة (اختياري)", req: false },
@@ -249,7 +261,7 @@ export default function AddressesScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </View>
   );
 }

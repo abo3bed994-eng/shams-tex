@@ -146,7 +146,7 @@ export default function ContactScreen() {
                 {settings.stats?.clients ?? "+500"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {t("clients")}
+                {settings.statLabels?.clients ?? t("clients")}
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -155,7 +155,7 @@ export default function ContactScreen() {
                 {settings.stats?.products ?? "+50"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {t("productsCount")}
+                {settings.statLabels?.products ?? t("productsCount")}
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -164,7 +164,7 @@ export default function ContactScreen() {
                 {settings.stats?.years ?? "15+"}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                {t("yearsExperience")}
+                {settings.statLabels?.years ?? t("yearsExperience")}
               </Text>
             </View>
           </View>

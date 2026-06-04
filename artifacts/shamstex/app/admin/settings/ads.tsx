@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, Text, View } from "react-native";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -7,23 +7,44 @@ import { persistImageUri } from "@/utils/persistImage";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 import { Card, SettingsScreen, useSettingsDraft, styles } from "./_shared";
 
+const MAX_BANNER_IMAGES = 7;
+
 export default function AdsSettings() {
   useAdminGuard("manage_settings");
   const { colors, bottomPad, draft, setDraft, saving, save } = useSettingsDraft();
-  const [mediaLoading, setMediaLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
+
+  // Migrate the legacy single bannerImageUri into the images array for display.
+  const bannerImages: string[] = (draft.bannerImageUris && draft.bannerImageUris.length > 0)
+    ? draft.bannerImageUris
+    : (draft.bannerImageUri ? [draft.bannerImageUri] : []);
 
   const pickBannerImage = async () => {
+    if (bannerImages.length >= MAX_BANNER_IMAGES) { Alert.alert("الحد الأقصى", `يمكن إضافة ${MAX_BANNER_IMAGES} صور كحد أقصى`); return; }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85 });
-    if (!result.canceled && result.assets[0]) {
-      setMediaLoading(true);
-      const uri = await persistImageUri(result.assets[0].uri);
-      setDraft((d) => ({ ...d, bannerImageUri: uri }));
-      setMediaLoading(false);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const remaining = MAX_BANNER_IMAGES - bannerImages.length;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85, allowsMultipleSelection: true, selectionLimit: remaining });
+    if (!result.canceled && result.assets.length > 0) {
+      setImageLoading(true);
+      try {
+        const uris = await Promise.all(result.assets.slice(0, remaining).map((a) => persistImageUri(a.uri)));
+        setDraft((d) => {
+          const existing = (d.bannerImageUris && d.bannerImageUris.length > 0) ? d.bannerImageUris : (d.bannerImageUri ? [d.bannerImageUri] : []);
+          return { ...d, bannerImageUris: [...existing, ...uris].slice(0, MAX_BANNER_IMAGES), bannerImageUri: undefined };
+        });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } finally {
+        setImageLoading(false);
+      }
     }
   };
+  const removeImage = (idx: number) => setDraft((d) => {
+    const existing = (d.bannerImageUris && d.bannerImageUris.length > 0) ? d.bannerImageUris : (d.bannerImageUri ? [d.bannerImageUri] : []);
+    return { ...d, bannerImageUris: existing.filter((_, i) => i !== idx), bannerImageUri: undefined };
+  });
+
   const pickBannerVideo = async () => {
     const current = draft.bannerVideoUris ?? [];
     if (current.length >= 3) { Alert.alert("الحد الأقصى", "يمكن إضافة 3 فيديوهات كحد أقصى"); return; }
@@ -31,25 +52,33 @@ export default function AdsSettings() {
     if (!perm.granted) { Alert.alert("صلاحية مطلوبة", "يرجى السماح بالوصول إلى المعرض"); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 1 });
     if (!result.canceled && result.assets[0]) {
-      setMediaLoading(true);
-      const uri = await persistImageUri(result.assets[0].uri);
-      setDraft((d) => ({ ...d, bannerVideoUris: [...(d.bannerVideoUris ?? []), uri] }));
-      setMediaLoading(false);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setVideoLoading(true);
+      try {
+        const uri = await persistImageUri(result.assets[0].uri);
+        setDraft((d) => ({ ...d, bannerVideoUris: [...(d.bannerVideoUris ?? []), uri] }));
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } finally {
+        setVideoLoading(false);
+      }
     }
   };
   const removeVideo = (idx: number) => setDraft((d) => ({ ...d, bannerVideoUris: (d.bannerVideoUris ?? []).filter((_, i) => i !== idx) }));
-  const clearBanner = () => setDraft((d) => ({ ...d, bannerImageUri: undefined, bannerVideoUris: [] }));
+
+  const busy = imageLoading || videoLoading;
 
   return (
     <SettingsScreen title="المحتوى الإعلاني" bottomPad={bottomPad} save={save} saving={saving}>
       <Card title="المحتوى الإعلاني">
-        {draft.bannerImageUri && (
-          <View style={[styles.bannerPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Image source={{ uri: draft.bannerImageUri }} style={styles.bannerPreviewImg} resizeMode="cover" />
-            <Pressable onPress={clearBanner} style={[styles.clearBannerBtn, { backgroundColor: colors.destructive }]}>
-              <Icon name="x" size={14} color="#FFF" />
-            </Pressable>
+        {bannerImages.length > 0 && (
+          <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+            {bannerImages.map((uri, idx) => (
+              <View key={`${uri}_${idx}`} style={[styles.bannerPreview, { backgroundColor: colors.surface, borderColor: colors.border, width: "48%", marginBottom: 0 }]}>
+                <Image source={{ uri }} style={styles.bannerPreviewImg} resizeMode="cover" />
+                <Pressable onPress={() => removeImage(idx)} style={[styles.clearBannerBtn, { backgroundColor: colors.destructive }]}>
+                  <Icon name="x" size={14} color="#FFF" />
+                </Pressable>
+              </View>
+            ))}
           </View>
         )}
         {(draft.bannerVideoUris ?? []).length > 0 && (
@@ -70,25 +99,27 @@ export default function AdsSettings() {
         <View style={styles.bannerBtns}>
           <Pressable
             onPress={pickBannerVideo}
-            disabled={mediaLoading || (draft.bannerVideoUris ?? []).length >= 3}
-            style={({ pressed }) => [styles.bannerBtn, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44", opacity: (pressed || mediaLoading || (draft.bannerVideoUris ?? []).length >= 3) ? 0.5 : 1 }]}
+            disabled={busy || (draft.bannerVideoUris ?? []).length >= 3}
+            style={({ pressed }) => [styles.bannerBtn, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44", opacity: (pressed || busy || (draft.bannerVideoUris ?? []).length >= 3) ? 0.5 : 1 }]}
           >
-            <Icon name="film" size={18} color={colors.gold} />
+            {videoLoading ? <ActivityIndicator size="small" color={colors.gold} /> : <Icon name="film" size={18} color={colors.gold} />}
             <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-              {(draft.bannerVideoUris ?? []).length >= 3 ? "اكتملت الفيديوهات" : `رفع فيديو (${(draft.bannerVideoUris ?? []).length}/3)`}
+              {videoLoading ? "جاري الرفع..." : (draft.bannerVideoUris ?? []).length >= 3 ? "اكتملت الفيديوهات" : `رفع فيديو (${(draft.bannerVideoUris ?? []).length}/3)`}
             </Text>
           </Pressable>
           <Pressable
             onPress={pickBannerImage}
-            disabled={mediaLoading}
-            style={({ pressed }) => [styles.bannerBtn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed || mediaLoading ? 0.7 : 1 }]}
+            disabled={busy || bannerImages.length >= MAX_BANNER_IMAGES}
+            style={({ pressed }) => [styles.bannerBtn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: (pressed || busy || bannerImages.length >= MAX_BANNER_IMAGES) ? 0.5 : 1 }]}
           >
-            <Icon name="image" size={18} color={colors.foreground} />
-            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>رفع صورة</Text>
+            {imageLoading ? <ActivityIndicator size="small" color={colors.foreground} /> : <Icon name="image" size={18} color={colors.foreground} />}
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 13 }}>
+              {imageLoading ? "جاري الرفع..." : bannerImages.length >= MAX_BANNER_IMAGES ? "اكتملت الصور" : `رفع صورة (${bannerImages.length}/${MAX_BANNER_IMAGES})`}
+            </Text>
           </Pressable>
         </View>
         <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
-          يمكن رفع حتى 3 فيديوهات متتابعة أو صورة في البانر الرئيسي
+          يمكن رفع حتى 3 فيديوهات وحتى {MAX_BANNER_IMAGES} صور في البانر الرئيسي. تظهر الصور كشرائح متتابعة عندما لا يوجد فيديو.
         </Text>
       </Card>
     </SettingsScreen>

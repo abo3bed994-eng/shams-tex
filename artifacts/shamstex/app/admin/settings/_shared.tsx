@@ -18,6 +18,7 @@ export function useSettingsDraft() {
     ...settings,
     subcategories: settings.subcategories ?? {},
     stats: settings.stats ?? { clients: "+500", products: "+50", years: "15+" },
+    statLabels: settings.statLabels ?? { clients: "عميل", products: "خامة", years: "سنة خبرة" },
   });
   const [saving, setSaving] = useState(false);
   const save = async () => {
@@ -126,7 +127,7 @@ export const Card = React.memo(function Card({ children, title }: { children: Re
   );
 });
 
-export const SOCIAL_ICONS = ["message-circle", "instagram", "facebook", "tiktok", "twitter", "youtube", "globe"];
+export const SOCIAL_ICONS = ["message-circle", "instagram", "facebook", "snapchat", "telegram", "tiktok", "twitter", "youtube", "linkedin", "globe"];
 
 export const styles = StyleSheet.create({
   container: { flex: 1 },
