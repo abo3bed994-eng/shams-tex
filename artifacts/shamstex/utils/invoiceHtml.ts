@@ -60,10 +60,6 @@ function formatMoney(n: number): string {
   return v.toLocaleString("en-EG", { maximumFractionDigits: 2 });
 }
 
-function piecesUnitAr(u?: ProductUnit): string {
-  return u === "meter" ? "ثوب (متر)" : "ثوب";
-}
-
 export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
   // Always use the latin brand name at the top of the invoice
   const brandLatin = "Shams Tex";
@@ -77,9 +73,14 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
     .map((it, idx) => {
       const isWeight = it.orderType === "weight";
       const unitAr = UNIT_LABEL_AR[it.unit ?? "kilo"];
-      const qtyDisplay = isWeight
-        ? `${formatMoney(it.actualWeight ?? it.weight ?? it.quantity)} ${unitAr}`
-        : `${it.quantity} ${piecesUnitAr(it.unit)}`;
+      const perBolt = it.unit === "meter" ? 100 : 20;
+      const boltCount = isWeight
+        ? Math.floor((it.actualWeight ?? it.weight ?? 0) / perBolt)
+        : it.quantity;
+      const amount = isWeight
+        ? (it.actualWeight ?? it.weight ?? it.quantity)
+        : (it.actualWeight ?? it.quantity * perBolt);
+      const qtyDisplay = `${boltCount} ثوب — ${formatMoney(amount)} ${unitAr}`;
       const lineTotal = isWeight
         ? (it.actualWeight ?? it.weight ?? 0) * it.unitPrice
         : it.quantity * it.unitPrice;

@@ -658,8 +658,7 @@ export default function CartScreen() {
                   const prod = products.find((p) => p.id === item.productId);
                   const perBolt = prod?.unit === "meter" ? 100 : 20;
                   const unitName = prod?.unit === "meter" ? "متر" : "كغ";
-                  const bolts = (item.weight ?? 0) / perBolt;
-                  const boltsLabel = bolts.toFixed(1).replace(/\.0$/, "");
+                  const boltsLabel = String(Math.floor((item.weight ?? 0) / perBolt));
                   return (
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, paddingTop: 6 }}>
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>

@@ -147,6 +147,8 @@ export default function OrderDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder, setOrderTransferProof, setOrderPaymentMethod, setOrderPaymentOverride, setOrderShipping } = useApp();
+  const unitOf = (it: { productId: string; unit?: string }) => products.find(p => p.id === it.productId)?.unit ?? it.unit;
+  const boltsOf = (weight: number | undefined, it: { productId: string; unit?: string }) => Math.floor((weight ?? 0) / blt(unitOf(it)));
   const [showMsgInput, setShowMsgInput] = useState(false);
   const [msgText, setMsgText] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -229,7 +231,7 @@ export default function OrderDetailScreen() {
 
   const activeColor = STATUS_COLORS[order.status];
 
-  const unitWord = (it: typeof order.items[number]) => (it.orderType === "weight" ? "كغ" : "قطعة");
+  const unitWord = (it: typeof order.items[number]) => (it.orderType === "weight" ? ulbl(unitOf(it)) : "قطعة");
 
   const handleConfirmEdit = async () => {
     if (!order) return;
@@ -273,7 +275,7 @@ export default function OrderDetailScreen() {
         setConfirmingEdit(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         const weightTotal = finalItems.filter((i) => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-        const piecesTotal = finalItems.filter((i) => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+        const piecesTotal = finalItems.filter((i) => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
         await updateOrderItems(order.id, finalItems, weightTotal + piecesTotal);
         setItemDecisions({});
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -800,7 +802,7 @@ export default function OrderDetailScreen() {
                     {item.colorName}
                   </Text>
                   <Text style={{ color: colors.gold + "99", fontFamily: "Inter_500Medium", fontSize: 11 }}>
-                    {item.unitPrice} ج.م/{ulbl(item.unit)}
+                    {item.unitPrice} ج.م/{ulbl(unitOf(item))}
                   </Text>
                   {isStaff && order.status === "preparing" && !isLockedByOther && (
                     <Pressable
@@ -836,7 +838,7 @@ export default function OrderDetailScreen() {
                         {item.stockStatus === "unavailable"
                           ? "غير متوفر"
                           : item.stockStatus === "partial"
-                            ? `متوفر فقط: ${item.availableQuantity} ${item.orderType === "weight" ? "كغ" : "قطعة"}`
+                            ? `متوفر فقط: ${item.availableQuantity} ${item.orderType === "weight" ? ulbl(unitOf(item)) : "قطعة"}`
                             : "تحديد المتوفر"}
                       </Text>
                     </Pressable>
@@ -847,95 +849,100 @@ export default function OrderDetailScreen() {
                 {item.orderType === "weight" ? (
                   <View style={{ alignItems: "flex-start", gap: 4 }}>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11 }}>
-                      {item.weight ?? 1} {(() => { const p = products.find(pp => pp.id === item.productId); return p?.unit === "meter" ? "متر" : "كغ"; })()}
+                      {item.weight ?? 1} {ulbl(unitOf(item))}
                     </Text>
                     <Text style={[styles.orderItemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                       {item.unitPrice * (item.weight ?? 1)} ج.م
                     </Text>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
-                      ≈ {((item.weight ?? 0) / blt(item.unit)).toFixed(1).replace(/\.0$/, "")} ثوب (الثوب {blt(item.unit)} {ulbl(item.unit)})
+                      ≈ {boltsOf(item.weight, item)} ثوب (الثوب {blt(unitOf(item))} {ulbl(unitOf(item))})
                     </Text>
                     {isStaff && order.status === "preparing" && !isLockedByOther && (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Pressable
-                          onPress={() => {
-                            const newWeight = Math.max(1, (item.weight ?? 1) - 1);
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
-                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
-                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          }}
-                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-                        >
-                          <Icon name="minus" size={12} color={colors.gold} />
-                        </Pressable>
-                        <TextInput
-                          style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                          value={weightTexts[`w_${index}`] !== undefined ? weightTexts[`w_${index}`] : String(item.weight ?? 1)}
-                          keyboardType="decimal-pad"
-                          onChangeText={(txt) => {
-                            if (!/^\d*\.?\d*$/.test(txt)) return;
-                            setWeightTexts(p => ({ ...p, [`w_${index}`]: txt }));
-                            const val = parseFloat(txt);
-                            if (isNaN(val) || val <= 0) return;
-                            const newW = Math.max(0.1, val);
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newW } : it);
-                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
-                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
-                          }}
-                          onBlur={() => setWeightTexts(p => { const n={...p}; delete n[`w_${index}`]; return n; })}
-                        />
-                        <Pressable
-                          onPress={() => {
-                            const newWeight = (item.weight ?? 1) + 1;
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
-                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
-                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          }}
-                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
-                        >
-                          <Icon name="plus" size={12} color={colors.background} />
-                        </Pressable>
-                      </View>
-                    )}
-                    {isStaff && order.status === "preparing" && !isLockedByOther && (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>أثواب</Text>
-                        <Pressable
-                          onPress={() => {
-                            const pb = blt(item.unit);
-                            const newWeight = Math.max(pb, (item.weight ?? 0) - pb);
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
-                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
-                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          }}
-                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-                        >
-                          <Icon name="minus" size={12} color={colors.gold} />
-                        </Pressable>
-                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center" }}>
-                          {((item.weight ?? 0) / blt(item.unit)).toFixed(1).replace(/\.0$/, "")}
+                      <View style={{ gap: 4, marginTop: 2 }}>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
+                          {unitOf(item) === "meter" ? "الأمتار الفعلية (متر):" : "الوزن الفعلي (كغ):"}
                         </Text>
-                        <Pressable
-                          onPress={() => {
-                            const pb = blt(item.unit);
-                            const newWeight = (item.weight ?? 0) + pb;
-                            const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
-                            const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
-                            updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          }}
-                          style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
-                        >
-                          <Icon name="plus" size={12} color={colors.background} />
-                        </Pressable>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Pressable
+                            onPress={() => {
+                              const newWeight = Math.max(1, (item.weight ?? 1) - 1);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="minus" size={12} color={colors.gold} />
+                          </Pressable>
+                          <TextInput
+                            style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
+                            value={weightTexts[`w_${index}`] !== undefined ? weightTexts[`w_${index}`] : String(item.weight ?? 1)}
+                            keyboardType="decimal-pad"
+                            onChangeText={(txt) => {
+                              if (!/^\d*\.?\d*$/.test(txt)) return;
+                              setWeightTexts(p => ({ ...p, [`w_${index}`]: txt }));
+                              const val = parseFloat(txt);
+                              if (isNaN(val) || val <= 0) return;
+                              const newW = Math.max(0.1, val);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newW } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                            }}
+                            onBlur={() => setWeightTexts(p => { const n={...p}; delete n[`w_${index}`]; return n; })}
+                          />
+                          <Pressable
+                            onPress={() => {
+                              const newWeight = (item.weight ?? 1) + 1;
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="plus" size={12} color={colors.background} />
+                          </Pressable>
+                        </View>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
+                          عدد الأثواب:
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Pressable
+                            onPress={() => {
+                              const pb = blt(unitOf(item));
+                              const newWeight = Math.max(pb, (item.weight ?? 0) - pb);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="minus" size={12} color={colors.gold} />
+                          </Pressable>
+                          <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center" }}>
+                            {boltsOf(item.weight, item)}
+                          </Text>
+                          <Pressable
+                            onPress={() => {
+                              const pb = blt(unitOf(item));
+                              const newWeight = (item.weight ?? 0) + pb;
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, weight: newWeight } : it);
+                              const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
+                              updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Icon name="plus" size={12} color={colors.background} />
+                          </Pressable>
+                        </View>
                       </View>
                     )}
                   </View>
@@ -947,7 +954,7 @@ export default function OrderDetailScreen() {
                     {item.actualWeight ? (
                       <View style={{ gap: 2 }}>
                         <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-                          {item.actualWeight} {ulbl(item.unit)}
+                          {item.actualWeight} {ulbl(unitOf(item))}
                         </Text>
                         <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 12 }}>
                           {item.actualWeight * item.unitPrice} ج.م
@@ -956,10 +963,10 @@ export default function OrderDetailScreen() {
                     ) : (
                       <View style={{ gap: 2 }}>
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
-                          ≈ {item.quantity * blt(item.unit)} {ulbl(item.unit)} (تقديري)
+                          ≈ {item.quantity * blt(unitOf(item))} {ulbl(unitOf(item))} (تقديري)
                         </Text>
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                          ≈ {item.quantity * blt(item.unit) * item.unitPrice} ج.م (تقديري)
+                          ≈ {item.quantity * blt(unitOf(item)) * item.unitPrice} ج.م (تقديري)
                         </Text>
                       </View>
                     )}
@@ -972,9 +979,9 @@ export default function OrderDetailScreen() {
                           <Pressable
                             onPress={() => {
                               const newQ = Math.max(1, item.quantity - 1);
-                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * blt(item.unit) } : it);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * blt(unitOf(item)) } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                               updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             }}
@@ -992,9 +999,9 @@ export default function OrderDetailScreen() {
                               const val = parseInt(txt, 10);
                               if (isNaN(val) || val <= 0) return;
                               const newQ = Math.max(1, val);
-                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * blt(item.unit) } : it);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * blt(unitOf(item)) } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                               updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                             }}
                             onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[`q_${index}`]; return n; })}
@@ -1002,9 +1009,9 @@ export default function OrderDetailScreen() {
                           <Pressable
                             onPress={() => {
                               const newQ = item.quantity + 1;
-                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * blt(item.unit) } : it);
+                              const newItems = order.items.map((it, i) => i === index ? { ...it, quantity: newQ, actualWeight: newQ * blt(unitOf(item)) } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                               updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             }}
@@ -1014,16 +1021,16 @@ export default function OrderDetailScreen() {
                           </Pressable>
                         </View>
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 10 }}>
-                          {item.unit === "meter" ? "الأمتار الفعلية (متر):" : "الوزن الفعلي (كغ):"}
+                          {unitOf(item) === "meter" ? "الأمتار الفعلية (متر):" : "الوزن الفعلي (كغ):"}
                         </Text>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Pressable
                             onPress={() => {
-                              const curW = item.actualWeight ?? (item.quantity * blt(item.unit));
+                              const curW = item.actualWeight ?? (item.quantity * blt(unitOf(item)));
                               const newW = Math.max(1, curW - 1);
                               const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                               updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             }}
@@ -1033,7 +1040,7 @@ export default function OrderDetailScreen() {
                           </Pressable>
                           <TextInput
                             style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 40, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                            value={weightTexts[`a_${index}`] !== undefined ? weightTexts[`a_${index}`] : String(item.actualWeight ?? (item.quantity * blt(item.unit)))}
+                            value={weightTexts[`a_${index}`] !== undefined ? weightTexts[`a_${index}`] : String(item.actualWeight ?? (item.quantity * blt(unitOf(item))))}
                             keyboardType="decimal-pad"
                             onChangeText={(txt) => {
                               if (!/^\d*\.?\d*$/.test(txt)) return;
@@ -1043,17 +1050,17 @@ export default function OrderDetailScreen() {
                               const newW = Math.max(0.1, val);
                               const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                               updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                             }}
                           />
                           <Pressable
                             onPress={() => {
-                              const curW = item.actualWeight ?? (item.quantity * blt(item.unit));
+                              const curW = item.actualWeight ?? (item.quantity * blt(unitOf(item)));
                               const newW = curW + 1;
                               const newItems = order.items.map((it, i) => i === index ? { ...it, actualWeight: newW } : it);
                               const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                              const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                               updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true);
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             }}
@@ -1077,7 +1084,7 @@ export default function OrderDetailScreen() {
                           { text: "حذف", style: "destructive", onPress: () => {
                             const newItems = order.items.filter((_, i) => i !== index);
                             const weightTotal = newItems.filter(i => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                            const piecesTotal = newItems.filter(i => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                             updateOrderItems(order.id, newItems, weightTotal + piecesTotal);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                           }},
@@ -1117,7 +1124,7 @@ export default function OrderDetailScreen() {
               .reduce((a, b) => a + (b.actualWeight! * b.unitPrice), 0);
             const piecesEstimate = order.items
               .filter((i) => i.orderType === "pieces" && !i.actualWeight)
-              .reduce((a, b) => a + b.quantity * blt(b.unit) * b.unitPrice, 0);
+              .reduce((a, b) => a + b.quantity * blt(unitOf(b)) * b.unitPrice, 0);
             const allPiecesWeighed = hasPieces && order.items.filter((i) => i.orderType === "pieces").every((i) => i.actualWeight);
 
             if (weightTotal > 0 && hasPieces) {
@@ -1309,7 +1316,7 @@ export default function OrderDetailScreen() {
                         if (hasPiecesWithoutWeight) {
                           const newItems = order.items.map((i) => {
                             if (i.orderType === "pieces" && !i.actualWeight) {
-                              return { ...i, actualWeight: i.quantity * blt(i.unit) };
+                              return { ...i, actualWeight: i.quantity * blt(unitOf(i)) };
                             }
                             return i;
                           });
@@ -1318,7 +1325,7 @@ export default function OrderDetailScreen() {
                             .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
                           const piecesTotal = newItems
                             .filter((i) => i.orderType === "pieces")
-                            .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(b.unit))) * b.unitPrice, 0);
+                            .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
                           try { await updateOrderItems(order.id, newItems, weightTotal + piecesTotal, true); } catch {}
                         }
                       }
@@ -2315,10 +2322,10 @@ export default function OrderDetailScreen() {
                   </View>
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
                     {item.productName} — {item.colorName}{"\n"}
-                    الكمية المطلوبة: {orderedQty} {isWeight ? "كغ" : "قطعة"}
+                    الكمية المطلوبة: {orderedQty} {isWeight ? ulbl(unitOf(item)) : "قطعة"}
                   </Text>
                   <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
-                    متوفر فقط ({isWeight ? "بالكيلو" : "بالعدد"}):
+                    متوفر فقط ({isWeight ? (unitOf(item) === "meter" ? "بالمتر" : "بالكيلو") : "بالعدد"}):
                   </Text>
                   <TextInput
                     style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius - 4, color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, paddingHorizontal: 14, paddingVertical: 12, textAlign: "right" }}
