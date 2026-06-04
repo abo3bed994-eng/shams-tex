@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  useColorScheme,
 } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -60,7 +61,10 @@ const ADMIN_VERIFY_CODE =
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings, setCustomerPin, verifyCustomerPin, language } = useApp();
+  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings, setCustomerPin, verifyCustomerPin, language, theme, setTheme } = useApp();
+  const systemScheme = useColorScheme();
+  const themeResolved: "dark" | "light" =
+    theme === "system" ? (systemScheme === "light" ? "light" : "dark") : theme;
   const { t } = useTranslation();
 
   const [country, setCountry] = useState<Country>(DEFAULT_COUNTRY);
@@ -517,6 +521,25 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTheme(themeResolved === "dark" ? "light" : "dark");
+            }}
+            hitSlop={10}
+            style={[
+              styles.themeToggle,
+              {
+                backgroundColor: themeResolved === "dark" ? colors.gold + "22" : colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={18} color={colors.gold} />
+          </Pressable>
+        </View>
+
         <View style={styles.header}>
           <Image
             source={require("../../assets/images/logo.png")}
@@ -923,6 +946,15 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 24, gap: 28 },
+  topBar: { flexDirection: "row", justifyContent: "flex-end", marginBottom: -16 },
+  themeToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   header: { alignItems: "center", gap: 10 },
   logoImg: { width: 220, height: 220 },
   brand: { fontSize: 24, letterSpacing: 1.5, lineHeight: 38, textAlign: "center" },
