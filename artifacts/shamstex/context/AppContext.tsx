@@ -1860,6 +1860,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             read: false,
             targetUserId: updatedOrder.userId,
             targetUserPhone: updatedOrder.userPhone,
+            linkedOrderId: orderId,
           };
           const updatedNotifs = [notif, ...notificationsRef.current];
           setNotifications(updatedNotifs);

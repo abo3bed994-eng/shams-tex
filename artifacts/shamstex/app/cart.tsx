@@ -134,7 +134,7 @@ export default function CartScreen() {
     .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
   const piecesEstTotal = cart
     .filter((i) => i.orderType === "pieces")
-    .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * 20)) * b.unitPrice, 0);
+    .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * (b.unit === "meter" ? 100 : 20))) * b.unitPrice, 0);
   const totalPrice = weightTotal + piecesEstTotal;
 
   const hasPiecesOrder = cart.some((i) => i.orderType === "pieces");
@@ -223,7 +223,7 @@ export default function CartScreen() {
     const weightItems = cart.filter((i) => i.orderType === "weight");
     for (const item of weightItems) {
       const prod = products.find((p) => p.id === item.productId);
-      const minW = prod?.unit === "meter" ? 50 : 20;
+      const minW = prod?.unit === "meter" ? 100 : 20;
       const unitName = prod?.unit === "meter" ? "متر" : "كغ";
       if ((item.weight ?? 0) < minW) {
         Alert.alert("الحد الأدنى", `الحد الأدنى هو ${minW} ${unitName} لكل لون\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} ${unitName})`);
@@ -589,10 +589,10 @@ export default function CartScreen() {
                   ) : (
                     <View style={{ gap: 2, alignItems: "flex-end" }}>
                       <Text style={[styles.itemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                        ≈ {item.quantity * 20 * item.unitPrice} ج.م
+                        ≈ {item.quantity * (item.unit === "meter" ? 100 : 20) * item.unitPrice} ج.م
                       </Text>
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                        تقديري ({item.quantity} × 20كغ × {item.unitPrice})
+                        تقديري ({item.quantity} × {item.unit === "meter" ? "100م" : "20كغ"} × {item.unitPrice})
                       </Text>
                     </View>
                   )}
@@ -656,7 +656,39 @@ export default function CartScreen() {
 
                 {item.orderType === "weight" && (() => {
                   const prod = products.find((p) => p.id === item.productId);
-                  const minW = prod?.unit === "meter" ? 50 : 20;
+                  const perBolt = prod?.unit === "meter" ? 100 : 20;
+                  const unitName = prod?.unit === "meter" ? "متر" : "كغ";
+                  const bolts = (item.weight ?? 0) / perBolt;
+                  const boltsLabel = bolts.toFixed(1).replace(/\.0$/, "");
+                  return (
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, paddingTop: 6 }}>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                        ≈ {boltsLabel} ثوب (الثوب {perBolt} {unitName})
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Pressable
+                          onPress={() => updateCartWeight(item.productId, item.colorName, Math.max(perBolt, (item.weight ?? 0) - perBolt))}
+                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        >
+                          <Icon name="minus" size={14} color={colors.gold} />
+                        </Pressable>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 58, textAlign: "center" }}>
+                          {boltsLabel} ثوب
+                        </Text>
+                        <Pressable
+                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 0) + perBolt)}
+                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                        >
+                          <Icon name="plus" size={14} color={colors.background} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })()}
+
+                {item.orderType === "weight" && (() => {
+                  const prod = products.find((p) => p.id === item.productId);
+                  const minW = prod?.unit === "meter" ? 100 : 20;
                   const unitName = prod?.unit === "meter" ? "متر" : "كغ";
                   return (item.weight ?? 0) < minW ? (
                     <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
@@ -710,7 +742,7 @@ export default function CartScreen() {
                 <View style={styles.salesNoteInfoRow}>
                   <Icon name="info" size={16} color={colors.gold} />
                   <Text style={[styles.salesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                    الوزن التقديري لكل ثوب 20 كغ
+                    الوزن/الأمتار التقديرية لكل ثوب
                   </Text>
                 </View>
                 {cart.filter(i => i.orderType === "pieces").map((item, idx) => (
@@ -719,7 +751,7 @@ export default function CartScreen() {
                       {item.productName} ({item.colorName}) × {item.quantity}
                     </Text>
                     <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-                      ≈ {item.quantity * 20 * item.unitPrice} ج.م
+                      ≈ {item.quantity * (item.unit === "meter" ? 100 : 20) * item.unitPrice} ج.م
                     </Text>
                   </View>
                 ))}

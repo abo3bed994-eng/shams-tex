@@ -174,7 +174,7 @@ export default function ProductDetailScreen() {
         Alert.alert("تنبيه", "الرجاء تحديد الوزن لكل لون");
         return;
       }
-      const minWeight = product.unit === "meter" ? 50 : 20;
+      const minWeight = product.unit === "meter" ? 100 : 20;
       const unitName = product.unit === "meter" ? "متر" : "كغ";
       const belowMin = Object.entries(colorWeights).filter(([_, w]) => w > 0 && w < minWeight);
       if (belowMin.length > 0) {
@@ -579,10 +579,10 @@ export default function ProductDetailScreen() {
                 <Text
                   style={[styles.piecesNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
                 >
-                  الوزن التقديري: {totalPieces * 20} كغ — السعر التقديري: ≈ {totalPieces * 20 * displayPrice} ج.م
+                  {product.unit === "meter" ? "الأمتار التقديرية" : "الوزن التقديري"}: {totalPieces * (product.unit === "meter" ? 100 : 20)} {product.unit === "meter" ? "متر" : "كغ"} — السعر التقديري: ≈ {totalPieces * (product.unit === "meter" ? 100 : 20) * displayPrice} ج.م
                 </Text>
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
-                  (20 كغ لكل ثوب)
+                  ({product.unit === "meter" ? "100 متر" : "20 كغ"} لكل ثوب)
                 </Text>
               </View>
             </View>
