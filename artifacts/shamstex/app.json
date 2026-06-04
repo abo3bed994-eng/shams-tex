@@ -4,7 +4,7 @@
     "slug": "shamstex",
     "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon-new.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "shamstex",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.shamstex.app",
-      "icon": "./assets/images/icon-new.png"
+      "icon": "./assets/images/app-icon.png"
     },
     "android": {
       "package": "com.shamstex.app",
@@ -24,8 +24,8 @@
       "supportsRTL": false,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0A0A0A"
+        "foregroundImage": "./assets/images/app-icon.png",
+        "backgroundColor": "#EDE3CC"
       },
       "permissions": [
         "android.permission.INTERNET",
@@ -67,7 +67,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon-new.png",
+          "icon": "./assets/images/notification-icon.png",
           "color": "#C9A84C"
         }
       ],
