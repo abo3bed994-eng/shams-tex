@@ -106,12 +106,18 @@ export { db };
 // whole document, so stripping undefined keys here is equivalent to deleting
 // them — exactly what we want for unset-style updates (e.g. clearing
 // bannedAt / bannedReason on unban).
-function stripUndefined<T extends Record<string, any>>(obj: T): Record<string, any> {
-  const clean: Record<string, any> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined) clean[k] = v;
+function stripUndefined(value: any): any {
+  if (Array.isArray(value)) {
+    return value.map((v) => stripUndefined(v));
   }
-  return clean;
+  if (value !== null && typeof value === "object") {
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (v !== undefined) clean[k] = stripUndefined(v);
+    }
+    return clean;
+  }
+  return value;
 }
 
 export const FS = {

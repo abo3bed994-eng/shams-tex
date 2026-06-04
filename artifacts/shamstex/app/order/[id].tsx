@@ -336,7 +336,8 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        <View style={styles.stepsRow}>
+        <View style={[styles.stagesCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          <View style={styles.stepsRow}>
           {STATUS_STEPS.map((step, index) => {
             const isCompleted = index <= currentStep;
             const stepColor = isCompleted ? activeColor : colors.border;
@@ -378,6 +379,15 @@ export default function OrderDetailScreen() {
               </React.Fragment>
             );
           })}
+          </View>
+          {isStaff && !!order.assignedToName && (
+            <View style={[styles.assignedInline, { borderTopColor: colors.border }]}>
+              <Icon name="user-check" size={15} color={colors.gold} />
+              <Text style={[styles.assignedText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                استلمه: {order.assignedToName}
+              </Text>
+            </View>
+          )}
         </View>
 
         {isStaff && (
@@ -482,7 +492,7 @@ export default function OrderDetailScreen() {
                       <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>{branch.phone}</Text>
                     </Pressable>
                   ) : null}
-                  {branch.mapsUrl ? (
+                  {branch.mapsUrl && !isStaff ? (
                     <Pressable
                       onPress={() => Linking.openURL(branch.mapsUrl!).catch(() => Alert.alert("خطأ", "تعذّر فتح الخريطة"))}
                       style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 10, backgroundColor: "#3498DB15", borderColor: "#3498DB44", borderWidth: 1, borderRadius: colors.radius - 6, marginTop: 4 }}
@@ -1151,14 +1161,6 @@ export default function OrderDetailScreen() {
           );
         })()}
 
-        {isStaff && !!order.assignedToName && (
-          <View style={[styles.assignedCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <Icon name="user-check" size={15} color={colors.gold} />
-            <Text style={[styles.assignedText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-              استلمه: {order.assignedToName}
-            </Text>
-          </View>
-        )}
 
         {isStaff && order.status !== "cancelled" && (() => {
           const nextAction = getNextAction(order.status, order.fulfillmentType);
@@ -2435,6 +2437,21 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 14,
     borderWidth: 1,
+  },
+  stagesCard: {
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    gap: 14,
+  },
+  assignedInline: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingTop: 12,
+    marginHorizontal: 4,
+    borderTopWidth: 1,
   },
   assignedText: { fontSize: 14 },
   lockedMsg: {

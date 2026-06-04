@@ -238,6 +238,30 @@ export default function ProfileScreen() {
           </Pressable>
         )}
 
+        <View style={[styles.adminSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          {[
+            { label: "سياسة الخصوصية", labelEn: "Privacy Policy", icon: "shield", route: "/legal/privacy" },
+            { label: "الشروط والأحكام", labelEn: "Terms & Conditions", icon: "file-text", route: "/legal/terms" },
+          ].map((item, idx, arr) => (
+            <Pressable
+              key={item.route}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(item.route as any); }}
+              style={({ pressed }) => [
+                styles.adminItem,
+                { borderBottomColor: colors.border, borderBottomWidth: idx === arr.length - 1 ? 0 : 1, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Icon name="chevron-left" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.adminItemText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                {language === "ar" ? item.label : item.labelEn}
+              </Text>
+              <View style={[styles.adminItemIcon, { backgroundColor: colors.gold + "22" }]}>
+                <Icon name={item.icon as any} size={16} color={colors.gold} />
+              </View>
+            </Pressable>
+          ))}
+        </View>
+
         {(user.role === "admin" || user.role === "employee" || user.role === "supervisor") && adminLinks.length > 0 && (
           <View style={[styles.adminSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             <Text style={[styles.adminTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
@@ -359,30 +383,6 @@ export default function ProfileScreen() {
               </Text>
             </Pressable>
           </View>
-        </View>
-
-        <View style={[styles.adminSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-          {[
-            { label: "سياسة الخصوصية", labelEn: "Privacy Policy", icon: "shield", route: "/legal/privacy" },
-            { label: "الشروط والأحكام", labelEn: "Terms & Conditions", icon: "file-text", route: "/legal/terms" },
-          ].map((item, idx, arr) => (
-            <Pressable
-              key={item.route}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(item.route as any); }}
-              style={({ pressed }) => [
-                styles.adminItem,
-                { borderBottomColor: colors.border, borderBottomWidth: idx === arr.length - 1 ? 0 : 1, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Icon name="chevron-left" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.adminItemText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
-                {language === "ar" ? item.label : item.labelEn}
-              </Text>
-              <View style={[styles.adminItemIcon, { backgroundColor: colors.gold + "22" }]}>
-                <Icon name={item.icon as any} size={16} color={colors.gold} />
-              </View>
-            </Pressable>
-          ))}
         </View>
 
         <GoldButton

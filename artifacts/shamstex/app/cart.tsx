@@ -226,7 +226,7 @@ export default function CartScreen() {
       const minW = prod?.unit === "meter" ? 50 : 20;
       const unitName = prod?.unit === "meter" ? "متر" : "كغ";
       if ((item.weight ?? 0) < minW) {
-        Alert.alert("الحد الأدنى", `الحد الأدنى للطلب هو ${minW} ${unitName}\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} ${unitName})`);
+        Alert.alert("الحد الأدنى", `الحد الأدنى هو ${minW} ${unitName} لكل لون\n(${item.productName} — ${item.colorName}: ${item.weight ?? 0} ${unitName})`);
         return;
       }
     }
@@ -660,7 +660,7 @@ export default function CartScreen() {
                   const unitName = prod?.unit === "meter" ? "متر" : "كغ";
                   return (item.weight ?? 0) < minW ? (
                     <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                      الحد الأدنى {minW} {unitName}
+                      الحد الأدنى {minW} {unitName} لكل لون
                     </Text>
                   ) : null;
                 })()}
