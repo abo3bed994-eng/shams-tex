@@ -1672,6 +1672,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (status === "delivered") {
         patch.deliveredAt = new Date().toISOString();
       }
+      // Once an order becomes ready / ready-to-ship, customer editing is closed
+      // automatically (staff no longer needs the customer to adjust quantities).
+      if (status === "ready_to_ship" || status === "ready") {
+        patch.editable = false;
+      }
       // Shipping invariant: cannot advance to "shipped" without waybill image + provider
       if (status === "shipped" && (prevOrder.fulfillmentType ?? "branch") === "shipping") {
         if (!prevOrder.shippingWaybillNumber && !prevOrder.shippingWaybillImage) {

@@ -231,8 +231,6 @@ export default function OrderDetailScreen() {
 
   const activeColor = STATUS_COLORS[order.status];
 
-  const unitWord = (it: typeof order.items[number]) => (it.orderType === "weight" ? ulbl(unitOf(it)) : "ثوب");
-
   const handleConfirmEdit = async () => {
     if (!order) return;
     const partialMissingDecision = order.items.some(
@@ -251,8 +249,9 @@ export default function OrderDetailScreen() {
         if (it.orderType === "weight") {
           clean.weight = it.availableQuantity;
         } else {
-          clean.quantity = it.availableQuantity;
-          delete clean.actualWeight;
+          // availableQuantity is now a WEIGHT for pieces orders too → apply it as
+          // the actual fulfilled weight (pricing uses actualWeight).
+          clean.actualWeight = it.availableQuantity;
         }
       }
       delete clean.stockStatus;
@@ -840,7 +839,7 @@ export default function OrderDetailScreen() {
                         {item.stockStatus === "unavailable"
                           ? "غير متوفر"
                           : item.stockStatus === "partial"
-                            ? `متوفر فقط: ${item.availableQuantity} ${item.orderType === "weight" ? ulbl(unitOf(item)) : "ثوب"}`
+                            ? `متوفر فقط: ${item.availableQuantity} ${ulbl(unitOf(item))}`
                             : "تحديد المتوفر"}
                       </Text>
                     </Pressable>
@@ -1581,7 +1580,7 @@ export default function OrderDetailScreen() {
                       <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#F39C1218", borderRadius: colors.radius - 6, padding: 8 }}>
                         <Icon name="alert-triangle" size={14} color="#F39C12" />
                         <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
-                          متوفر فقط: {item.availableQuantity} {unitWord(item)}
+                          متوفر فقط: {item.availableQuantity} {ulbl(unitOf(item))}
                         </Text>
                       </View>
                       {decision === "disagree" ? (
@@ -2328,8 +2327,12 @@ export default function OrderDetailScreen() {
             {(() => {
               const item = availModalIndex !== null ? order.items[availModalIndex] : null;
               if (!item) return null;
-              const isWeight = item.orderType === "weight";
-              const orderedQty = isWeight ? (item.weight ?? 1) : item.quantity;
+              const u = unitOf(item);
+              // Availability is ALWAYS entered by weight (kilo/meter), regardless of
+              // whether the order was placed by weight or by bolt count (ثوب).
+              const orderedQty = item.orderType === "weight"
+                ? (item.weight ?? 1)
+                : (item.actualWeight ?? (item.quantity * blt(u)));
               return (
                 <>
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
@@ -2340,17 +2343,17 @@ export default function OrderDetailScreen() {
                   </View>
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
                     {item.productName} — {item.colorName}{"\n"}
-                    الكمية المطلوبة: {orderedQty} {isWeight ? ulbl(unitOf(item)) : "ثوب"}
+                    الكمية المطلوبة: {orderedQty} {ulbl(u)}
                   </Text>
                   <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
-                    متوفر فقط ({isWeight ? (unitOf(item) === "meter" ? "بالمتر" : "بالكيلو") : "بالعدد"}):
+                    متوفر فقط ({u === "meter" ? "بالمتر" : "بالكيلو"}):
                   </Text>
                   <TextInput
                     style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius - 4, color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16, paddingHorizontal: 14, paddingVertical: 12, textAlign: "right" }}
                     placeholder="اتركه فارغًا إذا كان غير متوفر نهائيًا"
                     placeholderTextColor={colors.mutedForeground}
                     value={availInput}
-                    keyboardType={isWeight ? "decimal-pad" : "number-pad"}
+                    keyboardType="decimal-pad"
                     onChangeText={(txt) => { if (/^\d*\.?\d*$/.test(txt)) setAvailInput(txt); }}
                   />
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
@@ -2359,38 +2362,49 @@ export default function OrderDetailScreen() {
 
                   <View style={{ flexDirection: "row-reverse", gap: 10 }}>
                     <Pressable
-                      onPress={async () => {
+                      onPress={() => {
                         if (availModalIndex === null) return;
                         const idx = availModalIndex;
                         const val = parseFloat(availInput);
                         const hasVal = availInput.trim() !== "" && !isNaN(val) && val > 0;
                         const wasEditable = order.editable;
-                        const newItems = order.items.map((it, i) => {
-                          if (i !== idx) return it;
-                          const next = { ...it, customerDecision: undefined as CartItem["customerDecision"] };
-                          if (hasVal && val < orderedQty) {
-                            next.stockStatus = "partial";
-                            next.availableQuantity = val;
-                          } else if (hasVal && val >= orderedQty) {
-                            delete next.stockStatus;
-                            delete next.availableQuantity;
-                          } else {
-                            next.stockStatus = "unavailable";
-                            delete next.availableQuantity;
+                        const summary = !hasVal
+                          ? "سيتم تحديد هذا الصنف كـ «غير متوفر» وحذفه عند تأكيد العميل."
+                          : val < orderedQty
+                            ? `سيتم تحديد المتوفر بـ ${val} ${ulbl(u)} من أصل ${orderedQty} ${ulbl(u)}.`
+                            : "سيتم تحديد الصنف كمتوفر بالكامل.";
+                        const doSave = async () => {
+                          const newItems = order.items.map((it, i) => {
+                            if (i !== idx) return it;
+                            const next = { ...it, customerDecision: undefined as CartItem["customerDecision"] };
+                            if (hasVal && val < orderedQty) {
+                              next.stockStatus = "partial";
+                              next.availableQuantity = val;
+                            } else if (hasVal && val >= orderedQty) {
+                              delete next.stockStatus;
+                              delete next.availableQuantity;
+                            } else {
+                              next.stockStatus = "unavailable";
+                              delete next.availableQuantity;
+                            }
+                            return next;
+                          });
+                          setAvailModalIndex(null);
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          try {
+                            await updateOrderItems(order.id, newItems, order.total, true);
+                            const anyAffected = newItems.some((it) => it.stockStatus);
+                            if (anyAffected && !wasEditable) {
+                              await setOrderEditable(order.id, true);
+                            }
+                          } catch {
+                            Alert.alert("خطأ", "تعذّر حفظ التغيير. حاول مرة أخرى.");
                           }
-                          return next;
-                        });
-                        setAvailModalIndex(null);
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                        try {
-                          await updateOrderItems(order.id, newItems, order.total, true);
-                          const anyAffected = newItems.some((it) => it.stockStatus);
-                          if (anyAffected && !wasEditable) {
-                            await setOrderEditable(order.id, true);
-                          }
-                        } catch {
-                          Alert.alert("خطأ", "تعذّر حفظ التغيير. حاول مرة أخرى.");
-                        }
+                        };
+                        Alert.alert("تأكيد الحفظ", `${summary} هل تريد المتابعة؟`, [
+                          { text: "إلغاء", style: "cancel" },
+                          { text: "نعم، احفظ", onPress: doSave },
+                        ]);
                       }}
                       style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: colors.radius - 4, backgroundColor: colors.gold }}
                     >
