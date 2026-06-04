@@ -516,7 +516,7 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: topPad + 40, paddingBottom: bottomPad + 40 },
+          { paddingTop: topPad + 12, paddingBottom: bottomPad + 16 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -945,7 +945,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 24, gap: 28 },
+  content: { paddingHorizontal: 24, gap: 16 },
   topBar: { flexDirection: "row", justifyContent: "flex-end", marginBottom: -16 },
   themeToggle: {
     width: 40,
@@ -955,9 +955,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  header: { alignItems: "center", gap: 10 },
-  logoImg: { width: 220, height: 220 },
-  brand: { fontSize: 24, letterSpacing: 1.5, lineHeight: 38, textAlign: "center" },
+  header: { alignItems: "center", gap: 4 },
+  logoImg: { width: 120, height: 120 },
+  brand: { fontSize: 20, letterSpacing: 1.5, lineHeight: 30, textAlign: "center" },
   subtitle: { fontSize: 14, letterSpacing: 1 },
   card: { padding: 24, borderWidth: 1, gap: 16 },
   stepIcon: { alignItems: "center", marginBottom: 4 },
