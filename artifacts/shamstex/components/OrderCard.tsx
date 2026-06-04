@@ -131,7 +131,7 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onP
         <View style={styles.detailItem}>
           <Icon name="shopping-bag" size={14} color={colors.mutedForeground} />
           <Text style={[styles.detailText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            {totalItems} قطعة
+            {totalItems} ثوب
           </Text>
         </View>
         <View style={styles.detailItem}>

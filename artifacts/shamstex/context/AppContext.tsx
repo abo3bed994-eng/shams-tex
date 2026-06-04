@@ -1674,8 +1674,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       // Shipping invariant: cannot advance to "shipped" without waybill image + provider
       if (status === "shipped" && (prevOrder.fulfillmentType ?? "branch") === "shipping") {
-        if (!prevOrder.shippingWaybillImage || !prevOrder.shippingProviderId) {
-          Alert.alert("بوليصة الشحن مطلوبة", "يجب رفع صورة بوليصة الشحن واختيار شركة الشحن قبل تأكيد الشحن.");
+        if (!prevOrder.shippingWaybillNumber && !prevOrder.shippingWaybillImage) {
+          Alert.alert("بوليصة الشحن مطلوبة", "يجب إدخال رقم بوليصة الشحن قبل تأكيد الشحن.");
           return;
         }
         patch.shippedAt = new Date().toISOString();

@@ -510,7 +510,7 @@ export default function CartScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader
         title={editOrderId ? "تعديل الطلب" : "سلة الطلبات"}
-        subtitle={editOrderId ? `تعديل طلب #${editOrderId.slice(0, 8)}` : `${totalPieces} قطعة`}
+        subtitle={editOrderId ? `تعديل طلب #${editOrderId.slice(0, 8)}` : `${totalPieces} ثوب`}
         onBack={handleBack}
       />
 

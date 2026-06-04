@@ -238,7 +238,7 @@ export default function ReturnDetailScreen() {
                       {item.productName}
                     </Text>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
-                      {item.colorName} — {item.weight ? `${item.weight} ${(item as any).unit === "meter" ? "متر" : (products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ")}` : `${item.quantity} قطعة`}
+                      {item.colorName} — {item.weight ? `${item.weight} ${(item as any).unit === "meter" ? "متر" : (products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ")}` : `${item.quantity} ثوب`}
                     </Text>
                   </View>
                 </View>
