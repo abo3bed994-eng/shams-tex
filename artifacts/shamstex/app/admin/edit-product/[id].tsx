@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -128,6 +129,7 @@ export default function EditProductScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="تعديل المنتج" onBack={() => router.back()} />
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
@@ -327,6 +329,7 @@ export default function EditProductScreen() {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: bottomPad, position: "absolute", bottom: 0, left: 0, right: 0 }]}>
         <GoldButton label="حفظ التعديلات" onPress={handleSave} loading={saving} style={{ flex: 1 }} size="lg" />

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -142,6 +143,7 @@ export default function AddProductScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="إضافة منتج جديد" onBack={() => router.back()} />
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
@@ -450,6 +452,7 @@ export default function AddProductScreen() {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <View
         style={[

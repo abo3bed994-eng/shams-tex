@@ -1247,6 +1247,7 @@ export default function OrderDetailScreen() {
           // Customers: from the shipped stage onwards.
           const isFinalOrNear =
             order.status === "ready" ||
+            order.status === "ready_to_ship" ||
             order.status === "delivered" ||
             order.status === "shipped";
           // Customers see the invoice from the shipped stage onwards.
@@ -1289,7 +1290,7 @@ export default function OrderDetailScreen() {
           const canStaffRevert = isAdmin || (isStaff && order.status !== "delivered");
           return (
             <View style={styles.actionRow}>
-              {canStaffRevert && prevAction && (
+              {canStaffRevert && prevAction && !isLockedByOther && (
                 <Pressable
                   onPress={() => {
                     Alert.alert(

@@ -109,7 +109,26 @@ export default function CartScreen() {
       setEditingOrderId(paramEditId);
       const order = orders.find((o) => o.id === paramEditId);
       if (order) {
-        setCart([...order.items]);
+        // Reconcile with staff "mark available" (تحديد المتوفر) state so picking
+        // alternatives stays in sync: drop unavailable items, apply the available
+        // quantity to partial items, and strip the availability metadata.
+        const reconciled = order.items.reduce<typeof order.items>((acc, it) => {
+          if (it.stockStatus === "unavailable") return acc;
+          const clean = { ...it };
+          if (it.stockStatus === "partial" && it.availableQuantity != null) {
+            if (it.orderType === "weight") {
+              clean.weight = it.availableQuantity;
+            } else {
+              clean.actualWeight = it.availableQuantity;
+            }
+          }
+          delete clean.stockStatus;
+          delete clean.availableQuantity;
+          delete clean.customerDecision;
+          acc.push(clean);
+          return acc;
+        }, []);
+        setCart(reconciled);
         if (order.notes) setNotes(order.notes);
         if (order.fulfillmentType) setFulfillmentType(order.fulfillmentType);
         if (order.branchId) setSelectedBranchId(order.branchId);
