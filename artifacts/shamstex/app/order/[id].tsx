@@ -1412,7 +1412,7 @@ export default function OrderDetailScreen() {
           </Pressable>
         )}
 
-        {isStaff && order.status !== "cancelled" && (
+        {isStaff && order.status !== "cancelled" && !isLockedByOther && (
           <View style={[styles.msgSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
             {!showMsgInput ? (
               <Pressable
