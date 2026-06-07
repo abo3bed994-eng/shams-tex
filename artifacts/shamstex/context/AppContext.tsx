@@ -96,6 +96,9 @@ export interface CartItem {
   availableQuantity?: number;
   stockStatus?: "partial" | "unavailable";
   customerDecision?: "agree" | "disagree";
+  // Edit-mode cap: when staff marked a weight item as partially available,
+  // the customer may lower the quantity but not raise it above this value.
+  editMaxQty?: number;
 }
 
 export type OrderStatus = "scheduled" | "pending" | "received" | "preparing" | "ready" | "ready_to_ship" | "shipped" | "delivered" | "cancelled";
@@ -1917,9 +1920,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const reconciled = order.items.reduce<CartItem[]>((acc, it) => {
       if (it.stockStatus === "unavailable") return acc;
       const clean: CartItem = { ...it };
+      delete clean.editMaxQty;
       if (it.stockStatus === "partial" && it.availableQuantity != null) {
         if (it.orderType === "weight") {
           clean.weight = it.availableQuantity;
+          clean.editMaxQty = it.availableQuantity;
         } else {
           clean.actualWeight = it.availableQuantity;
         }
@@ -2393,7 +2398,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? prev.filter((c) => !(c.productId === productId && c.colorName === colorName))
           : prev.map((c) =>
               c.productId === productId && c.colorName === colorName
-                ? { ...c, weight }
+                ? { ...c, weight: c.editMaxQty != null ? Math.min(weight, c.editMaxQty) : weight }
                 : c
             )
       );

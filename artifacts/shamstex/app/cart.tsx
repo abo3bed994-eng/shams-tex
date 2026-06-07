@@ -115,9 +115,11 @@ export default function CartScreen() {
         const reconciled = order.items.reduce<typeof order.items>((acc, it) => {
           if (it.stockStatus === "unavailable") return acc;
           const clean = { ...it };
+          delete clean.editMaxQty;
           if (it.stockStatus === "partial" && it.availableQuantity != null) {
             if (it.orderType === "weight") {
               clean.weight = it.availableQuantity;
+              clean.editMaxQty = it.availableQuantity;
             } else {
               clean.actualWeight = it.availableQuantity;
             }
@@ -256,6 +258,9 @@ export default function CartScreen() {
 
     const weightItems = cart.filter((i) => i.orderType === "weight");
     for (const item of weightItems) {
+      // Items capped by a staff "partial availability" edit may legitimately fall
+      // below the normal minimum, so skip the minimum check for them.
+      if (item.editMaxQty != null) continue;
       const prod = products.find((p) => p.id === item.productId);
       const minW = prod?.unit === "meter" ? 100 : 20;
       const unitName = prod?.unit === "meter" ? "متر" : "كغ";
@@ -276,7 +281,10 @@ export default function CartScreen() {
 
     try {
       if (editOrderId) {
-        await updateOrderItems(editOrderId, [...cart], totalPrice, false, notes, {
+        // Save the customer's changes but keep the order editable (staffEdit=true
+        // → no "edited" flag, no staff notification yet). The customer finalizes by
+        // tapping "تأكيد التعديل" on the order edit card, which sends the notification.
+        await updateOrderItems(editOrderId, [...cart], totalPrice, true, notes, {
           fulfillmentType: fulfillmentType ?? undefined,
           branchId: fulfillmentType === "branch" ? selectedBranchId ?? undefined : undefined,
           branchName: fulfillmentType === "branch"
@@ -286,10 +294,11 @@ export default function CartScreen() {
         clearCart();
         setEditingOrderId(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("تم تعديل الطلب!", "تم تحديث طلبك بنجاح وسيتم إشعار مسؤول الطلب.", [
-          { text: "استمرار التسوق", style: "cancel", onPress: () => router.replace("/(tabs)/products") },
-          { text: "عرض الطلب", onPress: () => router.replace(`/order/${editOrderId}`) },
-        ]);
+        Alert.alert(
+          "تم حفظ التعديلات",
+          "راجع طلبك ثم اضغط «تأكيد التعديل» من بطاقة التعديل لإتمامه وإشعار فريق العمل.",
+          [{ text: "الذهاب لبطاقة التعديل", onPress: () => router.replace(`/order/${editOrderId}`) }]
+        );
       } else {
         const suspendEnabled = settings?.suspendOrdersOutsideHours !== false;
         const inHours = isWithinWorkingHours(settings?.workingHours);
@@ -615,12 +624,106 @@ export default function CartScreen() {
                   </View>
                 </View>
 
-                <View style={styles.itemFooter}>
-                  {item.orderType === "weight" ? (
-                    <Text style={[styles.itemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                      {item.unitPrice * (item.weight ?? 1)} ج.م
-                    </Text>
-                  ) : (
+                {item.orderType === "weight" ? (() => {
+                  const prod = products.find((p) => p.id === item.productId);
+                  const unitName = prod?.unit === "meter" ? "متر" : "كغ";
+                  const perBolt = prod?.unit === "meter" ? 100 : 20;
+                  const minW = perBolt;
+                  const bolts = Math.floor((item.weight ?? 0) / perBolt);
+                  const cap = item.editMaxQty;
+                  const wKey = `${item.productId}_${item.colorName}`;
+                  const bKey = `bolt_${item.productId}_${item.colorName}`;
+                  const fmt = (n: number) => Math.round(n * 100) / 100;
+                  return (
+                    <View style={{ gap: 10 }}>
+                      <View style={styles.itemFooter}>
+                        <Text style={[styles.itemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                          {fmt(item.unitPrice * (item.weight ?? 1))} ج.م
+                        </Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                          {fmt(item.weight ?? 1)} {unitName}
+                        </Text>
+                      </View>
+
+                      {cap != null && (
+                        <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                          الحد الأقصى المتوفر: {fmt(cap)} {unitName}
+                        </Text>
+                      )}
+
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                        عدد الأثواب:
+                      </Text>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
+                        <Pressable
+                          onPress={() => updateCartWeight(item.productId, item.colorName, Math.max(perBolt, (item.weight ?? 0) - perBolt))}
+                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        >
+                          <Icon name="minus" size={14} color={colors.gold} />
+                        </Pressable>
+                        <TextInput
+                          style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
+                          value={weightTexts[bKey] !== undefined ? weightTexts[bKey] : String(bolts)}
+                          keyboardType="number-pad"
+                          onChangeText={(txt) => {
+                            if (!/^\d*$/.test(txt)) return;
+                            setWeightTexts(p => ({ ...p, [bKey]: txt }));
+                            const val = parseInt(txt, 10);
+                            if (isNaN(val) || val <= 0) return;
+                            updateCartWeight(item.productId, item.colorName, Math.max(perBolt, val * perBolt));
+                          }}
+                          onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[bKey]; return n; })}
+                        />
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>ثوب</Text>
+                        <Pressable
+                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 0) + perBolt)}
+                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                        >
+                          <Icon name="plus" size={14} color={colors.background} />
+                        </Pressable>
+                      </View>
+
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                        {prod?.unit === "meter" ? "الأمتار (متر):" : "الوزن (كغ):"}
+                      </Text>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
+                        <Pressable
+                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) - 1)}
+                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        >
+                          <Icon name="minus" size={14} color={colors.gold} />
+                        </Pressable>
+                        <TextInput
+                          style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
+                          value={weightTexts[wKey] !== undefined ? weightTexts[wKey] : String(item.weight ?? 1)}
+                          keyboardType="decimal-pad"
+                          onChangeText={(txt) => {
+                            if (!/^\d*\.?\d*$/.test(txt)) return;
+                            setWeightTexts(p => ({ ...p, [wKey]: txt }));
+                            if (!txt || txt === "0") return;
+                            const val = parseFloat(txt);
+                            if (!isNaN(val) && val > 0) updateCartWeight(item.productId, item.colorName, val);
+                          }}
+                          onBlur={() => { setWeightTexts(p => { const n = {...p}; delete n[wKey]; return n; }); }}
+                        />
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{unitName}</Text>
+                        <Pressable
+                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) + 1)}
+                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                        >
+                          <Icon name="plus" size={14} color={colors.background} />
+                        </Pressable>
+                      </View>
+
+                      {cap == null && (item.weight ?? 0) < minW && (
+                        <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                          الحد الأدنى {minW} {unitName} لكل لون
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })() : (
+                  <View style={styles.itemFooter}>
                     <View style={{ gap: 2, alignItems: "flex-end" }}>
                       <Text style={[styles.itemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                         ≈ {item.quantity * (item.unit === "meter" ? 100 : 20) * item.unitPrice} ج.م
@@ -629,45 +732,6 @@ export default function CartScreen() {
                         تقديري ({item.quantity} × {item.unit === "meter" ? "100م" : "20كغ"} × {item.unitPrice})
                       </Text>
                     </View>
-                  )}
-
-                  {item.orderType === "weight" && (() => {
-                    const prod = products.find((p) => p.id === item.productId);
-                    const unitLabel = prod?.unit === "meter" ? "متر" : "كغ";
-                    return (
-                    <View style={styles.qtyControls}>
-                      <Pressable
-                        onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) - 1)}
-                        style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                      >
-                        <Icon name="minus" size={14} color={colors.gold} />
-                      </Pressable>
-                      <TextInput
-                        style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                        value={weightTexts[`${item.productId}_${item.colorName}`] !== undefined ? weightTexts[`${item.productId}_${item.colorName}`] : String(item.weight ?? 1)}
-                        keyboardType="decimal-pad"
-                        onChangeText={(txt) => {
-                          if (!/^\d*\.?\d*$/.test(txt)) return;
-                          const key = `${item.productId}_${item.colorName}`;
-                          setWeightTexts(p => ({ ...p, [key]: txt }));
-                          if (!txt || txt === "0") return;
-                          const val = parseFloat(txt);
-                          if (!isNaN(val) && val > 0) updateCartWeight(item.productId, item.colorName, val);
-                        }}
-                        onBlur={() => { const key = `${item.productId}_${item.colorName}`; setWeightTexts(p => { const n = {...p}; delete n[key]; return n; }); }}
-                      />
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{unitLabel}</Text>
-                      <Pressable
-                        onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) + 1)}
-                        style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
-                      >
-                        <Icon name="plus" size={14} color={colors.background} />
-                      </Pressable>
-                    </View>
-                    );
-                  })()}
-
-                  {item.orderType === "pieces" && (
                     <View style={styles.qtyControls}>
                       <Pressable
                         onPress={() => updateCartItem(item.productId, item.colorName, item.quantity - 1)}
@@ -685,50 +749,8 @@ export default function CartScreen() {
                         <Icon name="plus" size={14} color={colors.background} />
                       </Pressable>
                     </View>
-                  )}
-                </View>
-
-                {item.orderType === "weight" && (() => {
-                  const prod = products.find((p) => p.id === item.productId);
-                  const perBolt = prod?.unit === "meter" ? 100 : 20;
-                  const unitName = prod?.unit === "meter" ? "متر" : "كغ";
-                  const boltsLabel = String(Math.floor((item.weight ?? 0) / perBolt));
-                  return (
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, paddingTop: 6 }}>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>
-                        ≈ {boltsLabel} ثوب (الثوب {perBolt} {unitName})
-                      </Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Pressable
-                          onPress={() => updateCartWeight(item.productId, item.colorName, Math.max(perBolt, (item.weight ?? 0) - perBolt))}
-                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                        >
-                          <Icon name="minus" size={14} color={colors.gold} />
-                        </Pressable>
-                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13, minWidth: 58, textAlign: "center" }}>
-                          {boltsLabel} ثوب
-                        </Text>
-                        <Pressable
-                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 0) + perBolt)}
-                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
-                        >
-                          <Icon name="plus" size={14} color={colors.background} />
-                        </Pressable>
-                      </View>
-                    </View>
-                  );
-                })()}
-
-                {item.orderType === "weight" && (() => {
-                  const prod = products.find((p) => p.id === item.productId);
-                  const minW = prod?.unit === "meter" ? 100 : 20;
-                  const unitName = prod?.unit === "meter" ? "متر" : "كغ";
-                  return (item.weight ?? 0) < minW ? (
-                    <Text style={{ color: "#C0392B", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                      الحد الأدنى {minW} {unitName} لكل لون
-                    </Text>
-                  ) : null;
-                })()}
+                  </View>
+                )}
               </View>
             ))}
 
@@ -1168,7 +1190,7 @@ export default function CartScreen() {
               </View>
             )}
             <GoldButton
-              label={editOrderId ? "تأكيد التعديل" : "إرسال الطلب"}
+              label={editOrderId ? "حفظ والعودة للطلب" : "إرسال الطلب"}
               onPress={handleCheckout}
               loading={loading}
               style={{ width: "100%" }}

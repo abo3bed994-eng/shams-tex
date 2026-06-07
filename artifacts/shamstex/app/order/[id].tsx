@@ -295,6 +295,7 @@ export default function OrderDetailScreen() {
       delete clean.stockStatus;
       delete clean.availableQuantity;
       delete clean.customerDecision;
+      delete clean.editMaxQty;
       acc.push(clean);
       return acc;
     }, []);
@@ -473,37 +474,104 @@ export default function OrderDetailScreen() {
                     </Text>
                   </View>
                   {order.userPhone && (
-                    <Pressable
-                      onPress={() => {
-                        Alert.alert(
-                          "اتصال بالعميل",
-                          `هل تريد الاتصال بـ ${order.userName}؟\n${order.userPhone}`,
-                          [
-                            { text: "إلغاء", style: "cancel" },
-                            { text: "اتصال", onPress: () => {
-                              import("expo-linking").then((Linking) => Linking.openURL(`tel:${order.userPhone.replace(/\s/g, "")}`)).catch(() => {});
-                            }},
-                          ]
-                        );
-                      }}
-                      style={({ pressed }) => [{
-                        flexDirection: "row-reverse",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        paddingVertical: 10,
-                        backgroundColor: colors.gold + "15",
-                        borderColor: colors.gold + "44",
-                        borderWidth: 1,
-                        borderRadius: colors.radius - 4,
-                        opacity: pressed ? 0.7 : 1,
-                      }]}
-                    >
-                      <Icon name="phone" size={16} color={colors.gold} />
-                      <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                        اتصال بالعميل
-                      </Text>
-                    </Pressable>
+                    <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                      <Pressable
+                        onPress={() => {
+                          Alert.alert(
+                            "اتصال بالعميل",
+                            `هل تريد الاتصال بـ ${order.userName}؟\n${order.userPhone}`,
+                            [
+                              { text: "إلغاء", style: "cancel" },
+                              { text: "اتصال", onPress: () => {
+                                import("expo-linking").then((Linking) => Linking.openURL(`tel:${order.userPhone.replace(/\s/g, "")}`)).catch(() => {});
+                              }},
+                            ]
+                          );
+                        }}
+                        style={({ pressed }) => [{
+                          flex: 1,
+                          flexDirection: "row-reverse",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          paddingVertical: 10,
+                          backgroundColor: colors.gold + "15",
+                          borderColor: colors.gold + "44",
+                          borderWidth: 1,
+                          borderRadius: colors.radius - 4,
+                          opacity: pressed ? 0.7 : 1,
+                        }]}
+                      >
+                        <Icon name="phone" size={16} color={colors.gold} />
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                          اتصال بالعميل
+                        </Text>
+                      </Pressable>
+                      {order.status !== "cancelled" && !isLockedByOther && (
+                        <Pressable
+                          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowMsgInput((v) => !v); }}
+                          style={({ pressed }) => [{
+                            flex: 1,
+                            flexDirection: "row-reverse",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            paddingVertical: 10,
+                            backgroundColor: showMsgInput ? colors.gold : colors.gold + "15",
+                            borderColor: colors.gold + "44",
+                            borderWidth: 1,
+                            borderRadius: colors.radius - 4,
+                            opacity: pressed ? 0.7 : 1,
+                          }]}
+                        >
+                          <Icon name="message-circle" size={16} color={showMsgInput ? colors.background : colors.gold} />
+                          <Text style={{ color: showMsgInput ? colors.background : colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                            رسالة للعميل
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                  {showMsgInput && order.status !== "cancelled" && !isLockedByOther && (
+                    <View style={{ gap: 8, marginTop: 2 }}>
+                      <TextInput
+                        style={[styles.msgInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, fontFamily: "Inter_400Regular", borderRadius: colors.radius - 4 }]}
+                        placeholder="مثال: الصنف غير متوفر حالياً..."
+                        placeholderTextColor={colors.mutedForeground}
+                        value={msgText}
+                        onChangeText={setMsgText}
+                        multiline
+                        textAlign="right"
+                      />
+                      <View style={styles.msgBtnRow}>
+                        <Pressable
+                          onPress={() => { setShowMsgInput(false); setMsgText(""); }}
+                          style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
+                        >
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={async () => {
+                            if (!msgText.trim()) return;
+                            setSendingMsg(true);
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            await sendOrderMessage(order.id, msgText.trim());
+                            setSendingMsg(false);
+                            setShowMsgInput(false);
+                            setMsgText("");
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            Alert.alert("تم", "تم إرسال الرسالة والإشعار للعميل بنجاح");
+                          }}
+                          disabled={sendingMsg || !msgText.trim()}
+                          style={[styles.msgSendBtn, { backgroundColor: colors.gold, borderRadius: colors.radius - 4, opacity: sendingMsg || !msgText.trim() ? 0.5 : 1 }]}
+                        >
+                          <Icon name="send" size={14} color={colors.background} />
+                          <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                            {sendingMsg ? "جاري الإرسال..." : "إرسال"}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
                   )}
                   <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
                 </>
@@ -1158,39 +1226,65 @@ export default function OrderDetailScreen() {
           <View style={{ height: 1, backgroundColor: colors.border }} />
           <View style={{ padding: 16 }}>
           {(() => {
-            const weightTotal = order.items
-              .filter((i) => i.orderType === "weight")
-              .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-            const hasPieces = order.items.some((i) => i.orderType === "pieces");
-            const piecesActualTotal = order.items
-              .filter((i) => i.orderType === "pieces" && i.actualWeight)
-              .reduce((a, b) => a + (b.actualWeight! * b.unitPrice), 0);
-            const piecesEstimate = order.items
-              .filter((i) => i.orderType === "pieces" && !i.actualWeight)
-              .reduce((a, b) => a + b.quantity * blt(unitOf(b)) * b.unitPrice, 0);
-            const grand = weightTotal + piecesActualTotal + piecesEstimate;
+            const fmt = (n: number) => Math.round(n * 100) / 100;
+            // Group every item by its measuring unit (kg vs meter). Each group sums
+            // both the quantity and the price so we can show "qty — price" on one line.
+            const groupsMap: Record<string, { qty: number; price: number; estimated: boolean }> = {};
+            for (const it of order.items) {
+              const u = unitOf(it) === "meter" ? "meter" : "kg";
+              const g = groupsMap[u] ?? { qty: 0, price: 0, estimated: false };
+              if (it.orderType === "weight") {
+                const q = it.weight ?? 1;
+                g.qty += q;
+                g.price += it.unitPrice * q;
+              } else if (it.actualWeight) {
+                g.qty += it.actualWeight;
+                g.price += it.actualWeight * it.unitPrice;
+              } else {
+                const q = it.quantity * blt(u);
+                g.qty += q;
+                g.price += q * it.unitPrice;
+                g.estimated = true;
+              }
+              groupsMap[u] = g;
+            }
+            const unitGroups = (["kg", "meter"] as const)
+              .filter((u) => groupsMap[u])
+              .map((u) => ({ unit: u as string, ...groupsMap[u] }));
+            const grand = unitGroups.reduce((a, g) => a + g.price, 0);
             const fee = order.paymentMethod === "ewallet" ? (order.paymentFee ?? 0) : 0;
             const hasFee = fee > 0;
             const finalTotal = grand + fee;
-            const estimated = piecesEstimate > 0;
-            const components: { label: string; value: number; muted?: boolean; approx?: boolean }[] = [];
-            if (weightTotal > 0) components.push({ label: "مجموع الكيلو", value: weightTotal });
-            if (piecesActualTotal > 0) components.push({ label: "مجموع الأثواب (وزن فعلي)", value: piecesActualTotal });
-            if (piecesEstimate > 0) components.push({ label: "تقديري (لم يوزن بعد)", value: piecesEstimate, muted: true, approx: true });
-            const showBreakdown = components.length > 1 || hasFee;
+            const anyEstimated = unitGroups.some((g) => g.estimated);
+            const showFinal = unitGroups.length > 1 || hasFee;
+            const Badge = ({ estimated }: { estimated: boolean }) => (
+              <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: estimated ? "#F39C1222" : "#27AE6022" }}>
+                <Text style={{ color: estimated ? "#F39C12" : "#27AE60", fontFamily: "Inter_700Bold", fontSize: 10 }}>
+                  {estimated ? "تقديري" : "فعلي"}
+                </Text>
+              </View>
+            );
             return (
               <View style={{ gap: 10 }}>
-                {showBreakdown && components.map((c, i) => (
+                {unitGroups.map((g, i) => (
                   <View key={i} style={styles.totalRow}>
-                    <Text style={[styles.totalPrice, { color: c.muted ? colors.mutedForeground : colors.gold, fontFamily: c.muted ? "Inter_500Medium" : "Inter_700Bold", fontSize: c.muted ? 14 : 16 }]}>
-                      {c.approx ? "≈ " : ""}{c.value} ج.م
-                    </Text>
-                    <Text style={[styles.totalLabel, { color: c.muted ? colors.mutedForeground : colors.foreground, fontFamily: c.muted ? "Inter_400Regular" : "Inter_600SemiBold", fontSize: c.muted ? 12 : 14 }]}>
-                      {c.label}
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, flexShrink: 1 }}>
+                      <Badge estimated={g.estimated} />
+                      <Text
+                        adjustsFontSizeToFit
+                        numberOfLines={1}
+                        minimumFontScale={0.5}
+                        style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16, flexShrink: 1, textAlign: "left" }}
+                      >
+                        {g.estimated ? "≈ " : ""}{fmt(g.qty)} {ulbl(g.unit)} — {fmt(g.price)} ج.م
+                      </Text>
+                    </View>
+                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 14 }]}>
+                      {g.unit === "meter" ? "مجموع الأمتار" : "إجمالي الوزن"}
                     </Text>
                   </View>
                 ))}
-                {showBreakdown && hasFee && (
+                {hasFee && (
                   <View style={styles.totalRow}>
                     <Text style={[styles.totalPrice, { color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 14 }]}>
                       +{fee} ج.م
@@ -1200,15 +1294,17 @@ export default function OrderDetailScreen() {
                     </Text>
                   </View>
                 )}
-                <View style={[styles.totalRow, showBreakdown ? { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 } : undefined]}>
-                  <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                    {estimated ? "≈ " : ""}{finalTotal} ج.م
-                  </Text>
-                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                    {estimated ? "الإجمالي التقديري" : "الإجمالي النهائي"}
-                  </Text>
-                </View>
-                {estimated && (
+                {showFinal && (
+                  <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }]}>
+                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                      {anyEstimated ? "≈ " : ""}{fmt(finalTotal)} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                      {anyEstimated ? "الإجمالي التقديري" : "الإجمالي النهائي"}
+                    </Text>
+                  </View>
+                )}
+                {anyEstimated && (
                   <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
                     تقدير تقريبي لكل ثوب (يُحدَّد الوزن/الأمتار عند التجهيز)
                   </Text>
@@ -1398,64 +1494,6 @@ export default function OrderDetailScreen() {
           </Pressable>
         )}
 
-        {isStaff && order.status !== "cancelled" && !isLockedByOther && (
-          <View style={[styles.msgSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            {!showMsgInput ? (
-              <Pressable
-                onPress={() => setShowMsgInput(true)}
-                style={[styles.msgToggleBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: colors.radius - 4 }]}
-              >
-                <Icon name="message-square" size={16} color={colors.gold} />
-                <Text style={[styles.msgToggleBtnText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
-                  إرسال رسالة للعميل
-                </Text>
-              </Pressable>
-            ) : (
-              <View style={styles.msgInputContainer}>
-                <Text style={[styles.msgLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                  إرسال رسالة + إشعار للعميل
-                </Text>
-                <TextInput
-                  style={[styles.msgInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, fontFamily: "Inter_400Regular", borderRadius: colors.radius - 4 }]}
-                  placeholder="مثال: الصنف غير متوفر حالياً..."
-                  placeholderTextColor={colors.mutedForeground}
-                  value={msgText}
-                  onChangeText={setMsgText}
-                  multiline
-                  textAlign="right"
-                />
-                <View style={styles.msgBtnRow}>
-                  <Pressable
-                    onPress={() => { setShowMsgInput(false); setMsgText(""); }}
-                    style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
-                  >
-                    <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={async () => {
-                      if (!msgText.trim()) return;
-                      setSendingMsg(true);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      await sendOrderMessage(order.id, msgText.trim());
-                      setSendingMsg(false);
-                      setShowMsgInput(false);
-                      setMsgText("");
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      Alert.alert("تم", "تم إرسال الرسالة والإشعار للعميل بنجاح");
-                    }}
-                    disabled={sendingMsg || !msgText.trim()}
-                    style={[styles.msgSendBtn, { backgroundColor: colors.gold, borderRadius: colors.radius - 4, opacity: sendingMsg || !msgText.trim() ? 0.5 : 1 }]}
-                  >
-                    <Icon name="send" size={14} color={colors.background} />
-                    <Text style={{ color: colors.background, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                      {sendingMsg ? "جاري الإرسال..." : "إرسال"}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
 
         {/* Fix 2: customer can cancel within 5 minutes from order detail page */}
         {isCustomer && (order.status === "scheduled" || (order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime() < FIVE_MINUTES_MS))) && (() => {
@@ -1633,7 +1671,7 @@ export default function OrderDetailScreen() {
             })}
 
             <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-              {hasAffectedItems && (
+              {order.editable && (
                 <Pressable
                   onPress={handleConfirmEdit}
                   disabled={confirmingEdit}
