@@ -160,6 +160,7 @@ export interface Order {
   editable?: boolean;
   edited?: boolean;
   editedAt?: string;
+  editableExpiresAt?: string;
   paymentMethod?: PaymentMethod;
   paymentFee?: number;
   totalWithFee?: number;
@@ -417,6 +418,8 @@ interface AppContextType {
   cancelOrder: (orderId: string) => Promise<void>;
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
+  setOrderEditExpiry: (orderId: string, expiresAt: string | null) => Promise<void>;
+  beginOrderEdit: (orderId: string) => void;
   setOrderInvoiceImage: (orderId: string, imageUri: string | null) => Promise<void>;
   setOrderTransferProof: (orderId: string, imageUri: string | null) => Promise<void>;
   setOrderShipping: (orderId: string, data: { providerId?: ShippingProviderId | null; providerName?: string | null; waybillImage?: string | null; waybillNumber?: string | null }) => Promise<void>;
@@ -1847,8 +1850,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setOrderEditable = useCallback(
     async (orderId: string, editable: boolean) => {
+      // Toggling editability always resets the edit countdown: enabling starts a
+      // fresh (unset) window the customer arms on entry; disabling clears it.
       const updated = ordersRef.current.map((o) =>
-        o.id === orderId ? { ...o, editable } : o
+        o.id === orderId ? { ...o, editable, editableExpiresAt: undefined } : o
       );
       const updatedOrder = updated.find((o) => o.id === orderId);
       setOrdersState(updated);
@@ -1884,6 +1889,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // Sets/clears the 10-minute edit countdown deadline on an order. Armed once the
+  // customer actually enters edit mode; cleared when editing ends or expires.
+  const setOrderEditExpiry = useCallback(
+    async (orderId: string, expiresAt: string | null) => {
+      const updated = ordersRef.current.map((o) =>
+        o.id === orderId ? { ...o, editableExpiresAt: expiresAt ?? undefined } : o
+      );
+      const updatedOrder = updated.find((o) => o.id === orderId);
+      setOrdersState(updated);
+      ordersRef.current = updated;
+      await AsyncStorage.setItem("orders", JSON.stringify(updated));
+      if (updatedOrder) {
+        FS.saveOrder(updatedOrder).catch(() => {});
+      }
+    },
+    []
+  );
+
+  // Pre-fills the cart with the order's still-available items (reconciled against
+  // staff "mark available" decisions) and enters edit mode, so the customer can
+  // browse products directly and pick alternatives without passing through cart.
+  const beginOrderEdit = useCallback((orderId: string) => {
+    const order = ordersRef.current.find((o) => o.id === orderId);
+    if (!order) return;
+    const reconciled = order.items.reduce<CartItem[]>((acc, it) => {
+      if (it.stockStatus === "unavailable") return acc;
+      const clean: CartItem = { ...it };
+      if (it.stockStatus === "partial" && it.availableQuantity != null) {
+        if (it.orderType === "weight") {
+          clean.weight = it.availableQuantity;
+        } else {
+          clean.actualWeight = it.availableQuantity;
+        }
+      }
+      delete clean.stockStatus;
+      delete clean.availableQuantity;
+      delete clean.customerDecision;
+      acc.push(clean);
+      return acc;
+    }, []);
+    setCart(reconciled);
+    setEditingOrderId(orderId);
+  }, []);
 
   const setOrderInvoiceImage = useCallback(
     async (orderId: string, imageUri: string | null) => {
@@ -2087,7 +2136,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...(fulfillment?.fulfillmentType !== undefined ? { fulfillmentType: fulfillment.fulfillmentType } : {}),
           ...(fulfillment?.branchId !== undefined ? { branchId: fulfillment.branchId } : {}),
           ...(fulfillment?.branchName !== undefined ? { branchName: fulfillment.branchName } : {}),
-          ...(staffEdit ? {} : { editable: false, edited: true, editedAt: new Date().toISOString() }),
+          ...(staffEdit ? {} : { editable: false, editableExpiresAt: undefined, edited: true, editedAt: new Date().toISOString() }),
         };
       });
       const updatedOrder = updated.find((o) => o.id === orderId);
@@ -2435,6 +2484,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cancelOrder,
         sendOrderMessage,
         setOrderEditable,
+        setOrderEditExpiry,
+        beginOrderEdit,
         setOrderInvoiceImage,
         setOrderTransferProof,
         setOrderShipping,

@@ -136,6 +136,21 @@ export default function CartScreen() {
     }
   }, [paramEditId]);
 
+  // Products-first edit flow: cart items were already pre-filled in context by
+  // beginOrderEdit, so here we only load notes/fulfillment from the order (never
+  // the items — that would wipe alternatives the customer just added).
+  const metaLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!editingOrderId || paramEditId || metaLoadedRef.current) return;
+    metaLoadedRef.current = true;
+    const order = orders.find((o) => o.id === editingOrderId);
+    if (order) {
+      if (order.notes) setNotes(order.notes);
+      if (order.fulfillmentType) setFulfillmentType(order.fulfillmentType);
+      if (order.branchId) setSelectedBranchId(order.branchId);
+    }
+  }, [editingOrderId, paramEditId]);
+
   const handleBack = () => {
     if (editingOrderId) {
       setEditingOrderId(null);

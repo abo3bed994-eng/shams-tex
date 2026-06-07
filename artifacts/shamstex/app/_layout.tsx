@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { I18nManager, KeyboardAvoidingView, Platform } from "react-native";
+import { I18nManager, KeyboardAvoidingView, Platform, View } from "react-native";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import SplashScreenComponent from "@/components/SplashScreenComponent";
@@ -27,6 +27,7 @@ import OfflineGate from "@/components/OfflineGate";
 import LoadingScreen from "@/components/LoadingScreen";
 import RoleSwitchOverlay from "@/components/RoleSwitchOverlay";
 import ForceUpdateScreen from "@/components/ForceUpdateScreen";
+import EditCountdownBar from "@/components/EditCountdownBar";
 import { registerForPushNotifications } from "@/lib/pushService";
 import { isUpdateRequired } from "@/lib/version";
 
@@ -121,7 +122,8 @@ function RootLayoutNav() {
   }
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
+      <EditCountdownBar />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ headerShown: false }} />
@@ -158,7 +160,7 @@ function RootLayoutNav() {
       <NotificationBanner />
       <RoleSwitchOverlay />
       <OfflineGate />
-    </>
+    </View>
   );
 }
 

@@ -146,7 +146,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder, setOrderTransferProof, setOrderPaymentMethod, setOrderPaymentOverride, setOrderShipping } = useApp();
+  const { orders, user, updateOrderStatus, deleteOrder, sendOrderMessage, setOrderEditable, setOrderEditExpiry, beginOrderEdit, updateOrderItems, returnRequests, addReturnRequest, updateReturnStatus, setEditingOrderId, settings, products, cancelOrder, setOrderTransferProof, setOrderPaymentMethod, setOrderPaymentOverride, setOrderShipping } = useApp();
   const unitOf = (it: { productId: string; unit?: string }) => products.find(p => p.id === it.productId)?.unit ?? it.unit;
   const boltsOf = (weight: number | undefined, it: { productId: string; unit?: string }) => Math.floor((weight ?? 0) / blt(unitOf(it)));
   const [showMsgInput, setShowMsgInput] = useState(false);
@@ -211,6 +211,16 @@ export default function OrderDetailScreen() {
     }, 350);
     return () => clearTimeout(t);
   }, [order, isCustomer, hasAffectedItems, editSectionY]);
+
+  // Arm the 10-minute edit countdown the first time the customer opens an order
+  // that staff just made editable. The deadline lives on the order so the global
+  // countdown bar can show it on every screen; on expiry editing auto-closes.
+  useEffect(() => {
+    if (!order || !isCustomer) return;
+    if (!order.editable || order.status === "cancelled") return;
+    if (order.editableExpiresAt) return;
+    setOrderEditExpiry(order.id, new Date(Date.now() + 10 * 60 * 1000).toISOString());
+  }, [order?.id, order?.editable, order?.editableExpiresAt, order?.status, isCustomer]);
 
   if (!order) {
     return (
@@ -428,60 +438,6 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {isStaff && (
-          <View style={[styles.customerInfo, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              معلومات العميل
-            </Text>
-            <View style={styles.infoRow}>
-              <Icon name="user" size={15} color={colors.mutedForeground} />
-              <Text style={[styles.infoText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
-                {order.userName}
-              </Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Icon name="phone" size={15} color={colors.mutedForeground} />
-              <Text style={[styles.infoText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
-                {order.userPhone}
-              </Text>
-            </View>
-            {order.userPhone && (
-              <Pressable
-                onPress={() => {
-                  Alert.alert(
-                    "اتصال بالعميل",
-                    `هل تريد الاتصال بـ ${order.userName}؟\n${order.userPhone}`,
-                    [
-                      { text: "إلغاء", style: "cancel" },
-                      { text: "اتصال", onPress: () => {
-                        import("expo-linking").then((Linking) => Linking.openURL(`tel:${order.userPhone.replace(/\s/g, "")}`)).catch(() => {});
-                      }},
-                    ]
-                  );
-                }}
-                style={({ pressed }) => [{
-                  flexDirection: "row-reverse",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  paddingVertical: 10,
-                  marginTop: 8,
-                  backgroundColor: colors.gold + "15",
-                  borderColor: colors.gold + "44",
-                  borderWidth: 1,
-                  borderRadius: colors.radius - 4,
-                  opacity: pressed ? 0.7 : 1,
-                }]}
-              >
-                <Icon name="phone" size={16} color={colors.gold} />
-                <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                  اتصال بالعميل
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-
         {(() => {
           // Legacy/undefined and old "store" orders are now treated as branch pickup.
           const ft = order.fulfillmentType === "shipping" ? "shipping" : "branch";
@@ -499,6 +455,59 @@ export default function OrderDetailScreen() {
           const canEditWaybill = isStaff && !isLockedByOther && (order.status === "ready_to_ship" || order.status === "shipped" || order.status === "preparing");
           return (
             <View style={[{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: colors.radius, padding: 14, gap: 10 }]}>
+              {isStaff && (
+                <>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, textAlign: "right" }}>
+                    معلومات العميل
+                  </Text>
+                  <View style={styles.infoRow}>
+                    <Icon name="user" size={15} color={colors.mutedForeground} />
+                    <Text style={[styles.infoText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                      {order.userName}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Icon name="phone" size={15} color={colors.mutedForeground} />
+                    <Text style={[styles.infoText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                      {order.userPhone}
+                    </Text>
+                  </View>
+                  {order.userPhone && (
+                    <Pressable
+                      onPress={() => {
+                        Alert.alert(
+                          "اتصال بالعميل",
+                          `هل تريد الاتصال بـ ${order.userName}؟\n${order.userPhone}`,
+                          [
+                            { text: "إلغاء", style: "cancel" },
+                            { text: "اتصال", onPress: () => {
+                              import("expo-linking").then((Linking) => Linking.openURL(`tel:${order.userPhone.replace(/\s/g, "")}`)).catch(() => {});
+                            }},
+                          ]
+                        );
+                      }}
+                      style={({ pressed }) => [{
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        paddingVertical: 10,
+                        backgroundColor: colors.gold + "15",
+                        borderColor: colors.gold + "44",
+                        borderWidth: 1,
+                        borderRadius: colors.radius - 4,
+                        opacity: pressed ? 0.7 : 1,
+                      }]}
+                    >
+                      <Icon name="phone" size={16} color={colors.gold} />
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                        اتصال بالعميل
+                      </Text>
+                    </Pressable>
+                  )}
+                  <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 2 }} />
+                </>
+              )}
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
                 <Icon name={fulfillmentIcon as any} size={18} color={fulfillmentColor} />
                 <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 15, flex: 1, textAlign: "right" }}>
@@ -608,8 +617,22 @@ export default function OrderDetailScreen() {
 
         {/* Invoice view button moved BELOW payment instructions */}
 
-        {order.paymentMethod && order.paymentMethod !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || order.status === "ready_to_ship" || (order.status === "delivered" && !!order.transferProofImage) || (order.status === "shipped" && !!order.transferProofImage)) && (() => {
+        {order.paymentMethod && (() => {
           const pm = order.paymentMethod as PaymentMethod;
+          const pmColors: Record<PaymentMethod, string> = {
+            cash: "#27AE60",
+            bank_transfer: colors.gold,
+            ewallet: "#9B59B6",
+            instapay: "#2ECC71",
+          };
+          const pmShort: Record<PaymentMethod, string> = {
+            cash: "كاش (الدفع عند الاستلام)",
+            bank_transfer: "تحويل بنكي",
+            ewallet: "محفظة إلكترونية",
+            instapay: "انستاباي",
+          };
+          const pmColor = pmColors[pm] ?? colors.gold;
+          const detailsVisible = pm !== "cash" && order.status !== "cancelled" && (isStaff || order.status === "ready" || order.status === "ready_to_ship" || (order.status === "delivered" && !!order.transferProofImage) || (order.status === "shipped" && !!order.transferProofImage));
           const ps = settings.payment;
           const wallets = ps?.ewallets ?? (ps?.ewalletNumber ? [{ id: "_l", number: ps.ewalletNumber, name: ps.ewalletName ?? "", provider: "" }] : []);
           const ipays = ps?.instapays ?? (ps?.instapayNumber ? [{ id: "_l", handle: ps.instapayNumber, name: ps.instapayName ?? "" }] : []);
@@ -636,13 +659,27 @@ export default function OrderDetailScreen() {
             </Pressable>
           );
           return (
-            <View style={{ backgroundColor: colors.card, borderColor: colors.gold + "44", borderWidth: 1, borderRadius: colors.radius, padding: 14, gap: 10 }}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                <Icon name="credit-card" size={18} color={colors.gold} />
-                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14, flex: 1, textAlign: "right" }}>
-                  بيانات السداد
-                </Text>
+            <View style={[styles.paymentMethodCard, { backgroundColor: pmColor + "11", borderColor: pmColor + "33", borderRadius: colors.radius }]}>
+              <View style={styles.paymentMethodRow}>
+                <View style={[styles.paymentMethodIcon, { backgroundColor: pmColor + "22" }]}>
+                  <Icon name={PAYMENT_METHOD_ICONS[pm] ?? "credit-card"} size={18} color={pmColor} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>طريقة الدفع</Text>
+                  <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                    {pmShort[pm] ?? pm}
+                  </Text>
+                </View>
               </View>
+              {detailsVisible && (
+                <>
+                  <View style={{ height: 1, backgroundColor: pmColor + "33", marginVertical: 4 }} />
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <Icon name="credit-card" size={18} color={colors.gold} />
+                    <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14, flex: 1, textAlign: "right" }}>
+                      بيانات السداد
+                    </Text>
+                  </View>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
                 يرجى سداد قيمة الفاتورة على الحساب التالي ثم رفع صورة الإيصال:
               </Text>
@@ -782,38 +819,8 @@ export default function OrderDetailScreen() {
                   )}
                 </View>
               )}
-            </View>
-          );
-        })()}
-
-        {order.paymentMethod && (() => {
-          const pm = order.paymentMethod as PaymentMethod;
-          const pmColors: Record<PaymentMethod, string> = {
-            cash: "#27AE60",
-            bank_transfer: colors.gold,
-            ewallet: "#9B59B6",
-            instapay: "#2ECC71",
-          };
-          const pmShort: Record<PaymentMethod, string> = {
-            cash: "كاش (الدفع عند الاستلام)",
-            bank_transfer: "تحويل بنكي",
-            ewallet: "محفظة إلكترونية",
-            instapay: "انستاباي",
-          };
-          const pmColor = pmColors[pm] ?? colors.gold;
-          return (
-            <View style={[styles.paymentMethodCard, { backgroundColor: pmColor + "11", borderColor: pmColor + "33", borderRadius: colors.radius }]}>
-              <View style={styles.paymentMethodRow}>
-                <View style={[styles.paymentMethodIcon, { backgroundColor: pmColor + "22" }]}>
-                  <Icon name={PAYMENT_METHOD_ICONS[pm] ?? "credit-card"} size={18} color={pmColor} />
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>طريقة الدفع</Text>
-                  <Text style={{ color: pmColor, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
-                    {pmShort[pm] ?? pm}
-                  </Text>
-                </View>
-              </View>
+                </>
+              )}
             </View>
           );
         })()}
@@ -1148,6 +1155,68 @@ export default function OrderDetailScreen() {
               </View>
             </View>
           ))}
+          <View style={{ height: 1, backgroundColor: colors.border }} />
+          <View style={{ padding: 16 }}>
+          {(() => {
+            const weightTotal = order.items
+              .filter((i) => i.orderType === "weight")
+              .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+            const hasPieces = order.items.some((i) => i.orderType === "pieces");
+            const piecesActualTotal = order.items
+              .filter((i) => i.orderType === "pieces" && i.actualWeight)
+              .reduce((a, b) => a + (b.actualWeight! * b.unitPrice), 0);
+            const piecesEstimate = order.items
+              .filter((i) => i.orderType === "pieces" && !i.actualWeight)
+              .reduce((a, b) => a + b.quantity * blt(unitOf(b)) * b.unitPrice, 0);
+            const grand = weightTotal + piecesActualTotal + piecesEstimate;
+            const fee = order.paymentMethod === "ewallet" ? (order.paymentFee ?? 0) : 0;
+            const hasFee = fee > 0;
+            const finalTotal = grand + fee;
+            const estimated = piecesEstimate > 0;
+            const components: { label: string; value: number; muted?: boolean; approx?: boolean }[] = [];
+            if (weightTotal > 0) components.push({ label: "مجموع الكيلو", value: weightTotal });
+            if (piecesActualTotal > 0) components.push({ label: "مجموع الأثواب (وزن فعلي)", value: piecesActualTotal });
+            if (piecesEstimate > 0) components.push({ label: "تقديري (لم يوزن بعد)", value: piecesEstimate, muted: true, approx: true });
+            const showBreakdown = components.length > 1 || hasFee;
+            return (
+              <View style={{ gap: 10 }}>
+                {showBreakdown && components.map((c, i) => (
+                  <View key={i} style={styles.totalRow}>
+                    <Text style={[styles.totalPrice, { color: c.muted ? colors.mutedForeground : colors.gold, fontFamily: c.muted ? "Inter_500Medium" : "Inter_700Bold", fontSize: c.muted ? 14 : 16 }]}>
+                      {c.approx ? "≈ " : ""}{c.value} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: c.muted ? colors.mutedForeground : colors.foreground, fontFamily: c.muted ? "Inter_400Regular" : "Inter_600SemiBold", fontSize: c.muted ? 12 : 14 }]}>
+                      {c.label}
+                    </Text>
+                  </View>
+                ))}
+                {showBreakdown && hasFee && (
+                  <View style={styles.totalRow}>
+                    <Text style={[styles.totalPrice, { color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 14 }]}>
+                      +{fee} ج.م
+                    </Text>
+                    <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
+                      رسوم المحفظة الإلكترونية
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.totalRow, showBreakdown ? { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 } : undefined]}>
+                  <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                    {estimated ? "≈ " : ""}{finalTotal} ج.م
+                  </Text>
+                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                    {estimated ? "الإجمالي التقديري" : "الإجمالي النهائي"}
+                  </Text>
+                </View>
+                {estimated && (
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
+                    تقدير تقريبي لكل ثوب (يُحدَّد الوزن/الأمتار عند التجهيز)
+                  </Text>
+                )}
+              </View>
+            );
+          })()}
+          </View>
         </View>
 
         {order.notes && (
@@ -1160,119 +1229,6 @@ export default function OrderDetailScreen() {
             </Text>
           </View>
         )}
-
-        <View style={[styles.totalCard, { backgroundColor: colors.card, borderColor: colors.gold + "33", borderRadius: colors.radius }]}>
-          {(() => {
-            const weightTotal = order.items
-              .filter((i) => i.orderType === "weight")
-              .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-            const hasPieces = order.items.some((i) => i.orderType === "pieces");
-
-            const piecesActualTotal = order.items
-              .filter((i) => i.orderType === "pieces" && i.actualWeight)
-              .reduce((a, b) => a + (b.actualWeight! * b.unitPrice), 0);
-            const piecesEstimate = order.items
-              .filter((i) => i.orderType === "pieces" && !i.actualWeight)
-              .reduce((a, b) => a + b.quantity * blt(unitOf(b)) * b.unitPrice, 0);
-            const allPiecesWeighed = hasPieces && order.items.filter((i) => i.orderType === "pieces").every((i) => i.actualWeight);
-
-            if (weightTotal > 0 && hasPieces) {
-              return (
-                <View style={{ gap: 10 }}>
-                  <View style={styles.totalRow}>
-                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                      {weightTotal} ج.م
-                    </Text>
-                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                      مجموع الكيلو
-                    </Text>
-                  </View>
-                  {piecesActualTotal > 0 && (
-                    <View style={styles.totalRow}>
-                      <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }]}>
-                        {piecesActualTotal} ج.م
-                      </Text>
-                      <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                        مجموع الأثواب (وزن فعلي)
-                      </Text>
-                    </View>
-                  )}
-                  {piecesEstimate > 0 && (
-                    <View style={styles.totalRow}>
-                      <Text style={[styles.totalPrice, { color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 14 }]}>
-                        ≈ {piecesEstimate} ج.م
-                      </Text>
-                      <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
-                        تقديري (لم يوزن بعد)
-                      </Text>
-                    </View>
-                  )}
-                  <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }]}>
-                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                      {allPiecesWeighed ? "" : "≈ "}{weightTotal + piecesActualTotal + piecesEstimate} ج.م
-                    </Text>
-                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                      {allPiecesWeighed ? "الإجمالي النهائي" : "الإجمالي التقديري"}
-                    </Text>
-                  </View>
-                </View>
-              );
-            }
-            if (weightTotal > 0) {
-              return (
-                <View style={styles.totalRow}>
-                  <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                    {weightTotal} ج.م
-                  </Text>
-                  <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                    المجموع الكلي
-                  </Text>
-                </View>
-              );
-            }
-            return (
-              <View style={{ gap: 6 }}>
-                {piecesActualTotal > 0 && (
-                  <View style={styles.totalRow}>
-                    <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                      {piecesActualTotal} ج.م
-                    </Text>
-                    <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                      {allPiecesWeighed ? "الإجمالي النهائي" : "مجموع الموزون"}
-                    </Text>
-                  </View>
-                )}
-                {piecesEstimate > 0 && (
-                  <View style={styles.totalRow}>
-                    <Text style={[styles.totalPrice, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
-                      ≈ {piecesEstimate} ج.م
-                    </Text>
-                    <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
-                      تقديري (لم يوزن بعد)
-                    </Text>
-                  </View>
-                )}
-                {!allPiecesWeighed && (
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "center" }}>
-                    تقدير تقريبي لكل ثوب (يُحدَّد الوزن/الأمتار عند التجهيز)
-                  </Text>
-                )}
-              </View>
-            );
-          })()}
-          {order.paymentMethod === "ewallet" && (order.paymentFee ?? 0) > 0 && (
-            <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 10 }}>
-              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>رسوم المحفظة الإلكترونية</Text>
-                <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>+{order.paymentFee} ج.م</Text>
-              </View>
-              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>الإجمالي مع الرسوم</Text>
-                <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 16 }}>{order.totalWithFee ?? (order.total + (order.paymentFee ?? 0))} ج.م</Text>
-              </View>
-            </View>
-          )}
-        </View>
 
         {(() => {
           // Staff: only show invoice button at the second-to-last stage onwards
@@ -1704,7 +1660,8 @@ export default function OrderDetailScreen() {
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                  router.push({ pathname: "/cart", params: { editOrderId: order.id } } as any);
+                  beginOrderEdit(order.id);
+                  router.push("/(tabs)/products" as any);
                 }}
                 style={{
                   flex: 1,
