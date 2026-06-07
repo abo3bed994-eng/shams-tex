@@ -38,10 +38,10 @@ const colors = {
     text: "#2A241B",
     tint: "#B8923A",
 
-    background: "#FCFAF5",
+    background: "#EDE5D2",
     foreground: "#2A241B",
 
-    card: "#FFFFFF",
+    card: "#F9F4EA",
     cardForeground: "#2A241B",
 
     primary: "#B8923A",
@@ -59,14 +59,14 @@ const colors = {
     destructive: "#C0392B",
     destructiveForeground: "#ffffff",
 
-    border: "#EADFCA",
-    input: "#F7F1E3",
+    border: "#E1D4B8",
+    input: "#F4EDDD",
 
     gold: "#B8923A",
     goldLight: "#D4AA55",
     goldDark: "#8A6B20",
-    surface: "#F7F1E3",
-    surfaceElevated: "#FFFFFF",
+    surface: "#F4EDDD",
+    surfaceElevated: "#F9F4EA",
   },
 
   radius: 12,
