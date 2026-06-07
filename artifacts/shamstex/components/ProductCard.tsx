@@ -12,8 +12,8 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, onPress }: ProductCardProps) {
   const colors = useColors();
-  const { effectivePriceMode, user, isFavorite, toggleFavorite } = useApp();
-  const fav = isFavorite(product.id);
+  const { effectivePriceMode, user, favorites, toggleFavorite } = useApp();
+  const fav = favorites.includes(product.id);
 
   const displayPrice =
     effectivePriceMode === "wholesale" ? product.wholesalePrice : product.retailPrice;
@@ -23,53 +23,42 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
   const isOutOfStock = !product.inStock;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.card,
         {
           backgroundColor: colors.surface,
           borderColor: isOutOfStock ? "#C0392B88" : colors.border,
           borderRadius: colors.radius,
-          opacity: pressed ? 0.9 : 1,
         },
       ]}
     >
-      {product.images.length > 0 ? (
-        <Image source={{ uri: product.images[0] }} style={styles.image} resizeMode="cover" />
-      ) : (
-        <View style={styles.placeholderImage}>
-          <Icon name="layers" size={40} color={isOutOfStock ? "#C0392B88" : colors.goldDark} />
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.cardInner, { opacity: pressed ? 0.9 : 1 }]}
+      >
+        {product.images.length > 0 ? (
+          <Image source={{ uri: product.images[0] }} style={styles.image} resizeMode="cover" />
+        ) : (
+          <View style={styles.placeholderImage}>
+            <Icon name="layers" size={40} color={isOutOfStock ? "#C0392B88" : colors.goldDark} />
+          </View>
+        )}
+
+        <View style={styles.categoryBadge}>
+          <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+            {product.category}
+          </Text>
         </View>
-      )}
 
-      <View style={styles.categoryBadge}>
-        <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-          {product.category}
-        </Text>
-      </View>
+        {isOutOfStock && (
+          <View style={styles.outOfStockBadge}>
+            <Icon name="x-circle" size={12} color="#fff" />
+            <Text style={[styles.outOfStockText, { fontFamily: "Inter_700Bold" }]}>نفذ المخزون</Text>
+          </View>
+        )}
 
-      {isOutOfStock && (
-        <View style={styles.outOfStockBadge}>
-          <Icon name="x-circle" size={12} color="#fff" />
-          <Text style={[styles.outOfStockText, { fontFamily: "Inter_700Bold" }]}>نفذ المخزون</Text>
-        </View>
-      )}
-
-      {user && (
-        <Pressable
-          onPress={() => toggleFavorite(product.id)}
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.favBtn,
-            { top: isOutOfStock ? 44 : 10, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Icon name="heart" size={18} color={fav ? "#E74C3C" : "#fff"} />
-        </Pressable>
-      )}
-
-      <View style={styles.infoOverlay}>
+        <View style={styles.infoOverlay}>
         <Text
           style={[styles.name, { color: "#fff", fontFamily: "Inter_600SemiBold" }]}
           numberOfLines={1}
@@ -104,8 +93,22 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
             )}
           </View>
         </View>
-      </View>
-    </Pressable>
+        </View>
+      </Pressable>
+
+      {user && (
+        <Pressable
+          onPress={() => toggleFavorite(product.id)}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.favBtn,
+            { top: isOutOfStock ? 44 : 10, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Icon name="heart" size={18} color={fav ? "#E74C3C" : "#fff"} />
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -115,6 +118,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 16,
     height: 230,
+    position: "relative",
+  },
+  cardInner: {
+    flex: 1,
     position: "relative",
   },
   image: {

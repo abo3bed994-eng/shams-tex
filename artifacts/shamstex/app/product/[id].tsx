@@ -28,7 +28,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, addToCart, showToast, effectivePriceMode, isFavorite, toggleFavorite } = useApp();
+  const { products, user, addToCart, showToast, effectivePriceMode, favorites, toggleFavorite } = useApp();
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const imgScrollRef = useRef<ScrollView>(null);
@@ -430,7 +430,7 @@ export default function ProductDetailScreen() {
               <Icon
                 name="heart"
                 size={22}
-                color={isFavorite(product.id) ? "#E74C3C" : colors.foreground}
+                color={favorites.includes(product.id) ? "#E74C3C" : colors.foreground}
               />
             </Pressable>
           ) : undefined
