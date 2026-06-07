@@ -79,8 +79,8 @@ export default function ProductsScreen() {
             >
               <Icon name="shopping-cart" size={22} color={colors.foreground} />
               {cart.length > 0 && (
-                <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
-                  <Text style={[styles.cartBadgeText, { color: colors.background }]}>
+                <View style={[styles.cartBadge, { backgroundColor: "#E74C3C" }]}>
+                  <Text style={[styles.cartBadgeText, { color: "#fff" }]}>
                     {cart.length}
                   </Text>
                 </View>
@@ -95,8 +95,8 @@ export default function ProductsScreen() {
             >
               <Icon name="heart" size={22} color={colors.foreground} />
               {favorites.length > 0 && (
-                <View style={[styles.cartBadge, { backgroundColor: "#E74C3C" }]}>
-                  <Text style={[styles.cartBadgeText, { color: "#fff" }]}>
+                <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
+                  <Text style={[styles.cartBadgeText, { color: colors.background }]}>
                     {favorites.length}
                   </Text>
                 </View>

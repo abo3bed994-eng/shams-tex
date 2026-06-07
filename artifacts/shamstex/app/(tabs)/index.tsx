@@ -182,8 +182,8 @@ export default function HomeScreen() {
           >
             <Icon name="heart" size={22} color={colors.foreground} />
             {favorites.length > 0 && (
-              <View style={[styles.badge, { backgroundColor: "#E74C3C" }]}>
-                <Text style={[styles.badgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
+              <View style={[styles.badge, { backgroundColor: colors.gold }]}>
+                <Text style={[styles.badgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
                   {favorites.length > 9 ? "9+" : favorites.length}
                 </Text>
               </View>
@@ -195,8 +195,8 @@ export default function HomeScreen() {
           >
             <Icon name="shopping-cart" size={22} color={colors.foreground} />
             {cartCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: colors.gold }]}>
-                <Text style={[styles.badgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
+              <View style={[styles.badge, { backgroundColor: "#E74C3C" }]}>
+                <Text style={[styles.badgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
                   {cartCount > 9 ? "9+" : cartCount}
                 </Text>
               </View>
