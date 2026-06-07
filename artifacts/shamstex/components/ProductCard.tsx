@@ -27,88 +27,67 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: colors.card,
+          backgroundColor: colors.surface,
           borderColor: isOutOfStock ? "#C0392B88" : colors.border,
           borderRadius: colors.radius,
-          opacity: pressed ? 0.85 : 1,
+          opacity: pressed ? 0.9 : 1,
         },
       ]}
     >
-      <View
-        style={[
-          styles.imageContainer,
-          {
-            backgroundColor: colors.surface,
-            borderTopLeftRadius: colors.radius,
-            borderTopRightRadius: colors.radius,
-          },
-        ]}
-      >
-        {product.images.length > 0 ? (
-          <Image source={{ uri: product.images[0] }} style={styles.image} resizeMode="cover" />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Icon name="layers" size={32} color={isOutOfStock ? "#C0392B88" : colors.goldDark} />
-          </View>
-        )}
-        {isOutOfStock && (
-          <View style={styles.outOfStockBadge}>
-            <Icon name="x-circle" size={13} color="#fff" />
-            <Text style={[styles.outOfStockText, { fontFamily: "Inter_700Bold" }]}>
-              نفذ المخزون
-            </Text>
-          </View>
-        )}
-        <View style={[styles.categoryBadge, { backgroundColor: colors.gold + "22" }]}>
-          <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
-            {product.category}
-          </Text>
+      {product.images.length > 0 ? (
+        <Image source={{ uri: product.images[0] }} style={styles.image} resizeMode="cover" />
+      ) : (
+        <View style={styles.placeholderImage}>
+          <Icon name="layers" size={40} color={isOutOfStock ? "#C0392B88" : colors.goldDark} />
         </View>
+      )}
+
+      <View style={styles.categoryBadge}>
+        <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+          {product.category}
+        </Text>
       </View>
 
-      <View style={styles.info}>
+      {isOutOfStock && (
+        <View style={styles.outOfStockBadge}>
+          <Icon name="x-circle" size={12} color="#fff" />
+          <Text style={[styles.outOfStockText, { fontFamily: "Inter_700Bold" }]}>نفذ المخزون</Text>
+        </View>
+      )}
+
+      <View style={styles.infoOverlay}>
         <Text
-          style={[
-            styles.name,
-            { color: isOutOfStock ? "#C0392B" : colors.foreground, fontFamily: "Inter_600SemiBold" },
-          ]}
-          numberOfLines={2}
+          style={[styles.name, { color: "#fff", fontFamily: "Inter_600SemiBold" }]}
+          numberOfLines={1}
         >
           {product.name}
         </Text>
 
-        <View style={styles.colorsRow}>
-          {product.colors.slice(0, 5).map((c, i) => (
-            <View
-              key={i}
-              style={[
-                styles.colorDot,
-                {
-                  backgroundColor: c.hex,
-                  borderColor: colors.border,
-                  borderWidth: c.hex === "#FFFFFF" || c.hex === "#FEFEFE" ? 1 : 0,
-                },
-              ]}
-            />
-          ))}
-          {product.colors.length > 5 && (
-            <Text style={[styles.moreColors, { color: colors.mutedForeground }]}>
-              +{product.colors.length - 5}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.priceRow}>
-          <View>
-            <Text style={[styles.priceLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {priceLabel}
-            </Text>
+        <View style={styles.bottomRow}>
+          <View style={styles.priceWrap}>
+            <Text style={[styles.priceLabel, { fontFamily: "Inter_400Regular" }]}>{priceLabel}</Text>
             <Text style={[styles.price, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
               {displayPrice} ج.م
             </Text>
           </View>
-          <View style={[styles.arrowBtn, { backgroundColor: colors.gold + "22", borderRadius: colors.radius - 4 }]}>
-            <Icon name="arrow-left" size={16} color={colors.gold} />
+
+          <View style={styles.colorsRow}>
+            {product.colors.slice(0, 4).map((c, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.colorDot,
+                  {
+                    backgroundColor: c.hex,
+                    borderColor: "rgba(255,255,255,0.6)",
+                    borderWidth: c.hex === "#FFFFFF" || c.hex === "#FEFEFE" ? 1 : 0,
+                  },
+                ]}
+              />
+            ))}
+            {product.colors.length > 4 && (
+              <Text style={styles.moreColors}>+{product.colors.length - 4}</Text>
+            )}
           </View>
         </View>
       </View>
@@ -121,11 +100,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
     marginBottom: 16,
-  },
-  imageContainer: {
-    height: 160,
-    alignItems: "center",
-    justifyContent: "center",
+    height: 230,
     position: "relative",
   },
   image: {
@@ -135,73 +110,80 @@ const styles = StyleSheet.create({
   placeholderImage: {
     alignItems: "center",
     justifyContent: "center",
-    flex: 1,
     width: "100%",
+    height: "100%",
   },
   categoryText: { fontSize: 11 },
   categoryBadge: {
     position: "absolute",
     top: 10,
     right: 10,
+    backgroundColor: "rgba(0,0,0,0.55)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
   outOfStockBadge: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 7,
+    top: 10,
+    left: 10,
     backgroundColor: "#C0392B",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 4,
   },
   outOfStockText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 11,
   },
-  info: {
-    padding: 14,
-    gap: 10,
+  infoOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 6,
   },
   name: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "right",
+  },
+  bottomRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  priceWrap: {
+    alignItems: "flex-end",
+  },
+  priceLabel: {
+    fontSize: 10,
+    textAlign: "right",
+    color: "rgba(255,255,255,0.7)",
+  },
+  price: {
+    fontSize: 16,
+    textAlign: "right",
   },
   colorsRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
   colorDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
   moreColors: {
-    fontSize: 11,
-    marginLeft: 4,
-  },
-  priceRow: {
-    flexDirection: "row-reverse",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-  },
-  priceLabel: {
-    fontSize: 11,
-    textAlign: "right",
-  },
-  price: {
-    fontSize: 18,
-    textAlign: "right",
-  },
-  arrowBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
+    fontSize: 10,
+    color: "rgba(255,255,255,0.8)",
+    marginRight: 2,
   },
 });

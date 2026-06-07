@@ -3,6 +3,7 @@ import {
   Alert,
   BackHandler,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -29,8 +30,9 @@ export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const { products, user, addToCart, showToast, effectivePriceMode } = useApp();
 
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const imgScrollRef = useRef<ScrollView>(null);
+  const viewerScrollRef = useRef<ScrollView>(null);
   const product = products.find((p) => p.id === id);
 
   const [selectedColors, setSelectedColors] = useState<Record<string, number>>({});
@@ -38,6 +40,8 @@ export default function ProductDetailScreen() {
   const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
   const [orderType, setOrderType] = useState<"weight" | "pieces">("pieces");
   const [imgIdx, setImgIdx] = useState(0);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerIdx, setViewerIdx] = useState(0);
   const imgWidth = windowWidth - 32;
 
   const confirmLeave = React.useCallback(() => {
@@ -78,6 +82,14 @@ export default function ProductDetailScreen() {
     }, 5000);
     return () => clearInterval(timer);
   }, [product?.images?.length, imgWidth]);
+
+  useEffect(() => {
+    if (!viewerVisible) return;
+    const t = setTimeout(() => {
+      viewerScrollRef.current?.scrollTo({ x: viewerIdx * windowWidth, animated: false });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [viewerVisible, viewerIdx, windowWidth]);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 16 : 16);
 
@@ -431,12 +443,19 @@ export default function ProductDetailScreen() {
               style={{ flex: 1, height: 220 }}
             >
               {product.images.map((uri, i) => (
-                <Image
+                <Pressable
                   key={i}
-                  source={{ uri }}
-                  style={{ width: imgWidth, height: 220 }}
-                  resizeMode="cover"
-                />
+                  onPress={() => {
+                    setViewerIdx(i);
+                    setViewerVisible(true);
+                  }}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={{ width: imgWidth, height: 220 }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
               ))}
             </ScrollView>
             {product.images.length > 1 && (
@@ -621,12 +640,67 @@ export default function ProductDetailScreen() {
           </View>
         )}
       </View>
+
+      <Modal
+        visible={viewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerVisible(false)}
+      >
+        <View style={styles.viewerBackdrop}>
+          <Pressable
+            style={[styles.viewerClose, { top: insets.top + 12 }]}
+            onPress={() => setViewerVisible(false)}
+            hitSlop={12}
+          >
+            <Icon name="x" size={24} color="#fff" />
+          </Pressable>
+          <ScrollView
+            ref={viewerScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onLayout={() =>
+              viewerScrollRef.current?.scrollTo({ x: viewerIdx * windowWidth, animated: false })
+            }
+          >
+            {(product.images ?? []).map((uri, i) => (
+              <Pressable
+                key={i}
+                style={{ width: windowWidth, height: windowHeight, justifyContent: "center" }}
+                onPress={() => setViewerVisible(false)}
+              >
+                <Image
+                  source={{ uri }}
+                  style={{ width: windowWidth, height: windowHeight }}
+                  resizeMode="contain"
+                />
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+  },
+  viewerClose: {
+    position: "absolute",
+    right: 16,
+    zIndex: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   content: { gap: 16, padding: 16 },
   notFound: { flex: 1, alignItems: "center", justifyContent: "center" },
   imageCarousel: {
