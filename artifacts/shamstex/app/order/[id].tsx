@@ -172,6 +172,7 @@ export default function OrderDetailScreen() {
   const [showWaybillModal, setShowWaybillModal] = useState(false);
   const [waybillNumberInput, setWaybillNumberInput] = useState("");
   const [waybillProviderInput, setWaybillProviderInput] = useState<ShippingProviderId | null>(null);
+  const [waybillImageInput, setWaybillImageInput] = useState<string | null>(null);
   const [uploadingWaybill, setUploadingWaybill] = useState(false);
   const [showWaybillPreview, setShowWaybillPreview] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -245,6 +246,8 @@ export default function OrderDetailScreen() {
             try {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
               await cancelOrder(order.id);
+              if (order.editable) await setOrderEditable(order.id, false);
+              setItemDecisions({});
               Alert.alert("تم", "تم إلغاء الطلب.");
               router.back();
             } catch {
@@ -585,6 +588,7 @@ export default function OrderDetailScreen() {
                       onPress={() => {
                         setWaybillNumberInput(order.shippingWaybillNumber ?? "");
                         setWaybillProviderInput(order.shippingProviderId ?? null);
+                        setWaybillImageInput(order.shippingWaybillImage ?? null);
                         setShowWaybillModal(true);
                       }}
                       style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, borderRadius: colors.radius - 6, backgroundColor: colors.gold + "15", borderWidth: 1, borderColor: colors.gold + "44" }}
@@ -1349,6 +1353,7 @@ export default function OrderDetailScreen() {
                         { text: "رفع البوليصة", onPress: () => {
                           setWaybillNumberInput(order.shippingWaybillNumber ?? "");
                           setWaybillProviderInput(order.shippingProviderId ?? null);
+                          setWaybillImageInput(order.shippingWaybillImage ?? null);
                           setShowWaybillModal(true);
                         }},
                       ]);
@@ -1405,23 +1410,19 @@ export default function OrderDetailScreen() {
           );
         })()}
 
-        {isStaff && order.status === "preparing" && !isLockedByOther && (
+        {isStaff && order.editable && order.status !== "cancelled" && !isLockedByOther && (
           <Pressable
             onPress={() => {
-              // Fix 3: confirmation before opening/closing edit-order mode
-              const opening = !order.editable;
               Alert.alert(
-                opening ? "السماح للعميل بتعديل الطلب" : "إغلاق تعديل العميل",
-                opening
-                  ? "هل أنت متأكد؟ سيصل إشعار للعميل بأن خامة غير متوفرة ويمكنه اختيار بديل أو تعديل الكميات. تأكد قبل الإرسال."
-                  : "هل تريد إغلاق صلاحية التعديل؟ لن يستطيع العميل تعديل الطلب بعد ذلك.",
+                "إغلاق تعديل العميل",
+                "هل تريد إغلاق صلاحية التعديل؟ لن يستطيع العميل تعديل الطلب بعد ذلك.",
                 [
                   { text: "تراجع", style: "cancel" },
                   {
-                    text: opening ? "نعم، اسمح بالتعديل" : "نعم، أغلق التعديل",
-                    style: opening ? "default" : "destructive",
+                    text: "نعم، أغلق التعديل",
+                    style: "destructive",
                     onPress: () => {
-                      setOrderEditable(order.id, opening);
+                      setOrderEditable(order.id, false);
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     },
                   },
@@ -1429,14 +1430,14 @@ export default function OrderDetailScreen() {
               );
             }}
             style={[styles.editableBtn, {
-              backgroundColor: order.editable ? "#F39C1222" : colors.surface,
-              borderColor: order.editable ? "#F39C12" : colors.border,
+              backgroundColor: "#F39C1222",
+              borderColor: "#F39C12",
               borderRadius: colors.radius - 4,
             }]}
           >
-            <Icon name={order.editable ? "x-circle" : "edit-3"} size={14} color={order.editable ? "#F39C12" : colors.gold} />
-            <Text style={{ color: order.editable ? "#F39C12" : colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-              {order.editable ? "إغلاق تعديل العميل" : "خامة غير متوفرة — السماح بالتعديل"}
+            <Icon name="x-circle" size={14} color="#F39C12" />
+            <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+              إغلاق تعديل العميل
             </Text>
           </Pressable>
         )}
@@ -1553,7 +1554,7 @@ export default function OrderDetailScreen() {
           );
         })()}
 
-        {isCustomer && order.editable && (
+        {isCustomer && order.editable && order.status !== "cancelled" && (
           <View
             onLayout={(e) => { const y = e.nativeEvent.layout.y; setEditSectionY((prev) => (prev === y ? prev : y)); }}
             style={[styles.editableCustomerCard, { backgroundColor: "#F39C1218", borderColor: "#F39C12", borderRadius: colors.radius }]}
@@ -1629,6 +1630,22 @@ export default function OrderDetailScreen() {
                             <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>تراجع</Text>
                           </Pressable>
                         </View>
+                      ) : decision === "agree" ? (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                          <Text style={{ color: "#27AE60", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
+                            تمت الموافقة — سيتم تعديل الكمية للمتوفر
+                          </Text>
+                          <Pressable
+                            onPress={() => {
+                              setItemDecisions((p) => { const n = { ...p }; delete n[index]; return n; });
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.gold + "18" }}
+                          >
+                            <Icon name="rotate-ccw" size={13} color={colors.gold} />
+                            <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>تراجع</Text>
+                          </Pressable>
+                        </View>
                       ) : (
                         <View style={{ flexDirection: "row-reverse", gap: 8 }}>
                           <Pressable
@@ -1659,42 +1676,53 @@ export default function OrderDetailScreen() {
               );
             })}
 
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                router.push({ pathname: "/cart", params: { editOrderId: order.id } } as any);
-              }}
-              style={[styles.browseAlternativeBtn, { backgroundColor: colors.gold, borderRadius: colors.radius }]}
-            >
-              <Icon name="refresh-cw" size={20} color={colors.background} />
-              <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 16 }}>
-                اختيار منتجات بديلة
-              </Text>
-            </Pressable>
-
-            {hasAffectedItems && (
+            <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+              {hasAffectedItems && (
+                <Pressable
+                  onPress={handleConfirmEdit}
+                  disabled={confirmingEdit}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingVertical: 14,
+                    borderRadius: colors.radius,
+                    borderWidth: 1,
+                    borderColor: "#27AE60",
+                    backgroundColor: "#27AE60",
+                    opacity: confirmingEdit ? 0.6 : 1,
+                  }}
+                >
+                  <Icon name="check-circle" size={18} color={colors.background} />
+                  <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                    {confirmingEdit ? "جاري الحفظ..." : "تأكيد التعديل"}
+                  </Text>
+                </Pressable>
+              )}
               <Pressable
-                onPress={handleConfirmEdit}
-                disabled={confirmingEdit}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                  router.push({ pathname: "/cart", params: { editOrderId: order.id } } as any);
+                }}
                 style={{
+                  flex: 1,
                   flexDirection: "row-reverse",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
                   paddingVertical: 14,
                   borderRadius: colors.radius,
-                  borderWidth: 1,
-                  borderColor: "#27AE60",
-                  backgroundColor: "#27AE60",
-                  opacity: confirmingEdit ? 0.6 : 1,
+                  backgroundColor: colors.gold,
                 }}
               >
-                <Icon name="check-circle" size={18} color={colors.background} />
-                <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 15 }}>
-                  {confirmingEdit ? "جاري الحفظ..." : "تأكيد التعديل"}
+                <Icon name="refresh-cw" size={18} color={colors.background} />
+                <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                  اختيار منتجات بديلة
                 </Text>
               </Pressable>
-            )}
+            </View>
 
             <Pressable
               onPress={handleCustomerCancelOrder}
@@ -2216,34 +2244,65 @@ export default function OrderDetailScreen() {
                   Alert.alert("تنبيه", "اختر شركة الشحن أولاً");
                   return;
                 }
+                const providers = (settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
+                const providerName = providers.find((p) => p.id === waybillProviderInput)?.name ?? "";
+                if (waybillImageInput) {
+                  Alert.alert(
+                    "حذف الصورة",
+                    "هل تريد حذف صورة البوليصة؟ سيبقى رقم البوليصة كما هو.",
+                    [
+                      { text: "إلغاء", style: "cancel" },
+                      {
+                        text: "حذف الصورة",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            setUploadingWaybill(true);
+                            await setOrderShipping(order.id, {
+                              providerId: waybillProviderInput,
+                              providerName,
+                              waybillImage: null,
+                              waybillNumber: waybillNumberInput.trim() || null,
+                            });
+                            setWaybillImageInput(null);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          } catch {
+                            Alert.alert("خطأ", "تعذّر حذف الصورة");
+                          } finally {
+                            setUploadingWaybill(false);
+                          }
+                        },
+                      },
+                    ]
+                  );
+                  return;
+                }
                 try {
                   setUploadingWaybill(true);
                   const uri = await pickImage();
-                  if (!uri && !order.shippingWaybillImage) {
+                  if (!uri) {
                     setUploadingWaybill(false);
                     return;
                   }
-                  const providers = (settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
-                  const providerName = providers.find((p) => p.id === waybillProviderInput)?.name ?? "";
                   await setOrderShipping(order.id, {
                     providerId: waybillProviderInput,
                     providerName,
-                    waybillImage: uri ?? order.shippingWaybillImage ?? null,
+                    waybillImage: uri,
                     waybillNumber: waybillNumberInput.trim() || null,
                   });
-                  setShowWaybillModal(false);
+                  setWaybillImageInput(uri);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 } catch {
-                  Alert.alert("خطأ", "تعذّر حفظ بيانات الشحن");
+                  Alert.alert("خطأ", "تعذّر رفع الصورة");
                 } finally {
                   setUploadingWaybill(false);
                 }
               }}
-              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, borderRadius: 8, backgroundColor: colors.gold }}
+              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 11, borderRadius: 8, borderWidth: 1, borderColor: (waybillImageInput ? colors.destructive : colors.gold) + "55", backgroundColor: (waybillImageInput ? colors.destructive : colors.gold) + "12" }}
             >
-              <Icon name={order.shippingWaybillImage ? "edit-3" : "upload"} size={16} color={colors.background} />
-              <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-                {uploadingWaybill ? "جاري الرفع..." : order.shippingWaybillImage ? "تحديث الصورة وحفظ" : "اختيار صورة البوليصة وحفظ"}
+              <Icon name={waybillImageInput ? "trash-2" : "upload"} size={15} color={waybillImageInput ? colors.destructive : colors.gold} />
+              <Text style={{ color: waybillImageInput ? colors.destructive : colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                {uploadingWaybill ? "جاري المعالجة..." : waybillImageInput ? "حذف الصورة" : "رفع الصورة"}
               </Text>
             </Pressable>
             <Pressable
@@ -2252,69 +2311,35 @@ export default function OrderDetailScreen() {
                   Alert.alert("تنبيه", "اختر شركة الشحن أولاً");
                   return;
                 }
-                if (!waybillNumberInput.trim() && !order.shippingWaybillImage) {
-                  Alert.alert("تنبيه", "أدخل رقم البوليصة أو اختر صورة");
+                if (!waybillNumberInput.trim() && !waybillImageInput) {
+                  Alert.alert("تنبيه", "أدخل رقم البوليصة أو ارفع صورة");
                   return;
                 }
                 try {
+                  setUploadingWaybill(true);
                   const providers = (settings.shippingProviders && settings.shippingProviders.length > 0) ? settings.shippingProviders : SHIPPING_PROVIDER_DEFAULTS;
                   const providerName = providers.find((p) => p.id === waybillProviderInput)?.name ?? "";
                   await setOrderShipping(order.id, {
                     providerId: waybillProviderInput,
                     providerName,
-                    waybillImage: order.shippingWaybillImage ?? null,
+                    waybillImage: waybillImageInput ?? null,
                     waybillNumber: waybillNumberInput.trim() || null,
                   });
                   setShowWaybillModal(false);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 } catch {
                   Alert.alert("خطأ", "تعذّر الحفظ");
+                } finally {
+                  setUploadingWaybill(false);
                 }
               }}
-              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 11, borderRadius: 8, borderWidth: 1, borderColor: colors.gold + "55", backgroundColor: colors.gold + "12" }}
+              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 12, borderRadius: 8, backgroundColor: colors.gold }}
             >
-              <Icon name="hash" size={15} color={colors.gold} />
-              <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 13 }}>
-                {order.shippingWaybillImage ? "حفظ رقم البوليصة (بدون تغيير الصورة)" : "حفظ رقم البوليصة فقط (بدون صورة)"}
+              <Icon name="check" size={16} color={colors.background} />
+              <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 13 }}>
+                {uploadingWaybill ? "جاري الحفظ..." : "حفظ"}
               </Text>
             </Pressable>
-            {(order.shippingProviderId || order.shippingWaybillImage || order.shippingWaybillNumber) && order.status !== "shipped" && order.status !== "delivered" && (
-              <Pressable
-                onPress={() => {
-                  Alert.alert(
-                    "حذف البوليصة",
-                    "هل تريد حذف بيانات الشحن (البوليصة والرقم والصورة)؟",
-                    [
-                      { text: "إلغاء", style: "cancel" },
-                      {
-                        text: "حذف",
-                        style: "destructive",
-                        onPress: async () => {
-                          try {
-                            await setOrderShipping(order.id, {
-                              providerId: null,
-                              providerName: null,
-                              waybillImage: null,
-                              waybillNumber: null,
-                            });
-                            setWaybillNumberInput("");
-                            setWaybillProviderInput(null);
-                            setShowWaybillModal(false);
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                          } catch {
-                            Alert.alert("خطأ", "تعذّر حذف البوليصة");
-                          }
-                        },
-                      },
-                    ]
-                  );
-                }}
-                style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, padding: 11, borderRadius: 8, borderWidth: 1, borderColor: colors.destructive + "55" }}
-              >
-                <Icon name="trash-2" size={15} color={colors.destructive} />
-                <Text style={{ color: colors.destructive, fontFamily: "Inter_700Bold", fontSize: 13 }}>حذف البوليصة</Text>
-              </Pressable>
-            )}
             <Pressable onPress={() => setShowWaybillModal(false)} style={{ padding: 10, alignItems: "center" }}>
               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium" }}>إلغاء</Text>
             </Pressable>
