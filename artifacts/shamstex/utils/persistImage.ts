@@ -71,14 +71,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function uploadOnce(uri: string): Promise<string> {
+// "media" → public product/banner media (images/, videos/).
+// "private" → sensitive order images (transfer proofs, return invoices) under proofs/.
+export type UploadFolder = "media" | "private";
+
+async function uploadOnce(uri: string, dest: UploadFolder, scopeId?: string): Promise<string> {
   const { storage } = await import("@/lib/firebase");
   const { ref: storageRef, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
 
   const ext = getExtension(uri);
   const isVideo = isVideoUri(uri);
-  const folder = isVideo ? "videos" : "images";
-  const filename = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  // Private uploads are bound to their order id: proofs/<orderId>/<file> so the
+  // storage rules can verify order ownership. Public media: images/ or videos/.
+  const prefix = dest === "private"
+    ? `proofs/${scopeId && scopeId.length > 0 ? scopeId : "misc"}`
+    : isVideo ? "videos" : "images";
+  const filename = `${prefix}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
   const fileRef = storageRef(storage, filename);
   const blob = await uriToBlob(uri);
   const mimeType = getMimeType(ext);
@@ -103,12 +111,12 @@ export function getLastUploadError(): string {
   return lastUploadError;
 }
 
-async function tryFirebaseUpload(uri: string): Promise<string | null> {
+async function tryFirebaseUpload(uri: string, dest: UploadFolder, scopeId?: string): Promise<string | null> {
   const MAX_ATTEMPTS = 3;
   let lastErr: any = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const url = await uploadOnce(uri);
+      const url = await uploadOnce(uri, dest, scopeId);
       lastUploadError = "";
       return url;
     } catch (err: any) {
@@ -160,7 +168,7 @@ export class UploadFailedError extends Error {
   }
 }
 
-export async function persistImageUri(uri: string): Promise<string> {
+export async function persistImageUri(uri: string, dest: UploadFolder = "media", scopeId?: string): Promise<string> {
   if (!uri) return uri;
 
   if (
@@ -170,7 +178,7 @@ export async function persistImageUri(uri: string): Promise<string> {
     return uri;
   }
 
-  const uploaded = await tryFirebaseUpload(uri);
+  const uploaded = await tryFirebaseUpload(uri, dest, scopeId);
   if (uploaded) return uploaded;
 
   // Videos are too large for base64 in Firestore (1MB doc limit). Fail loudly
@@ -190,6 +198,6 @@ export async function persistImageUri(uri: string): Promise<string> {
   return toBase64(uri);
 }
 
-export async function persistImageUris(uris: string[]): Promise<string[]> {
-  return Promise.all(uris.map(persistImageUri));
+export async function persistImageUris(uris: string[], dest: UploadFolder = "media"): Promise<string[]> {
+  return Promise.all(uris.map((u) => persistImageUri(u, dest)));
 }

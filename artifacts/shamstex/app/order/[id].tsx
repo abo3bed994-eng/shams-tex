@@ -92,7 +92,7 @@ function getPrevAction(status: OrderStatus, fulfillmentType?: string): { prev: O
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
-async function pickImage(): Promise<string | null> {
+async function pickImage(scopeId: string): Promise<string | null> {
   return new Promise((resolve) => {
     Alert.alert(
       "اختر مصدر الصورة",
@@ -113,7 +113,7 @@ async function pickImage(): Promise<string | null> {
               allowsEditing: true,
             });
             if (!result.canceled && result.assets[0]) {
-              const uploaded = await persistImageUri(result.assets[0].uri);
+              const uploaded = await persistImageUri(result.assets[0].uri, "private", scopeId);
               resolve(uploaded);
             } else {
               resolve(null);
@@ -129,7 +129,7 @@ async function pickImage(): Promise<string | null> {
               allowsEditing: true,
             });
             if (!result.canceled && result.assets[0]) {
-              const uploaded = await persistImageUri(result.assets[0].uri);
+              const uploaded = await persistImageUri(result.assets[0].uri, "private", scopeId);
               resolve(uploaded);
             } else {
               resolve(null);
@@ -854,7 +854,7 @@ export default function OrderDetailScreen() {
                     onPress={async () => {
                       try {
                         setUploadingTransferProof(true);
-                        const uri = await pickImage();
+                        const uri = await pickImage(order.id);
                         if (uri) {
                           await setOrderTransferProof(order.id, uri);
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1944,7 +1944,7 @@ export default function OrderDetailScreen() {
                       onPress={async () => {
                         try {
                           setUploadingReturnInvoice(true);
-                          const uri = await pickImage();
+                          const uri = await pickImage(order.id);
                           if (uri) {
                             setReturnInvoiceImage(uri);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -2279,7 +2279,7 @@ export default function OrderDetailScreen() {
                 }
                 try {
                   setUploadingWaybill(true);
-                  const uri = await pickImage();
+                  const uri = await pickImage(order.id);
                   if (!uri) {
                     setUploadingWaybill(false);
                     return;
