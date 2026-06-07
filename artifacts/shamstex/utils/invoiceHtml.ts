@@ -286,9 +286,9 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       <div class="val">${escapeHtml(order.userName || "—")}</div>
       <div class="label" style="margin-top:6px">رقم الهاتف</div>
       <div class="val">${escapeHtml(order.userPhone || "—")}</div>
+      ${shippingAddress ? `<div class="label" style="margin-top:6px">📍 عنوان الشحن</div><div class="val">${shippingAddress}</div>` : ""}
       <div class="label" style="margin-top:6px">طريقة الاستلام</div>
       <div class="val">${fulfillmentLabel}</div>
-      ${shippingAddress ? `<div class="label" style="margin-top:6px">📍 عنوان الشحن</div><div class="val">${shippingAddress}</div>` : ""}
       ${waybillNumber ? `<div class="label" style="margin-top:6px">رقم بوليصة الشحن</div><div class="val">${waybillNumber}</div>` : ""}
     </div>
     <div class="row">

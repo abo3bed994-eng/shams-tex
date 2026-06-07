@@ -1371,8 +1371,13 @@ export default function OrderDetailScreen() {
         {isStaff && order.status !== "cancelled" && (() => {
           const nextAction = getNextAction(order.status, order.fulfillmentType);
           const prevAction = getPrevAction(order.status, order.fulfillmentType);
-          // Fix 6: staff can revert ANY non-final stage; once delivered, only admin can revert
-          const canStaffRevert = isAdmin || (isStaff && order.status !== "delivered");
+          // Final stage (shipping → "shipped", pickup → "delivered") revert is gated:
+          // admin always; other staff only with the "revert_final" permission.
+          // Earlier (non-final) stages stay revertable by any staff.
+          const isFinalStage = order.status === "shipped" || order.status === "delivered";
+          const canStaffRevert = isFinalStage
+            ? (isAdmin || (isStaff && (user?.permissions ?? []).includes("revert_final")))
+            : isStaff;
           return (
             <View style={styles.actionRow}>
               {canStaffRevert && prevAction && !isLockedByOther && (

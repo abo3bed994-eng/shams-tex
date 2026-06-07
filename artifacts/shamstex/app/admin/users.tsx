@@ -59,6 +59,7 @@ const PERMISSION_LABELS: Record<EmployeePermission, string> = {
   manage_settings: "إدارة الإعدادات",
   manage_payments: "تفعيل/تعطيل وسائل الدفع",
   toggle_price_view: "التبديل بين أسعار التجار/العملاء",
+  revert_final: "التراجع عن الشحن/التسليم",
 };
 
 const EMPLOYEE_PERMISSIONS: EmployeePermission[] = [
@@ -79,6 +80,7 @@ const EMPLOYEE_GRANTABLE: EmployeePermission[] = [
   "delete_orders",
   "approve_upgrades",
   "manage_payments",
+  "revert_final",
 ];
 
 const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
@@ -95,6 +97,11 @@ const SUPERVISOR_PERMISSIONS: EmployeePermission[] = [
   "manage_settings",
   "manage_payments",
   "toggle_price_view",
+];
+
+const SUPERVISOR_GRANTABLE: EmployeePermission[] = [
+  ...SUPERVISOR_PERMISSIONS,
+  "revert_final",
 ];
 
 const DEMO_STAFF: User[] = [
@@ -890,7 +897,7 @@ export default function AdminUsersScreen() {
   const renderStaffCard = (u: User) => {
     const isExpanded = expandedUser === u.id;
     const showPermissions = (u.role === "employee" || u.role === "supervisor");
-    const allowedPerms = u.role === "supervisor" ? SUPERVISOR_PERMISSIONS : EMPLOYEE_GRANTABLE;
+    const allowedPerms = u.role === "supervisor" ? SUPERVISOR_GRANTABLE : EMPLOYEE_GRANTABLE;
     const activePermCount = (u.permissions ?? []).length;
 
     return (

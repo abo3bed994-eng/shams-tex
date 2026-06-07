@@ -109,25 +109,14 @@ export default function CartScreen() {
       setEditingOrderId(paramEditId);
       const order = orders.find((o) => o.id === paramEditId);
       if (order) {
-        // Reconcile with staff "mark available" (تحديد المتوفر) state so picking
-        // alternatives stays in sync: drop unavailable items, apply the available
-        // quantity to partial items, and strip the availability metadata.
+        // Carry items WITHOUT resolving affected ones (matches beginOrderEdit):
+        // drop only fully-unavailable items, but keep partial items at their
+        // original quantity with stockStatus/availableQuantity/customerDecision
+        // intact so editing never auto-approves them — the customer still chooses
+        // موافق/غير موافق on the order edit card afterwards.
         const reconciled = order.items.reduce<typeof order.items>((acc, it) => {
           if (it.stockStatus === "unavailable") return acc;
-          const clean = { ...it };
-          delete clean.editMaxQty;
-          if (it.stockStatus === "partial" && it.availableQuantity != null) {
-            if (it.orderType === "weight") {
-              clean.weight = it.availableQuantity;
-              clean.editMaxQty = it.availableQuantity;
-            } else {
-              clean.actualWeight = it.availableQuantity;
-            }
-          }
-          delete clean.stockStatus;
-          delete clean.availableQuantity;
-          delete clean.customerDecision;
-          acc.push(clean);
+          acc.push({ ...it });
           return acc;
         }, []);
         setCart(reconciled);

@@ -22,7 +22,8 @@ export type EmployeePermission =
   | "cancel_returns"
   | "manage_settings"
   | "manage_payments"
-  | "toggle_price_view";
+  | "toggle_price_view"
+  | "revert_final";
 
 export interface SavedAddress {
   id: string;
@@ -1917,25 +1918,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const beginOrderEdit = useCallback((orderId: string) => {
     const order = ordersRef.current.find((o) => o.id === orderId);
     if (!order) return;
-    const reconciled = order.items.reduce<CartItem[]>((acc, it) => {
+    // Carry items into the cart WITHOUT resolving affected items: drop only the
+    // fully-unavailable ones, but keep partially-available items at their original
+    // quantity with their stockStatus/availableQuantity/customerDecision intact.
+    // This ensures picking alternatives does NOT auto-approve partial items — the
+    // customer must still choose موافق/غير موافق on the order edit card afterwards.
+    const carried = order.items.reduce<CartItem[]>((acc, it) => {
       if (it.stockStatus === "unavailable") return acc;
-      const clean: CartItem = { ...it };
-      delete clean.editMaxQty;
-      if (it.stockStatus === "partial" && it.availableQuantity != null) {
-        if (it.orderType === "weight") {
-          clean.weight = it.availableQuantity;
-          clean.editMaxQty = it.availableQuantity;
-        } else {
-          clean.actualWeight = it.availableQuantity;
-        }
-      }
-      delete clean.stockStatus;
-      delete clean.availableQuantity;
-      delete clean.customerDecision;
-      acc.push(clean);
+      acc.push({ ...it });
       return acc;
     }, []);
-    setCart(reconciled);
+    setCart(carried);
     setEditingOrderId(orderId);
   }, []);
 
