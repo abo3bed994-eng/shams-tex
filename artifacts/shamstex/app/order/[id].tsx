@@ -231,6 +231,31 @@ export default function OrderDetailScreen() {
 
   const activeColor = STATUS_COLORS[order.status];
 
+  const handleCustomerCancelOrder = () => {
+    if (!order) return;
+    Alert.alert(
+      "إلغاء الطلب",
+      "هل أنت متأكد من إلغاء هذا الطلب؟ لن يمكنك التراجع.",
+      [
+        { text: "تراجع", style: "cancel" },
+        {
+          text: "نعم، ألغِ الطلب",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              await cancelOrder(order.id);
+              Alert.alert("تم", "تم إلغاء الطلب.");
+              router.back();
+            } catch {
+              Alert.alert("خطأ", "تعذّر إلغاء الطلب. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleConfirmEdit = async () => {
     if (!order) return;
     const partialMissingDecision = order.items.some(
@@ -265,6 +290,10 @@ export default function OrderDetailScreen() {
       Alert.alert(
         "لا يمكن تأكيد التعديل",
         "جميع الأصناف غير متوفرة. يمكنك اختيار منتجات بديلة أو إلغاء الطلب.",
+        [
+          { text: "اختيار بديل", style: "cancel" },
+          { text: "إلغاء الطلب", style: "destructive", onPress: handleCustomerCancelOrder },
+        ]
       );
       return;
     }
@@ -1666,6 +1695,26 @@ export default function OrderDetailScreen() {
                 </Text>
               </Pressable>
             )}
+
+            <Pressable
+              onPress={handleCustomerCancelOrder}
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 14,
+                borderRadius: colors.radius,
+                borderWidth: 1,
+                borderColor: "#E74C3C66",
+                backgroundColor: "#E74C3C14",
+              }}
+            >
+              <Icon name="x-circle" size={18} color="#E74C3C" />
+              <Text style={{ color: "#E74C3C", fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                إلغاء الطلب
+              </Text>
+            </Pressable>
           </View>
         )}
 
