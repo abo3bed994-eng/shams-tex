@@ -22,7 +22,7 @@ const OUT_OF_STOCK_LABEL = "غير متوفر";
 export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, cart, settings, pricingView, setPricingView, canTogglePricing, effectivePriceMode } = useApp();
+  const { products, user, cart, settings, pricingView, setPricingView, canTogglePricing, effectivePriceMode, favorites } = useApp();
   const { t, isRTL } = useTranslation();
   const CATEGORIES = settings.categories.length > 0 ? settings.categories : [isRTL ? "الكل" : "All"];
   const [search, setSearch] = useState("");
@@ -82,6 +82,22 @@ export default function ProductsScreen() {
                 <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
                   <Text style={[styles.cartBadgeText, { color: colors.background }]}>
                     {cart.length}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+          {/* Favorites button for customers/merchants */}
+          {(user?.role === "customer" || user?.role === "merchant") && (
+            <Pressable
+              onPress={() => router.push("/favorites")}
+              style={({ pressed }) => [styles.cartHeaderBtn, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Icon name="heart" size={22} color={colors.foreground} />
+              {favorites.length > 0 && (
+                <View style={[styles.cartBadge, { backgroundColor: "#E74C3C" }]}>
+                  <Text style={[styles.cartBadgeText, { color: "#fff" }]}>
+                    {favorites.length}
                   </Text>
                 </View>
               )}

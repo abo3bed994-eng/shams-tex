@@ -23,7 +23,7 @@ import { filterNotificationsForUser } from "@/lib/notificationFilter";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, products, notifications, cart, settings, orders, onlineCount } = useApp();
+  const { user, products, notifications, cart, settings, orders, onlineCount, favorites } = useApp();
   const { t, isRTL } = useTranslation();
 
   const videos = settings.bannerVideoUris ?? [];
@@ -181,6 +181,13 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Icon name="heart" size={22} color={colors.foreground} />
+            {favorites.length > 0 && (
+              <View style={[styles.badge, { backgroundColor: "#E74C3C" }]}>
+                <Text style={[styles.badgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
+                  {favorites.length > 9 ? "9+" : favorites.length}
+                </Text>
+              </View>
+            )}
           </Pressable>
           <Pressable
             onPress={() => safePush("/cart")}
@@ -427,7 +434,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 18,
     borderWidth: 1,
-    height: 210,
+    height: 250,
     overflow: "hidden",
     position: "relative",
   },
