@@ -61,6 +61,7 @@ export interface User {
   bannedAt?: string;
   bannedReason?: string;
   addresses?: SavedAddress[];
+  favorites?: string[];
 }
 
 export interface ColorOption {
@@ -403,6 +404,9 @@ interface AppContextType {
   updateAddress: (addressId: string, patch: Partial<Omit<SavedAddress, "id">>) => Promise<void>;
   deleteAddress: (addressId: string) => Promise<void>;
   setDefaultAddress: (addressId: string) => Promise<void>;
+  favorites: string[];
+  isFavorite: (productId: string) => boolean;
+  toggleFavorite: (productId: string) => void;
   products: Product[];
   setProducts: (products: Product[]) => Promise<void>;
   addProductOne: (product: Product) => Promise<void>;
@@ -1017,7 +1021,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       freshRecord.vip !== currentUser.vip ||
       freshRecord.upgradeStatus !== currentUser.upgradeStatus ||
       freshRecord.name !== currentUser.name ||
-      JSON.stringify(freshRecord.permissions ?? []) !== JSON.stringify(currentUser.permissions ?? []);
+      JSON.stringify(freshRecord.permissions ?? []) !== JSON.stringify(currentUser.permissions ?? []) ||
+      JSON.stringify(freshRecord.favorites ?? []) !== JSON.stringify(currentUser.favorites ?? []);
     if (changed) {
       const synced: User = { ...currentUser, ...freshRecord };
 
@@ -1381,6 +1386,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!u || !u.addresses) return;
       const next = u.addresses.map((a) => ({ ...a, isDefault: a.id === addressId }));
       updateRegisteredCustomer({ ...u, addresses: next });
+    },
+    [updateRegisteredCustomer]
+  );
+
+  const favorites = user?.favorites ?? [];
+
+  const isFavorite = useCallback(
+    (productId: string) => (userRef.current?.favorites ?? []).includes(productId),
+    []
+  );
+
+  const toggleFavorite = useCallback(
+    (productId: string) => {
+      const u = userRef.current;
+      if (!u) return;
+      const existing = u.favorites ?? [];
+      const next = existing.includes(productId)
+        ? existing.filter((id) => id !== productId)
+        : [productId, ...existing];
+      updateRegisteredCustomer({ ...u, favorites: next });
     },
     [updateRegisteredCustomer]
   );
@@ -2463,6 +2488,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateAddress,
         deleteAddress,
         setDefaultAddress,
+        favorites,
+        isFavorite,
+        toggleFavorite,
         products,
         setProducts,
         addProductOne,

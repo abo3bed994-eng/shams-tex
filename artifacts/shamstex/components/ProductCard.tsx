@@ -12,7 +12,8 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, onPress }: ProductCardProps) {
   const colors = useColors();
-  const { effectivePriceMode } = useApp();
+  const { effectivePriceMode, user, isFavorite, toggleFavorite } = useApp();
+  const fav = isFavorite(product.id);
 
   const displayPrice =
     effectivePriceMode === "wholesale" ? product.wholesalePrice : product.retailPrice;
@@ -53,6 +54,19 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
           <Icon name="x-circle" size={12} color="#fff" />
           <Text style={[styles.outOfStockText, { fontFamily: "Inter_700Bold" }]}>نفذ المخزون</Text>
         </View>
+      )}
+
+      {user && (
+        <Pressable
+          onPress={() => toggleFavorite(product.id)}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.favBtn,
+            { top: isOutOfStock ? 44 : 10, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Icon name="heart" size={18} color={fav ? "#E74C3C" : "#fff"} />
+        </Pressable>
       )}
 
       <View style={styles.infoOverlay}>
@@ -138,6 +152,16 @@ const styles = StyleSheet.create({
   outOfStockText: {
     color: "#fff",
     fontSize: 11,
+  },
+  favBtn: {
+    position: "absolute",
+    left: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   infoOverlay: {
     position: "absolute",

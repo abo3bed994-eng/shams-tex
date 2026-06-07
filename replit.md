@@ -164,6 +164,16 @@ Expo React Native app for Shams Tex fabric company.
 - Weight orders: price = weight × unit price (shown immediately); cart has +/- weight controls
 - Piece orders: "Contact sales" message (no price shown)
 
+### Favorites (المفضّلة)
+- `User.favorites?: string[]` (product IDs) persisted on the customer Firestore doc; synced cross-device via the existing `subscribeCustomerByPhone` listener (must be listed in `syncUserWithRecords` change predicate)
+- `favorites` / `isFavorite(id)` / `toggleFavorite(id)` on AppContext (mirrors the addAddress → updateRegisteredCustomer pattern)
+- Heart toggle on ProductCard overlay + product detail header (GoldHeader rightElement); only shown when logged in
+- Entry point: heart icon in home header → `app/favorites.tsx` (most-recently-added first; skips deleted products)
+
+### Edit-Countdown Bar vs Toast
+- `lib/editOrder.ts` exports `EDIT_BAR_CONTENT_H`, `selectActiveEditOrder`, `isEditWindowLive` shared by `EditCountdownBar.tsx` and `Toast.tsx`
+- Toast shifts down by the bar height when an active edit window is live, so it isn't covered
+
 ## TypeScript & Composite Projects
 
 Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references.

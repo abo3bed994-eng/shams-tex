@@ -28,7 +28,7 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, addToCart, showToast, effectivePriceMode } = useApp();
+  const { products, user, addToCart, showToast, effectivePriceMode, isFavorite, toggleFavorite } = useApp();
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const imgScrollRef = useRef<ScrollView>(null);
@@ -420,6 +420,21 @@ export default function ProductDetailScreen() {
         title={product.name}
         subtitle={product.category}
         onBack={confirmLeave}
+        rightElement={
+          user ? (
+            <Pressable
+              onPress={() => toggleFavorite(product.id)}
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
+            >
+              <Icon
+                name="heart"
+                size={22}
+                color={isFavorite(product.id) ? "#E74C3C" : colors.foreground}
+              />
+            </Pressable>
+          ) : undefined
+        }
       />
 
       <ScrollView

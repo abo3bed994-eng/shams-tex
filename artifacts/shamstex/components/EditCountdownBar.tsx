@@ -6,12 +6,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "@/components/Icon";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { EDIT_BAR_CONTENT_H, selectActiveEditOrder } from "@/lib/editOrder";
 
 // Height of the visible countdown row (excluding the status-bar safe area). The
 // bar overlays the top of the screen via absolute positioning while a matching
 // flow spacer of this height pushes the screens below down, so the bar never
 // covers page content.
-const CONTENT_H = 40;
+const CONTENT_H = EDIT_BAR_CONTENT_H;
 
 export default function EditCountdownBar() {
   const { orders, user, setOrderEditable } = useApp();
@@ -21,18 +22,7 @@ export default function EditCountdownBar() {
   const closedRef = useRef<string | null>(null);
 
   // The current customer's order that is in an active (armed) edit window.
-  const editOrder = useMemo(() => {
-    if (!user || (user.role !== "customer" && user.role !== "merchant")) return null;
-    return (
-      orders.find(
-        (o) =>
-          o.editable &&
-          o.editableExpiresAt &&
-          o.status !== "cancelled" &&
-          o.userId === user.id
-      ) ?? null
-    );
-  }, [orders, user]);
+  const editOrder = useMemo(() => selectActiveEditOrder(orders, user), [orders, user]);
 
   useEffect(() => {
     if (!editOrder) return;

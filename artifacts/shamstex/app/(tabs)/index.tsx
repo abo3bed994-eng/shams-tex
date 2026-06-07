@@ -177,6 +177,12 @@ export default function HomeScreen() {
             )}
           </Pressable>
           <Pressable
+            onPress={() => safePush("/favorites")}
+            style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Icon name="heart" size={22} color={colors.foreground} />
+          </Pressable>
+          <Pressable
             onPress={() => safePush("/cart")}
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
           >

@@ -4,9 +4,10 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { EDIT_BAR_CONTENT_H, isEditWindowLive, selectActiveEditOrder } from "@/lib/editOrder";
 
 export default function Toast() {
-  const { toast } = useApp();
+  const { toast, orders, user } = useApp();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const opacity = useRef(new Animated.Value(0)).current;
@@ -28,7 +29,11 @@ export default function Toast() {
 
   const bgColor = toast.type === "success" ? colors.gold : "#E74C3C";
   const icon = toast.type === "success" ? "check-circle" : "alert-circle";
-  const topOffset = Platform.OS === "web" ? 20 : insets.top + 12;
+  // When the edit-countdown bar is occupying the top of the screen, drop the
+  // toast below it so it isn't half-covered.
+  const editBarLive = isEditWindowLive(selectActiveEditOrder(orders, user), Date.now());
+  const barShift = editBarLive ? EDIT_BAR_CONTENT_H : 0;
+  const topOffset = (Platform.OS === "web" ? 20 : insets.top + 12) + barShift;
 
   return (
     <Animated.View
