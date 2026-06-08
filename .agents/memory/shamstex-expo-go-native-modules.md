@@ -16,6 +16,13 @@ Expo Go binary will hard-crash the screen.
 
 **How to apply:** In this app, keyboard handling on touched screens (cart, addresses,
 any form) must use React Native's built-in `KeyboardAvoidingView` + `ScrollView`, not
-the keyboard-controller scroll views. The `KeyboardProvider` wrapper in `_layout.tsx`
-is harmless (no-ops without the native module) and can stay. Before adding any new
-library that has a native module, confirm it works under Expo Go or it will crash.
+the keyboard-controller scroll views. CORRECTION (was previously believed harmless):
+the `KeyboardProvider` wrapper does NOT no-op without the native module — mounting it at
+the root crashes `RootLayout` on launch in Expo Go (the app "exits immediately" /
+console shows "error occurred in the <RootLayout(./_layout.tsx)> component"). So the
+entire `react-native-keyboard-controller` dependency was removed (provider import +
+wrapper in `_layout.tsx`, the unused `KeyboardAwareScrollViewCompat` component, and the
+package.json dep). Do not re-add it unless the app moves to a custom dev build. Before
+adding any library with a native module, confirm it is in the Expo Go binary or it will
+crash on launch — a lazy `require()` inside a try/catch (as in `lib/phoneAuth.ts` for
+`@react-native-firebase/auth`) is the safe pattern for native modules used only in builds.
