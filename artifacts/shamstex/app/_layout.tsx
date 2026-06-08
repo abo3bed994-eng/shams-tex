@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { I18nManager, KeyboardAvoidingView, Platform, View } from "react-native";
+import { I18nManager, Platform, View } from "react-native";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
 import SplashScreenComponent from "@/components/SplashScreenComponent";
@@ -195,15 +195,9 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AppProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+            <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0A0A0A" }}>
               <KeyboardProvider>
-                <KeyboardAvoidingView
-                  style={{ flex: 1, backgroundColor: "#0A0A0A" }}
-                  behavior={Platform.OS === "ios" ? "padding" : undefined}
-                  keyboardVerticalOffset={0}
-                >
-                  <RootLayoutNav />
-                </KeyboardAvoidingView>
+                <RootLayoutNav />
               </KeyboardProvider>
             </GestureHandlerRootView>
           </AppProvider>

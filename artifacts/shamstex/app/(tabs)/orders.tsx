@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   Alert,
+  Animated,
   Platform,
   Pressable,
   ScrollView,
@@ -14,16 +15,18 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, Order, OrderStatus } from "@/context/AppContext";
+import { useCartPulse } from "@/hooks/useCartPulse";
 import { useTranslation } from "@/lib/i18n";
 import OrderCard from "@/components/OrderCard";
 
-type FilterType = "all" | "scheduled" | "pending" | "received" | "preparing" | "ready" | "delivered" | "cancelled" | "returns";
+type FilterType = "all" | "scheduled" | "pending" | "received" | "preparing" | "ready" | "ready_to_ship" | "shipped" | "delivered" | "cancelled" | "returns";
 
 
 export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, orders, updateOrderStatus, deleteOrder, cancelOrder, cart, returnRequests, updateReturnStatus, deleteReturnRequest } = useApp();
+  const cartPulse = useCartPulse(cart.reduce((sum, item) => sum + item.quantity, 0));
   const { t, isRTL } = useTranslation();
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
@@ -85,6 +88,8 @@ export default function OrdersScreen() {
     { key: "received", label: t("received"), count: myOrders.filter((o) => o.status === "received").length },
     { key: "preparing", label: t("preparing"), count: myOrders.filter((o) => o.status === "preparing").length },
     { key: "ready", label: t("ready"), count: myOrders.filter((o) => o.status === "ready").length },
+    { key: "ready_to_ship", label: t("ready_to_ship"), count: myOrders.filter((o) => o.status === "ready_to_ship").length },
+    { key: "shipped", label: t("shipped"), count: myOrders.filter((o) => o.status === "shipped").length },
     { key: "delivered", label: t("delivered"), count: myOrders.filter((o) => o.status === "delivered").length },
     { key: "cancelled", label: t("cancelled"), count: myOrders.filter((o) => o.status === "cancelled").length },
     { key: "returns", label: t("returns"), count: pendingReturnsCount },
@@ -135,14 +140,16 @@ export default function OrdersScreen() {
             onPress={() => router.push("/cart")}
             style={({ pressed }) => [styles.cartBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Icon name="shopping-cart" size={22} color={colors.foreground} />
-            {cart.length > 0 && (
-              <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
-                <Text style={[styles.cartBadgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
-                  {cart.length > 9 ? "9+" : cart.length}
-                </Text>
-              </View>
-            )}
+            <Animated.View style={{ transform: [{ scale: cartPulse }] }}>
+              <Icon name="shopping-cart" size={22} color={colors.foreground} />
+              {cart.length > 0 && (
+                <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
+                  <Text style={[styles.cartBadgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
+                    {cart.length > 9 ? "9+" : cart.length}
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
           </Pressable>
         )}
       </View>

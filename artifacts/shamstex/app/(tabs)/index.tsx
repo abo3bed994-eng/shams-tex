@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   AppState,
   Image,
   Platform,
@@ -16,6 +17,7 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useCartPulse } from "@/hooks/useCartPulse";
 import { useTranslation } from "@/lib/i18n";
 import ProductCard from "@/components/ProductCard";
 import { filterNotificationsForUser } from "@/lib/notificationFilter";
@@ -121,6 +123,7 @@ export default function HomeScreen() {
   const { isNotifReadForUser } = useApp();
   const unreadCount = myNotifications.filter((n) => !isNotifReadForUser(n)).length;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartPulse = useCartPulse(cartCount);
 
   const featuredProducts =
     settings.featuredProductIds.length > 0
@@ -193,14 +196,16 @@ export default function HomeScreen() {
             onPress={() => safePush("/cart")}
             style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Icon name="shopping-cart" size={22} color={colors.foreground} />
-            {cartCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: "#E74C3C" }]}>
-                <Text style={[styles.badgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
-                  {cartCount > 9 ? "9+" : cartCount}
-                </Text>
-              </View>
-            )}
+            <Animated.View style={{ transform: [{ scale: cartPulse }] }}>
+              <Icon name="shopping-cart" size={22} color={colors.foreground} />
+              {cartCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: "#E74C3C" }]}>
+                  <Text style={[styles.badgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
           </Pressable>
         </View>
 

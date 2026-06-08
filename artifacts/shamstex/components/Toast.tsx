@@ -11,7 +11,7 @@ export default function Toast() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-20)).current;
+  const translateY = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     if (toast.visible) {
@@ -21,7 +21,7 @@ export default function Toast() {
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(translateY, { toValue: -20, duration: 250, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 20, duration: 250, useNativeDriver: true }),
         Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
       ]).start();
     }
@@ -29,18 +29,16 @@ export default function Toast() {
 
   const bgColor = toast.type === "success" ? colors.gold : "#E74C3C";
   const icon = toast.type === "success" ? "check-circle" : "alert-circle";
-  // When the edit-countdown bar is occupying the top of the screen, drop the
-  // toast below it so it isn't half-covered.
-  const editBarLive = isEditWindowLive(selectActiveEditOrder(orders, user), Date.now());
-  const barShift = editBarLive ? EDIT_BAR_CONTENT_H : 0;
-  const topOffset = (Platform.OS === "web" ? 20 : insets.top + 12) + barShift;
+  // Show the toast near the bottom (above the tab bar / home indicator) so it
+  // never covers the cart icon and other action buttons in the top header.
+  const bottomOffset = (Platform.OS === "web" ? 24 : insets.bottom + 24) + 64;
 
   return (
     <Animated.View
       pointerEvents="none"
       style={[
         styles.container,
-        { top: topOffset, opacity, transform: [{ translateY }] },
+        { bottom: bottomOffset, opacity, transform: [{ translateY }] },
       ]}
     >
       <View style={[styles.pill, { backgroundColor: bgColor }]}>

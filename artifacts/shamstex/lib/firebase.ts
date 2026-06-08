@@ -275,7 +275,7 @@ export const FS = {
   },
 
   // Atomic claim: prevents two staff from receiving the same order at once.
-  async claimOrder(orderId: string, staffId: string, staffName: string, staffPhone?: string): Promise<{ ok: boolean; reason?: string; takenBy?: string }> {
+  async claimOrder(orderId: string, staffId: string, staffName: string, staffPhone?: string): Promise<{ ok: boolean; reason?: string; takenBy?: string; takenById?: string; takenByPhone?: string }> {
     try {
       const result = await runTransaction(db, async (tx) => {
         const ref = doc(db, "orders", orderId);
@@ -283,7 +283,13 @@ export const FS = {
         if (!snap.exists()) return { ok: false, reason: "not_found" } as const;
         const data = snap.data() as any;
         if (data.assignedTo && data.assignedTo !== staffId) {
-          return { ok: false, reason: "already_taken", takenBy: data.assignedToName ?? data.assignedTo } as const;
+          return {
+            ok: false,
+            reason: "already_taken",
+            takenBy: data.assignedToName ?? data.assignedTo,
+            takenById: data.assignedTo,
+            takenByPhone: data.assignedToPhone,
+          } as const;
         }
         const update: Record<string, any> = {
           status: "received",

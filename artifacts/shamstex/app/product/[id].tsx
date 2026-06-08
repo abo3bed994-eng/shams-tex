@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   BackHandler,
   Image,
   Modal,
@@ -19,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, CartItem } from "@/context/AppContext";
+import { useCartPulse } from "@/hooks/useCartPulse";
 import GoldButton from "@/components/GoldButton";
 import GoldHeader from "@/components/GoldHeader";
 
@@ -28,7 +30,9 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { products, user, addToCart, showToast, effectivePriceMode, favorites, toggleFavorite } = useApp();
+  const { products, user, cart, addToCart, showToast, effectivePriceMode, favorites, toggleFavorite } = useApp();
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartPulse = useCartPulse(cartCount);
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const imgScrollRef = useRef<ScrollView>(null);
@@ -421,19 +425,50 @@ export default function ProductDetailScreen() {
         subtitle={product.category}
         onBack={confirmLeave}
         rightElement={
-          user ? (
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 14 }}>
+            {user ? (
+              <Pressable
+                onPress={() => toggleFavorite(product.id)}
+                hitSlop={8}
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
+              >
+                <Icon
+                  name="heart"
+                  size={22}
+                  color={favorites.includes(product.id) ? "#E74C3C" : colors.foreground}
+                />
+              </Pressable>
+            ) : null}
             <Pressable
-              onPress={() => toggleFavorite(product.id)}
+              onPress={() => router.push("/cart")}
               hitSlop={8}
               style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
             >
-              <Icon
-                name="heart"
-                size={22}
-                color={favorites.includes(product.id) ? "#E74C3C" : colors.foreground}
-              />
+              <Animated.View style={{ transform: [{ scale: cartPulse }] }}>
+                <Icon name="shopping-cart" size={22} color={colors.foreground} />
+                {cartCount > 0 && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -6,
+                      left: -8,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      paddingHorizontal: 3,
+                      backgroundColor: "#E74C3C",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontSize: 9, fontFamily: "Inter_700Bold" }}>
+                      {cartCount > 9 ? "9+" : cartCount}
+                    </Text>
+                  </View>
+                )}
+              </Animated.View>
             </Pressable>
-          ) : undefined
+          </View>
         }
       />
 

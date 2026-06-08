@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   ScrollView,
@@ -14,6 +15,7 @@ import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
+import { useCartPulse } from "@/hooks/useCartPulse";
 import { useTranslation } from "@/lib/i18n";
 import ProductCard from "@/components/ProductCard";
 
@@ -23,6 +25,7 @@ export default function ProductsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { products, user, cart, settings, pricingView, setPricingView, canTogglePricing, effectivePriceMode, favorites } = useApp();
+  const cartPulse = useCartPulse(cart.reduce((sum, item) => sum + item.quantity, 0));
   const { t, isRTL } = useTranslation();
   const CATEGORIES = settings.categories.length > 0 ? settings.categories : [isRTL ? "الكل" : "All"];
   const [search, setSearch] = useState("");
@@ -77,14 +80,16 @@ export default function ProductsScreen() {
               onPress={() => router.push("/cart")}
               style={({ pressed }) => [styles.cartHeaderBtn, { opacity: pressed ? 0.6 : 1 }]}
             >
-              <Icon name="shopping-cart" size={22} color={colors.foreground} />
-              {cart.length > 0 && (
-                <View style={[styles.cartBadge, { backgroundColor: "#E74C3C" }]}>
-                  <Text style={[styles.cartBadgeText, { color: "#fff" }]}>
-                    {cart.length}
-                  </Text>
-                </View>
-              )}
+              <Animated.View style={{ transform: [{ scale: cartPulse }] }}>
+                <Icon name="shopping-cart" size={22} color={colors.foreground} />
+                {cart.length > 0 && (
+                  <View style={[styles.cartBadge, { backgroundColor: "#E74C3C" }]}>
+                    <Text style={[styles.cartBadgeText, { color: "#fff" }]}>
+                      {cart.length}
+                    </Text>
+                  </View>
+                )}
+              </Animated.View>
             </Pressable>
           )}
           {/* Favorites button for customers/merchants */}

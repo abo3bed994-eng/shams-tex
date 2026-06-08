@@ -1745,38 +1745,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       pendingOrderUpdatesRef.current.set(orderId, Date.now());
       AsyncStorage.setItem("orders", JSON.stringify(updated)).catch(() => {});
 
-      // Atomic claim runs in BACKGROUND for "received" — UI already moved.
-      // If another staff already claimed it, revert UI + alert.
-      if (status === "received" && assignedToId) {
-        FS.claimOrder(orderId, assignedToId, assignedToName ?? "موظف", claimerPhone).then((claim) => {
-          if (!claim.ok && claim.reason === "already_taken") {
-            // Someone else got it first → revert our optimistic update
-            const reverted = ordersRef.current.map((o) => (o.id === orderId ? prevOrder : o));
-            ordersRef.current = reverted;
-            setOrdersState(reverted);
-            AsyncStorage.setItem("orders", JSON.stringify(reverted)).catch(() => {});
-            pendingOrderUpdatesRef.current.delete(orderId);
-            Alert.alert("الطلب محجوز", `استلم هذا الطلب الموظف ${claim.takenBy ?? ""} قبل قليل.`);
-          } else if (!claim.ok) {
-            // Transaction failed (network) — retry via saveOrder as a fallback
-            saveOrderWithRetry(updatedOrder, orderId);
-          } else {
-            // Claim succeeded — the claim transaction only writes status/assignment
-            // fields, so if we cleared a stale invoice, persist the full order
-            // (setDoc full overwrite) to actually drop invoiceImage in Firestore.
-            if (invoiceCleared) saveOrderWithRetry(updatedOrder, orderId);
-            // Clear pending flag after a short grace window
-            setTimeout(() => pendingOrderUpdatesRef.current.delete(orderId), 3000);
-          }
-        }).catch(() => {
-          saveOrderWithRetry(updatedOrder, orderId);
-        });
-      } else {
-        saveOrderWithRetry(updatedOrder, orderId);
-      }
-
-      // Notifications fire regardless (they're per-status, idempotent by id)
-      {
+      // Send the customer status notification. For "received" this is only
+      // called AFTER a successful atomic claim, so a staff member who lost the
+      // race never notifies the customer (prevents duplicate "تم استلام طلبك").
+      const sendStatusNotif = () => {
         const statusLabels: Record<string, string> = {
           received: "تم استلام طلبك",
           preparing: "طلبك قيد التجهيز",
@@ -1786,27 +1758,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           delivered: "تم تسليم طلبك بنجاح",
           pending: "تم إلغاء استلام طلبك — سيتم مراجعته مجدداً",
         };
-        if (statusLabels[status]) {
-          const custNotif: Notification = {
-            id: `notif_status_${orderId}_${status}_${Date.now()}`,
-            title: statusLabels[status],
-            body: `تم تحديث حالة طلبك #${orderId.slice(0, 8)}`,
-            createdAt: new Date().toISOString(),
-            read: false,
-            targetUserId: updatedOrder.userId,
-            targetUserPhone: updatedOrder.userPhone,
-            linkedOrderId: orderId,
-          };
-          FS.saveNotification(custNotif).catch(() => {});
-          if (updatedOrder.userPhone) {
-            notifyUserByPhone(
-              updatedOrder.userPhone,
-              statusLabels[status],
-              `طلبك #${orderId.slice(0, 8)} — ${statusLabels[status]}`,
-              { type: "order_status", orderId, status }
-            ).catch(() => {});
-          }
+        if (!statusLabels[status]) return;
+        const custNotif: Notification = {
+          id: `notif_status_${orderId}_${status}_${Date.now()}`,
+          title: statusLabels[status],
+          body: `تم تحديث حالة طلبك #${orderId.slice(0, 8)}`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          targetUserId: updatedOrder.userId,
+          targetUserPhone: updatedOrder.userPhone,
+          linkedOrderId: orderId,
+        };
+        FS.saveNotification(custNotif).catch(() => {});
+        if (updatedOrder.userPhone) {
+          notifyUserByPhone(
+            updatedOrder.userPhone,
+            statusLabels[status],
+            `طلبك #${orderId.slice(0, 8)} — ${statusLabels[status]}`,
+            { type: "order_status", orderId, status }
+          ).catch(() => {});
         }
+      };
+
+      // Atomic claim runs in BACKGROUND for "received" — UI already moved.
+      // If another staff already claimed it, reflect the winner + alert.
+      if (status === "received" && assignedToId) {
+        FS.claimOrder(orderId, assignedToId, assignedToName ?? "موظف", claimerPhone).then((claim) => {
+          if (!claim.ok && claim.reason === "already_taken") {
+            // Someone else got it first → show the order as received by the
+            // winner so OUR receive button hides immediately (and we do NOT
+            // notify the customer — we never actually claimed it).
+            const takenOrder: Order = {
+              ...prevOrder,
+              status: "received",
+              assignedTo: claim.takenById ?? prevOrder.assignedTo,
+              assignedToName: claim.takenBy ?? prevOrder.assignedToName,
+              assignedToPhone: claim.takenByPhone ?? prevOrder.assignedToPhone,
+            };
+            const reverted = ordersRef.current.map((o) => (o.id === orderId ? takenOrder : o));
+            ordersRef.current = reverted;
+            setOrdersState(reverted);
+            AsyncStorage.setItem("orders", JSON.stringify(reverted)).catch(() => {});
+            pendingOrderUpdatesRef.current.delete(orderId);
+            Alert.alert("الطلب محجوز", `استلم هذا الطلب الموظف ${claim.takenBy ?? ""} قبل قليل.`);
+          } else if (!claim.ok) {
+            // Transaction failed (network) — retry via saveOrder as a fallback
+            saveOrderWithRetry(updatedOrder, orderId);
+            sendStatusNotif();
+          } else {
+            // Claim succeeded — the claim transaction only writes status/assignment
+            // fields, so if we cleared a stale invoice, persist the full order
+            // (setDoc full overwrite) to actually drop invoiceImage in Firestore.
+            if (invoiceCleared) saveOrderWithRetry(updatedOrder, orderId);
+            // Clear pending flag after a short grace window
+            setTimeout(() => pendingOrderUpdatesRef.current.delete(orderId), 3000);
+            sendStatusNotif();
+          }
+        }).catch(() => {
+          saveOrderWithRetry(updatedOrder, orderId);
+          sendStatusNotif();
+        });
+      } else {
+        saveOrderWithRetry(updatedOrder, orderId);
+        sendStatusNotif();
       }
     },
     []

@@ -288,99 +288,90 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-          <View style={styles.themeHeader}>
-            <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
-            <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              {isRTL ? "مظهر التطبيق" : "Appearance"}
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme(themeResolved === "dark" ? "light" : "dark"); }}
-            style={{
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              borderWidth: 1,
-              borderRadius: colors.radius - 4,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-            }}
-          >
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
-              <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={18} color={colors.gold} />
-              <Text style={[styles.themeBtnText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-                {themeResolved === "dark"
-                  ? (isRTL ? "الوضع الداكن" : "Dark mode")
-                  : (isRTL ? "الوضع الفاتح" : "Light mode")}
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 12 }}>
+          <View style={[styles.themeCard, { flex: 1, backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View style={styles.themeHeader}>
+              <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={20} color={colors.gold} />
+              <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                {isRTL ? "المظهر" : "Appearance"}
               </Text>
             </View>
-            <View
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTheme(themeResolved === "dark" ? "light" : "dark"); }}
               style={{
-                width: 48,
-                height: 28,
-                borderRadius: 14,
-                padding: 3,
-                flexDirection: "row",
-                justifyContent: themeResolved === "dark" ? "flex-end" : "flex-start",
-                backgroundColor: themeResolved === "dark" ? colors.gold + "55" : colors.border,
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: colors.radius - 4,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
               }}
             >
+              <Text style={[styles.themeBtnText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                {themeResolved === "dark" ? (isRTL ? "داكن" : "Dark") : (isRTL ? "فاتح" : "Light")}
+              </Text>
               <View
                 style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: colors.gold,
-                  alignItems: "center",
-                  justifyContent: "center",
+                  width: 48,
+                  height: 28,
+                  borderRadius: 14,
+                  padding: 3,
+                  flexDirection: "row",
+                  justifyContent: themeResolved === "dark" ? "flex-end" : "flex-start",
+                  backgroundColor: themeResolved === "dark" ? colors.gold + "55" : colors.border,
                 }}
               >
-                <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={12} color={colors.background} />
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}>
+                  <Icon name={themeResolved === "dark" ? "moon" : "sun"} size={12} color={colors.background} />
+                </View>
               </View>
-            </View>
-          </Pressable>
-        </View>
-
-        <View style={[styles.themeCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-          <View style={styles.themeHeader}>
-            <Icon name="globe" size={20} color={colors.gold} />
-            <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              {language === "ar" ? "اللغة" : "Language"}
-            </Text>
-          </View>
-          <View style={styles.themeButtons}>
-            <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLanguage("ar"); }}
-              style={[
-                styles.themeBtn,
-                {
-                  backgroundColor: language === "ar" ? colors.gold : colors.surface,
-                  borderColor: language === "ar" ? colors.gold : colors.border,
-                  borderRadius: colors.radius - 4,
-                },
-              ]}
-            >
-              <Text style={[styles.themeBtnText, { color: language === "ar" ? colors.background : colors.mutedForeground, fontFamily: language === "ar" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                العربية
-              </Text>
             </Pressable>
-            <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLanguage("en"); }}
-              style={[
-                styles.themeBtn,
-                {
-                  backgroundColor: language === "en" ? colors.gold : colors.surface,
-                  borderColor: language === "en" ? colors.gold : colors.border,
-                  borderRadius: colors.radius - 4,
-                },
-              ]}
-            >
-              <Text style={[styles.themeBtnText, { color: language === "en" ? colors.background : colors.mutedForeground, fontFamily: language === "en" ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                English
+          </View>
+
+          <View style={[styles.themeCard, { flex: 1, backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View style={styles.themeHeader}>
+              <Icon name="globe" size={20} color={colors.gold} />
+              <Text style={[styles.themeTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+                {language === "ar" ? "اللغة" : "Language"}
               </Text>
+            </View>
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLanguage(language === "ar" ? "en" : "ar"); }}
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: colors.radius - 4,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+              }}
+            >
+              <Text style={[styles.themeBtnText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
+                {language === "ar" ? "العربية" : "English"}
+              </Text>
+              <View
+                style={{
+                  width: 48,
+                  height: 28,
+                  borderRadius: 14,
+                  padding: 3,
+                  flexDirection: "row",
+                  justifyContent: language === "en" ? "flex-end" : "flex-start",
+                  backgroundColor: colors.gold + "55",
+                }}
+              >
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 9, fontFamily: "Inter_700Bold", color: colors.background }}>
+                    {language === "ar" ? "ع" : "EN"}
+                  </Text>
+                </View>
+              </View>
             </Pressable>
           </View>
         </View>
