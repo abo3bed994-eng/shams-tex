@@ -159,7 +159,13 @@ export default function CartScreen() {
     .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
   const piecesEstTotal = cart
     .filter((i) => i.orderType === "pieces")
-    .reduce((a, b) => a + (b.actualWeight ?? (b.quantity * (b.unit === "meter" ? 100 : 20))) * b.unitPrice, 0);
+    .reduce((a, b) => {
+      const pb = b.unit === "meter" ? 100 : 20;
+      const cap = b.stockStatus === "partial" && b.availableQuantity != null ? b.availableQuantity : b.editMaxQty;
+      const raw = b.actualWeight ?? (b.quantity * pb);
+      const eff = cap != null ? Math.min(raw, cap) : raw;
+      return a + eff * b.unitPrice;
+    }, 0);
   const totalPrice = weightTotal + piecesEstTotal;
 
   const hasPiecesOrder = cart.some((i) => i.orderType === "pieces");
@@ -249,7 +255,7 @@ export default function CartScreen() {
     for (const item of weightItems) {
       // Items capped by a staff "partial availability" edit may legitimately fall
       // below the normal minimum, so skip the minimum check for them.
-      if (item.editMaxQty != null) continue;
+      if (item.editMaxQty != null || item.stockStatus === "partial") continue;
       const prod = products.find((p) => p.id === item.productId);
       const minW = prod?.unit === "meter" ? 100 : 20;
       const unitName = prod?.unit === "meter" ? "متر" : "كغ";
@@ -623,7 +629,7 @@ export default function CartScreen() {
                   const perBolt = prod?.unit === "meter" ? 100 : 20;
                   const minW = perBolt;
                   const bolts = Math.floor((item.weight ?? 0) / perBolt);
-                  const cap = item.editMaxQty;
+                  const cap = item.stockStatus === "partial" && item.availableQuantity != null ? item.availableQuantity : item.editMaxQty;
                   const wKey = `${item.productId}_${item.colorName}`;
                   const bKey = `bolt_${item.productId}_${item.colorName}`;
                   const fmt = (n: number) => Math.round(n * 100) / 100;
@@ -719,7 +725,9 @@ export default function CartScreen() {
                   const unitName = item.unit === "meter" ? "متر" : "كغ";
                   const perBolt = item.unit === "meter" ? 100 : 20;
                   const isEdit = !!editOrderId;
-                  const aw = item.actualWeight ?? (item.quantity * perBolt);
+                  const cap = item.stockStatus === "partial" && item.availableQuantity != null ? item.availableQuantity : item.editMaxQty;
+                  const rawAw = item.actualWeight ?? (item.quantity * perBolt);
+                  const aw = cap != null ? Math.min(rawAw, cap) : rawAw;
                   const awKey = `aw_${item.productId}_${item.colorName}`;
                   const fmt = (n: number) => Math.round(n * 100) / 100;
                   return (
@@ -775,6 +783,11 @@ export default function CartScreen() {
 
                   {isEdit && (
                     <>
+                      {cap != null && (
+                        <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
+                          الحد الأقصى المتوفر: {fmt(cap)} {unitName}
+                        </Text>
+                      )}
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
                         {item.unit === "meter" ? "الأمتار الفعلية (متر):" : "الوزن الفعلي (كغ):"}
                       </Text>
@@ -800,7 +813,7 @@ export default function CartScreen() {
                         />
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{unitName}</Text>
                         <Pressable
-                          onPress={() => updateCartActualWeight(item.productId, item.colorName, aw + 1)}
+                          onPress={() => updateCartActualWeight(item.productId, item.colorName, cap != null ? Math.min(aw + 1, cap) : aw + 1)}
                           style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
                         >
                           <Icon name="plus" size={14} color={colors.background} />

@@ -2429,11 +2429,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCart((prev) =>
         weight <= 0
           ? prev.filter((c) => !(c.productId === productId && c.colorName === colorName))
-          : prev.map((c) =>
-              c.productId === productId && c.colorName === colorName
-                ? { ...c, weight: c.editMaxQty != null ? Math.min(weight, c.editMaxQty) : weight }
-                : c
-            )
+          : prev.map((c) => {
+              if (!(c.productId === productId && c.colorName === colorName)) return c;
+              const cap =
+                c.stockStatus === "partial" && c.availableQuantity != null
+                  ? c.availableQuantity
+                  : c.editMaxQty;
+              return { ...c, weight: cap != null ? Math.min(weight, cap) : weight };
+            })
       );
     },
     []
@@ -2442,11 +2445,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateCartActualWeight = useCallback(
     (productId: string, colorName: string, actualWeight: number) => {
       setCart((prev) =>
-        prev.map((c) =>
-          c.productId === productId && c.colorName === colorName
-            ? { ...c, actualWeight: actualWeight > 0 ? actualWeight : undefined }
-            : c
-        )
+        prev.map((c) => {
+          if (!(c.productId === productId && c.colorName === colorName)) return c;
+          if (actualWeight <= 0) return { ...c, actualWeight: undefined };
+          const cap =
+            c.stockStatus === "partial" && c.availableQuantity != null
+              ? c.availableQuantity
+              : c.editMaxQty;
+          return { ...c, actualWeight: cap != null ? Math.min(actualWeight, cap) : actualWeight };
+        })
       );
     },
     []
