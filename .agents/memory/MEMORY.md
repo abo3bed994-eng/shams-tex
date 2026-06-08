@@ -7,5 +7,5 @@
 - [Shams Tex Firestore deep strip](shamstex-firestore-deep-strip.md) — stripUndefined in lib/firebase.ts must be recursive; nested undefined in order.items breaks setDoc ("تعذّر حفظ التغيير").
 - [Shams Tex Icon mapping](shamstex-icon-mapping.md) — Icon.tsx renders null for unmapped keys; keep SOCIAL_ICONS / `Icon name="x"` in sync with its map (typecheck won't catch it).
 - [Shams Tex Expo Go native modules](shamstex-expo-go-native-modules.md) — react-native-keyboard-controller crashes in Expo Go; ALL form screens use built-in KeyboardAvoidingView (behavior height on Android), never KeyboardAwareScrollView.
-- [Shams Tex Expo Go mode](shamstex-expo-go-mode.md) — expo-dev-client forces dev-build mode; dev script needs `--go` or Expo Go exits immediately ("لا يدخل").
+- [Shams Tex Expo Go mode](shamstex-expo-go-mode.md) — won't open on Expo Go: dev script needs `--go` (expo-dev-client forces dev-build); "opens then closes" = native module version mismatch (e.g. netinfo 12 vs SDK's 11.4.1), align via expo install --fix.
 - [Shams Tex upload path/rules contract](shamstex-upload-rules.md) — client upload folders must match storage.rules exactly or every upload silently fails by default-deny; rules are inert until `firebase deploy --only storage`.
