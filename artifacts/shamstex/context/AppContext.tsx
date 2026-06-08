@@ -452,6 +452,7 @@ interface AppContextType {
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   updateCartWeight: (productId: string, colorName: string, weight: number) => void;
+  updateCartActualWeight: (productId: string, colorName: string, actualWeight: number) => void;
   settings: AppSettings;
   setSettings: (settings: AppSettings) => Promise<void>;
   theme: AppTheme;
@@ -2438,6 +2439,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const updateCartActualWeight = useCallback(
+    (productId: string, colorName: string, actualWeight: number) => {
+      setCart((prev) =>
+        prev.map((c) =>
+          c.productId === productId && c.colorName === colorName
+            ? { ...c, actualWeight: actualWeight > 0 ? actualWeight : undefined }
+            : c
+        )
+      );
+    },
+    []
+  );
+
   const setSettings = useCallback(async (s: AppSettings) => {
     setSettingsState(s);
     await AsyncStorage.setItem("settings", JSON.stringify(s));
@@ -2550,6 +2564,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markNotificationRead,
         markAllNotificationsRead,
         updateCartWeight,
+        updateCartActualWeight,
         settings,
         setSettings,
         theme,

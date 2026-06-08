@@ -8,4 +8,5 @@
 - [Shams Tex Icon mapping](shamstex-icon-mapping.md) — Icon.tsx renders null for unmapped keys; keep SOCIAL_ICONS / `Icon name="x"` in sync with its map (typecheck won't catch it).
 - [Shams Tex Expo Go native modules](shamstex-expo-go-native-modules.md) — react-native-keyboard-controller crashes in Expo Go; ALL form screens use built-in KeyboardAvoidingView (behavior height on Android), never KeyboardAwareScrollView.
 - [Shams Tex Expo Go mode](shamstex-expo-go-mode.md) — won't open on Expo Go: dev script needs `--go` (expo-dev-client forces dev-build); "opens then closes" = native module version mismatch (e.g. netinfo 12 vs SDK's 11.4.1), align via expo install --fix.
+- [Shams Tex light-theme gold](shamstex-light-theme-gold.md) — gold token is used as TEXT everywhere; light-theme gold must stay deep (~#8C6D14, ≥4.5:1), bright gold looks faded AND fails contrast; goldLight is decoration-only.
 - [Shams Tex upload path/rules contract](shamstex-upload-rules.md) — client upload folders must match storage.rules exactly or every upload silently fails by default-deny; rules are inert until `firebase deploy --only storage`.

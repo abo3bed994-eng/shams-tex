@@ -19,7 +19,7 @@ import { useCartPulse } from "@/hooks/useCartPulse";
 import { useTranslation } from "@/lib/i18n";
 import OrderCard from "@/components/OrderCard";
 
-type FilterType = "all" | "scheduled" | "pending" | "received" | "preparing" | "ready" | "ready_to_ship" | "shipped" | "delivered" | "cancelled" | "returns";
+type FilterType = "all" | "scheduled" | "pending" | "received" | "preparing" | "ready" | "ready_to_ship" | "ready_combined" | "shipped" | "delivered" | "cancelled" | "returns";
 
 
 export default function OrdersScreen() {
@@ -49,7 +49,14 @@ export default function OrdersScreen() {
     return { pending, preparing, delivered, totalRevenue };
   }, [myOrders]);
 
-  const statusFiltered = filter === "all" ? myOrders : filter === "returns" ? [] : myOrders.filter((o) => o.status === filter);
+  const statusFiltered =
+    filter === "all"
+      ? myOrders
+      : filter === "returns"
+      ? []
+      : filter === "ready_combined"
+      ? myOrders.filter((o) => o.status === "ready" || o.status === "ready_to_ship")
+      : myOrders.filter((o) => o.status === filter);
 
   const filteredUnsorted = isStaff && search.trim()
     ? statusFiltered.filter((o) =>
@@ -87,8 +94,7 @@ export default function OrdersScreen() {
     { key: "pending", label: t("newOrder"), count: myOrders.filter((o) => o.status === "pending").length },
     { key: "received", label: t("received"), count: myOrders.filter((o) => o.status === "received").length },
     { key: "preparing", label: t("preparing"), count: myOrders.filter((o) => o.status === "preparing").length },
-    { key: "ready", label: t("ready"), count: myOrders.filter((o) => o.status === "ready").length },
-    { key: "ready_to_ship", label: t("ready_to_ship"), count: myOrders.filter((o) => o.status === "ready_to_ship").length },
+    { key: "ready_combined", label: "جاهز للاستلام/الشحن", count: myOrders.filter((o) => o.status === "ready" || o.status === "ready_to_ship").length },
     { key: "shipped", label: t("shipped"), count: myOrders.filter((o) => o.status === "shipped").length },
     { key: "delivered", label: t("delivered"), count: myOrders.filter((o) => o.status === "delivered").length },
     { key: "cancelled", label: t("cancelled"), count: myOrders.filter((o) => o.status === "cancelled").length },

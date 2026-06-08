@@ -35,38 +35,38 @@ const colors = {
   },
 
   light: {
-    text: "#221D14",
-    tint: "#B8923A",
+    text: "#1A1206",
+    tint: "#8C6D14",
 
-    background: "#F5EDDA",
-    foreground: "#221D14",
+    background: "#FBF7EF",
+    foreground: "#1A1206",
 
     card: "#FFFFFF",
-    cardForeground: "#221D14",
+    cardForeground: "#1A1206",
 
-    primary: "#B8923A",
+    primary: "#8C6D14",
     primaryForeground: "#FFFFFF",
 
-    secondary: "#EFE5CF",
-    secondaryForeground: "#221D14",
+    secondary: "#F3E9D2",
+    secondaryForeground: "#1A1206",
 
-    muted: "#EFE5CF",
-    mutedForeground: "#675A41",
+    muted: "#F2E8D1",
+    mutedForeground: "#6E5E3C",
 
-    accent: "#B8923A",
+    accent: "#8C6D14",
     accentForeground: "#FFFFFF",
 
     destructive: "#C0392B",
     destructiveForeground: "#ffffff",
 
-    border: "#C7B27F",
-    input: "#F7F0E0",
+    border: "#E7DAB9",
+    input: "#F8F1E2",
 
-    gold: "#B8923A",
-    goldLight: "#D4AA55",
-    goldDark: "#8A6B20",
+    gold: "#8C6D14",
+    goldLight: "#DCB94E",
+    goldDark: "#5C4709",
     surface: "#FFFFFF",
-    surfaceElevated: "#FFFFFF",
+    surfaceElevated: "#FBF4E2",
   },
 
   radius: 12,
