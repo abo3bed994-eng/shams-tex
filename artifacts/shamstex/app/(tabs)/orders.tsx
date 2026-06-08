@@ -483,8 +483,8 @@ const styles = StyleSheet.create({
   cartBtn: { width: 42, height: 42, alignItems: "center", justifyContent: "center", position: "relative" as const },
   cartBadge: {
     position: "absolute" as const,
-    top: 4,
-    right: 2,
+    top: -6,
+    right: 0,
     minWidth: 16,
     height: 16,
     borderRadius: 8,

@@ -342,8 +342,8 @@ const styles = StyleSheet.create({
   },
   cartBadge: {
     position: "absolute",
-    top: 2,
-    left: 2,
+    top: -6,
+    left: -2,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
