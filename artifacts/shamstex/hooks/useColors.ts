@@ -8,5 +8,5 @@ export function useColors() {
   const resolved: "dark" | "light" =
     theme === "system" ? (systemScheme === "light" ? "light" : "dark") : theme;
   const palette = resolved === "light" ? colors.light : colors.dark;
-  return { ...palette, radius: colors.radius };
+  return { ...palette, radius: colors.radius, isDark: resolved === "dark" };
 }

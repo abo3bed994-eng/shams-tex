@@ -323,16 +323,18 @@ export default function ProductDetailScreen() {
                     <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
                       {color.name}
                     </Text>
-                    <View
-                      style={[
-                        styles.colorSwatch,
-                        {
-                          backgroundColor: color.hex,
-                          borderColor: colors.border,
-                          borderWidth: color.hex === "#FFFFFF" || color.hex === "#FEFEFE" ? 1 : 0,
-                        },
-                      ]}
-                    />
+                    <View style={[styles.colorRing, w > 0 && { borderColor: colors.gold }]}>
+                      <View
+                        style={[
+                          styles.colorSwatch,
+                          {
+                            backgroundColor: color.hex,
+                            borderColor: colors.border,
+                            borderWidth: color.hex === "#FFFFFF" || color.hex === "#FEFEFE" ? 1 : 0,
+                          },
+                        ]}
+                      />
+                    </View>
                   </View>
                 </View>
               );
@@ -372,16 +374,18 @@ export default function ProductDetailScreen() {
                   <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
                     {color.name}
                   </Text>
-                  <View
-                    style={[
-                      styles.colorSwatch,
-                      {
-                        backgroundColor: color.hex,
-                        borderColor: colors.border,
-                        borderWidth: color.hex === "#FFFFFF" || color.hex === "#FEFEFE" ? 1 : 0,
-                      },
-                    ]}
-                  />
+                  <View style={[styles.colorRing, qty > 0 && { borderColor: colors.gold }]}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        {
+                          backgroundColor: color.hex,
+                          borderColor: colors.border,
+                          borderWidth: color.hex === "#FFFFFF" || color.hex === "#FEFEFE" ? 1 : 0,
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
               </View>
             );
@@ -813,6 +817,12 @@ const styles = StyleSheet.create({
   colorRowRight: { flexDirection: "row-reverse", alignItems: "center", gap: 8, flex: 1 },
   colorRowLeft: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
   colorSwatch: { width: 24, height: 24, borderRadius: 12 },
+  colorRing: {
+    padding: 2,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
   colorName: { fontSize: 13, flex: 1, textAlign: "right" },
   qtyBtn: {
     width: 28,

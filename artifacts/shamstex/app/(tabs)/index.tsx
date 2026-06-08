@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -264,7 +265,12 @@ export default function HomeScreen() {
             />
           )}
 
-          <View style={[styles.bannerOverlay, { backgroundColor: "rgba(0,0,0,0.35)" }]} pointerEvents="none" />
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.78)"]}
+            locations={[0, 0.5, 1]}
+            style={styles.bannerOverlay}
+            pointerEvents="none"
+          />
 
           <View style={styles.bannerNameRow} pointerEvents="none">
             <View style={styles.bannerNamePill}>
@@ -448,7 +454,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 52,
+    height: 120,
   },
   bannerNameRow: {
     position: "absolute",
@@ -551,7 +557,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  sectionTitle: { fontSize: 18 },
-  seeAll: { fontSize: 13 },
+  sectionTitle: { fontSize: 20, letterSpacing: 0.2 },
+  seeAll: { fontSize: 12.5 },
   emptyText: { textAlign: "center", fontSize: 14, paddingVertical: 20 },
 });
