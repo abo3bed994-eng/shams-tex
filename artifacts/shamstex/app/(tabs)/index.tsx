@@ -198,14 +198,14 @@ export default function HomeScreen() {
           >
             <Animated.View style={{ transform: [{ scale: cartPulse }] }}>
               <Icon name="shopping-cart" size={22} color={colors.foreground} />
-              {cartCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: "#E74C3C" }]}>
-                  <Text style={[styles.badgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
-                    {cartCount > 9 ? "9+" : cartCount}
-                  </Text>
-                </View>
-              )}
             </Animated.View>
+            {cartCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: "#E74C3C" }]}>
+                <Text style={[styles.badgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
+                  {cartCount > 9 ? "9+" : cartCount}
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
 
