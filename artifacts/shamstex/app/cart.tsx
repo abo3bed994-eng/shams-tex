@@ -338,10 +338,14 @@ export default function CartScreen() {
           Alert.alert(
             "تم استلام طلبك ✓",
             `طلبك خارج أوقات العمل، تم تعليقه وسيصل تلقائياً لفريق العمل عند بدء الدوام (${when}).\n\nسيصلك إشعار فور بدء العمل عليه.`,
-            [{ text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) }]
+            [
+              { text: "استمرار التسوق", style: "cancel", onPress: () => router.replace("/(tabs)") },
+              { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
+            ]
           );
         } else {
           Alert.alert("تم إرسال الطلب!", "سيتواصل معك فريق المبيعات قريباً.", [
+            { text: "استمرار التسوق", style: "cancel", onPress: () => router.replace("/(tabs)") },
             { text: "عرض الطلب", onPress: () => router.replace(`/order/${order.id}`) },
           ]);
         }
