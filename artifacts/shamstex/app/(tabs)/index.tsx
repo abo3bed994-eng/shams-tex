@@ -268,8 +268,8 @@ export default function HomeScreen() {
           )}
 
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.78)"]}
-            locations={[0, 0.5, 1]}
+            colors={["transparent", "rgba(0,0,0,0.45)", "rgba(0,0,0,0.95)"]}
+            locations={[0, 0.45, 1]}
             style={styles.bannerOverlay}
             pointerEvents="none"
           />
@@ -278,13 +278,13 @@ export default function HomeScreen() {
             <View style={styles.bannerNamePill}>
               <View style={styles.bannerNameTop}>
                 <Text style={styles.bannerGreeting}>{t("welcomeUser")}</Text>
-                <Text style={styles.bannerUserName} numberOfLines={1}>
+                <Text style={[styles.bannerUserName, { color: colors.goldLight }]} numberOfLines={1}>
                   {user?.name ?? t("guest")}
                 </Text>
               </View>
               {!!settings.bannerCaption?.trim() && (
                 <Text
-                  style={[styles.bannerCaption, { color: colors.goldLight }]}
+                  style={[styles.bannerCaption, { color: "#FFFFFF" }]}
                   numberOfLines={2}
                 >
                   {settings.bannerCaption.trim()}

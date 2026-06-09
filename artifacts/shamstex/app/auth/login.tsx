@@ -24,6 +24,7 @@ import CountryPicker from "@/components/CountryPicker";
 import { COUNTRIES, DEFAULT_COUNTRY, Country } from "@/lib/countries";
 import { isValidLocal, toE164 } from "@/lib/phoneUtils";
 import { startPhoneSignIn, PhoneAuthConfirmation } from "@/lib/phoneAuth";
+import { cardShadow } from "@/constants/shadows";
 
 type Step = "phone" | "otp" | "name" | "adminBypass" | "enterPin" | "setPin";
 
@@ -555,6 +556,7 @@ export default function LoginScreen() {
           style={[
             styles.card,
             { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius },
+            cardShadow(colors.isDark, "soft"),
           ]}
         >
           {step === "phone" && (

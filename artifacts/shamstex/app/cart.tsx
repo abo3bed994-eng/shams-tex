@@ -650,68 +650,70 @@ export default function CartScreen() {
                         </Text>
                       )}
 
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                        عدد الأثواب:
-                      </Text>
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
-                        <Pressable
-                          onPress={() => updateCartWeight(item.productId, item.colorName, Math.max(perBolt, (item.weight ?? 0) - perBolt))}
-                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                        >
-                          <Icon name="minus" size={14} color={colors.gold} />
-                        </Pressable>
-                        <TextInput
-                          style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                          value={weightTexts[bKey] !== undefined ? weightTexts[bKey] : String(bolts)}
-                          keyboardType="number-pad"
-                          onChangeText={(txt) => {
-                            if (!/^\d*$/.test(txt)) return;
-                            setWeightTexts(p => ({ ...p, [bKey]: txt }));
-                            const val = parseInt(txt, 10);
-                            if (isNaN(val) || val <= 0) return;
-                            updateCartWeight(item.productId, item.colorName, Math.max(perBolt, val * perBolt));
-                          }}
-                          onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[bKey]; return n; })}
-                        />
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>ثوب</Text>
-                        <Pressable
-                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 0) + perBolt)}
-                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
-                        >
-                          <Icon name="plus" size={14} color={colors.background} />
-                        </Pressable>
+                      <View style={styles.editRow}>
+                        <Text style={[styles.editRowLabel, { color: colors.mutedForeground }]}>عدد الأثواب</Text>
+                        <View style={styles.stepperGroup}>
+                          <Pressable
+                            onPress={() => updateCartWeight(item.productId, item.colorName, Math.max(perBolt, (item.weight ?? 0) - perBolt))}
+                            style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                          >
+                            <Icon name="minus" size={14} color={colors.gold} />
+                          </Pressable>
+                          <TextInput
+                            style={[styles.stepperInput, { color: colors.gold, borderBottomColor: colors.border }]}
+                            value={weightTexts[bKey] !== undefined ? weightTexts[bKey] : String(bolts)}
+                            keyboardType="number-pad"
+                            onChangeText={(txt) => {
+                              if (!/^\d*$/.test(txt)) return;
+                              setWeightTexts(p => ({ ...p, [bKey]: txt }));
+                              const val = parseInt(txt, 10);
+                              if (isNaN(val) || val <= 0) return;
+                              updateCartWeight(item.productId, item.colorName, Math.max(perBolt, val * perBolt));
+                            }}
+                            onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[bKey]; return n; })}
+                          />
+                          <Text style={[styles.stepperUnit, { color: colors.mutedForeground }]}>ثوب</Text>
+                          <Pressable
+                            onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 0) + perBolt)}
+                            style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                          >
+                            <Icon name="plus" size={14} color={colors.background} />
+                          </Pressable>
+                        </View>
                       </View>
 
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                        {prod?.unit === "meter" ? "الأمتار (متر):" : "الوزن (كغ):"}
-                      </Text>
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
-                        <Pressable
-                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) - 1)}
-                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                        >
-                          <Icon name="minus" size={14} color={colors.gold} />
-                        </Pressable>
-                        <TextInput
-                          style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                          value={weightTexts[wKey] !== undefined ? weightTexts[wKey] : String(item.weight ?? 1)}
-                          keyboardType="decimal-pad"
-                          onChangeText={(txt) => {
-                            if (!/^\d*\.?\d*$/.test(txt)) return;
-                            setWeightTexts(p => ({ ...p, [wKey]: txt }));
-                            if (!txt || txt === "0") return;
-                            const val = parseFloat(txt);
-                            if (!isNaN(val) && val > 0) updateCartWeight(item.productId, item.colorName, val);
-                          }}
-                          onBlur={() => { setWeightTexts(p => { const n = {...p}; delete n[wKey]; return n; }); }}
-                        />
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{unitName}</Text>
-                        <Pressable
-                          onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) + 1)}
-                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
-                        >
-                          <Icon name="plus" size={14} color={colors.background} />
-                        </Pressable>
+                      <View style={styles.editRow}>
+                        <Text style={[styles.editRowLabel, { color: colors.mutedForeground }]}>
+                          {prod?.unit === "meter" ? "الأمتار (متر)" : "الوزن (كغ)"}
+                        </Text>
+                        <View style={styles.stepperGroup}>
+                          <Pressable
+                            onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) - 1)}
+                            style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                          >
+                            <Icon name="minus" size={14} color={colors.gold} />
+                          </Pressable>
+                          <TextInput
+                            style={[styles.stepperInput, { color: colors.foreground, borderBottomColor: colors.border }]}
+                            value={weightTexts[wKey] !== undefined ? weightTexts[wKey] : String(item.weight ?? 1)}
+                            keyboardType="decimal-pad"
+                            onChangeText={(txt) => {
+                              if (!/^\d*\.?\d*$/.test(txt)) return;
+                              setWeightTexts(p => ({ ...p, [wKey]: txt }));
+                              if (!txt || txt === "0") return;
+                              const val = parseFloat(txt);
+                              if (!isNaN(val) && val > 0) updateCartWeight(item.productId, item.colorName, val);
+                            }}
+                            onBlur={() => { setWeightTexts(p => { const n = {...p}; delete n[wKey]; return n; }); }}
+                          />
+                          <Text style={[styles.stepperUnit, { color: colors.mutedForeground }]}>{unitName}</Text>
+                          <Pressable
+                            onPress={() => updateCartWeight(item.productId, item.colorName, (item.weight ?? 1) + 1)}
+                            style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                          >
+                            <Icon name="plus" size={14} color={colors.background} />
+                          </Pressable>
+                        </View>
                       </View>
 
                       {cap == null && (item.weight ?? 0) < minW && (
@@ -788,36 +790,38 @@ export default function CartScreen() {
                           الحد الأقصى المتوفر: {fmt(cap)} {unitName}
                         </Text>
                       )}
-                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                        {item.unit === "meter" ? "الأمتار الفعلية (متر):" : "الوزن الفعلي (كغ):"}
-                      </Text>
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
-                        <Pressable
-                          onPress={() => updateCartActualWeight(item.productId, item.colorName, Math.max(1, aw - 1))}
-                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                        >
-                          <Icon name="minus" size={14} color={colors.gold} />
-                        </Pressable>
-                        <TextInput
-                          style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, minWidth: 50, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 2 }}
-                          value={weightTexts[awKey] !== undefined ? weightTexts[awKey] : String(aw)}
-                          keyboardType="decimal-pad"
-                          onChangeText={(txt) => {
-                            if (!/^\d*\.?\d*$/.test(txt)) return;
-                            setWeightTexts(p => ({ ...p, [awKey]: txt }));
-                            if (!txt || txt === "0") return;
-                            const val = parseFloat(txt);
-                            if (!isNaN(val) && val > 0) updateCartActualWeight(item.productId, item.colorName, val);
-                          }}
-                          onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[awKey]; return n; })}
-                        />
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{unitName}</Text>
-                        <Pressable
-                          onPress={() => updateCartActualWeight(item.productId, item.colorName, cap != null ? Math.min(aw + 1, cap) : aw + 1)}
-                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
-                        >
-                          <Icon name="plus" size={14} color={colors.background} />
-                        </Pressable>
+                      <View style={styles.editRow}>
+                        <Text style={[styles.editRowLabel, { color: colors.mutedForeground }]}>
+                          {item.unit === "meter" ? "الأمتار الفعلية (متر)" : "الوزن الفعلي (كغ)"}
+                        </Text>
+                        <View style={styles.stepperGroup}>
+                          <Pressable
+                            onPress={() => updateCartActualWeight(item.productId, item.colorName, Math.max(1, aw - 1))}
+                            style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                          >
+                            <Icon name="minus" size={14} color={colors.gold} />
+                          </Pressable>
+                          <TextInput
+                            style={[styles.stepperInput, { color: colors.foreground, borderBottomColor: colors.border }]}
+                            value={weightTexts[awKey] !== undefined ? weightTexts[awKey] : String(aw)}
+                            keyboardType="decimal-pad"
+                            onChangeText={(txt) => {
+                              if (!/^\d*\.?\d*$/.test(txt)) return;
+                              setWeightTexts(p => ({ ...p, [awKey]: txt }));
+                              if (!txt || txt === "0") return;
+                              const val = parseFloat(txt);
+                              if (!isNaN(val) && val > 0) updateCartActualWeight(item.productId, item.colorName, val);
+                            }}
+                            onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[awKey]; return n; })}
+                          />
+                          <Text style={[styles.stepperUnit, { color: colors.mutedForeground }]}>{unitName}</Text>
+                          <Pressable
+                            onPress={() => updateCartActualWeight(item.productId, item.colorName, cap != null ? Math.min(aw + 1, cap) : aw + 1)}
+                            style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                          >
+                            <Icon name="plus" size={14} color={colors.background} />
+                          </Pressable>
+                        </View>
                       </View>
                     </>
                   )}
@@ -1330,6 +1334,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   qty: { fontSize: 16, minWidth: 24, textAlign: "center" },
+  editRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  editRowLabel: { fontFamily: "Inter_500Medium", fontSize: 12, textAlign: "right" },
+  stepperGroup: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  stepperInput: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    minWidth: 50,
+    textAlign: "center",
+    borderBottomWidth: 1,
+    paddingVertical: 2,
+  },
+  stepperUnit: { fontFamily: "Inter_400Regular", fontSize: 12, minWidth: 30, textAlign: "center" },
   notesSection: { borderWidth: 1, padding: 14, gap: 10 },
   notesLabel: { fontSize: 15, textAlign: "right" },
   notesInput: {

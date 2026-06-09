@@ -210,8 +210,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   name: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 18,
+    lineHeight: 24,
     letterSpacing: 0.2,
     textAlign: "right",
   },
