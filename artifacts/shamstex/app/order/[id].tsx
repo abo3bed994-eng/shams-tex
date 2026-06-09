@@ -17,7 +17,7 @@ import * as Sharing from "expo-sharing";
 import { persistImageUri } from "@/utils/persistImage";
 import { saveImageToDevice, shareImage } from "@/utils/imageActions";
 import { buildInvoiceHtml } from "@/utils/invoiceHtml";
-import { EDIT_WINDOW_MS } from "@/lib/editOrder";
+import { EDIT_WINDOW_MS, acceptStaffAvailability, computeItemsTotal } from "@/lib/editOrder";
 import { WebView } from "react-native-webview";
 
 const PICKUP_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
@@ -184,7 +184,6 @@ export default function OrderDetailScreen() {
   const didScrollToEditRef = useRef(false);
   const [availModalIndex, setAvailModalIndex] = useState<number | null>(null);
   const [availInput, setAvailInput] = useState("");
-  const [itemDecisions, setItemDecisions] = useState<Record<number, "agree" | "disagree">>({});
   const [confirmingEdit, setConfirmingEdit] = useState(false);
 
   const order = orders.find((o) => o.id === id);
@@ -260,9 +259,7 @@ export default function OrderDetailScreen() {
           onPress: async () => {
             try {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-              await cancelOrder(order.id);
-              if (order.editable) await setOrderEditable(order.id, false);
-              setItemDecisions({});
+              await cancelOrder(order.id, { notifyStaff: true });
               Alert.alert("تم", "تم إلغاء الطلب.");
               router.back();
             } catch {
@@ -276,34 +273,9 @@ export default function OrderDetailScreen() {
 
   const handleConfirmEdit = async () => {
     if (!order) return;
-    const partialMissingDecision = order.items.some(
-      (it, i) => it.stockStatus === "partial" && !(itemDecisions[i] ?? it.customerDecision)
-    );
-    if (partialMissingDecision) {
-      Alert.alert("يرجى الاختيار", "اختر «موافق» أو «غير موافق» لكل صنف متوفر جزئيًا قبل تأكيد التعديل.");
-      return;
-    }
-    const finalItems = order.items.reduce<typeof order.items>((acc, it, i) => {
-      const decision = itemDecisions[i] ?? it.customerDecision;
-      if (it.stockStatus === "unavailable") return acc;
-      if (it.stockStatus === "partial" && decision === "disagree") return acc;
-      const clean = { ...it };
-      if (it.stockStatus === "partial" && decision === "agree" && it.availableQuantity != null) {
-        if (it.orderType === "weight") {
-          clean.weight = it.availableQuantity;
-        } else {
-          // availableQuantity is now a WEIGHT for pieces orders too → apply it as
-          // the actual fulfilled weight (pricing uses actualWeight).
-          clean.actualWeight = it.availableQuantity;
-        }
-      }
-      delete clean.stockStatus;
-      delete clean.availableQuantity;
-      delete clean.customerDecision;
-      delete clean.editMaxQty;
-      acc.push(clean);
-      return acc;
-    }, []);
+    // Accept the staff's availability directly: drop unavailable items, cap
+    // partially-available items to the available quantity. No per-item approval.
+    const finalItems = acceptStaffAvailability(order.items);
 
     if (finalItems.length === 0) {
       Alert.alert(
@@ -321,10 +293,7 @@ export default function OrderDetailScreen() {
       try {
         setConfirmingEdit(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        const weightTotal = finalItems.filter((i) => i.orderType === "weight").reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
-        const piecesTotal = finalItems.filter((i) => i.orderType === "pieces").reduce((a, b) => a + (b.actualWeight ?? (b.quantity * blt(unitOf(b)))) * b.unitPrice, 0);
-        await updateOrderItems(order.id, finalItems, weightTotal + piecesTotal);
-        setItemDecisions({});
+        await updateOrderItems(order.id, finalItems, computeItemsTotal(finalItems));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("تم", "تم تأكيد التعديل بنجاح وإبلاغ فريق العمل.");
       } catch {
@@ -336,7 +305,7 @@ export default function OrderDetailScreen() {
 
     Alert.alert(
       "تأكيد التعديل",
-      "سيتم حذف الأصناف غير المتوفرة والأصناف المرفوضة وتعديل الكميات المتاحة. هل تريد المتابعة؟",
+      "سيتم قبول الكميات المتوفرة وحذف الأصناف غير المتوفرة. هل تريد المتابعة؟",
       [
         { text: "تراجع", style: "cancel" },
         { text: "نعم، أكّد التعديل", onPress: doConfirm },
@@ -1570,13 +1539,12 @@ export default function OrderDetailScreen() {
             </View>
             <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right", lineHeight: 20 }}>
               {hasAffectedItems
-                ? "حدّد فريق العمل الكميات المتوفرة من الأصناف التالية. راجع كل صنف ثم أكّد التعديل."
+                ? "حدّد فريق العمل الكميات المتوفرة من الأصناف التالية. أكّد التعديل لقبولها، أو عدّل طلبك لاختيار بديل."
                 : "تم إعلامك بأن أحد الأصناف غير متوفر. يمكنك الآن تعديل الطلب واختيار بديل أو تعديل الكميات."}
             </Text>
 
             {order.items.map((item, index) => {
               if (!item.stockStatus) return null;
-              const decision = itemDecisions[index] ?? item.customerDecision;
               const isUnavailable = item.stockStatus === "unavailable";
               return (
                 <View
@@ -1610,70 +1578,12 @@ export default function OrderDetailScreen() {
                       </Text>
                     </View>
                   ) : (
-                    <>
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#F39C1218", borderRadius: colors.radius - 6, padding: 8 }}>
-                        <Icon name="alert-triangle" size={14} color="#F39C12" />
-                        <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
-                          متوفر فقط: {item.availableQuantity} {ulbl(unitOf(item))}
-                        </Text>
-                      </View>
-                      {decision === "disagree" ? (
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                          <Text style={{ color: "#E74C3C", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
-                            تم الرفض — سيُحذف عند التأكيد
-                          </Text>
-                          <Pressable
-                            onPress={() => {
-                              setItemDecisions((p) => { const n = { ...p }; delete n[index]; return n; });
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            }}
-                            style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.gold + "18" }}
-                          >
-                            <Icon name="rotate-ccw" size={13} color={colors.gold} />
-                            <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>تراجع</Text>
-                          </Pressable>
-                        </View>
-                      ) : decision === "agree" ? (
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                          <Text style={{ color: "#27AE60", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
-                            تمت الموافقة — سيتم تعديل الكمية للمتوفر
-                          </Text>
-                          <Pressable
-                            onPress={() => {
-                              setItemDecisions((p) => { const n = { ...p }; delete n[index]; return n; });
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            }}
-                            style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.gold + "18" }}
-                          >
-                            <Icon name="rotate-ccw" size={13} color={colors.gold} />
-                            <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>تراجع</Text>
-                          </Pressable>
-                        </View>
-                      ) : (
-                        <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-                          <Pressable
-                            onPress={() => {
-                              setItemDecisions((p) => ({ ...p, [index]: "agree" }));
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            }}
-                            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: "#27AE60", backgroundColor: decision === "agree" ? "#27AE60" : "#27AE6018" }}
-                          >
-                            <Icon name="check" size={15} color={decision === "agree" ? colors.background : "#27AE60"} />
-                            <Text style={{ color: decision === "agree" ? colors.background : "#27AE60", fontFamily: "Inter_700Bold", fontSize: 13 }}>موافق</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => {
-                              setItemDecisions((p) => ({ ...p, [index]: "disagree" }));
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            }}
-                            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: colors.radius - 6, borderWidth: 1, borderColor: "#E74C3C", backgroundColor: "#E74C3C18" }}
-                          >
-                            <Icon name="x" size={15} color="#E74C3C" />
-                            <Text style={{ color: "#E74C3C", fontFamily: "Inter_700Bold", fontSize: 13 }}>غير موافق</Text>
-                          </Pressable>
-                        </View>
-                      )}
-                    </>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#F39C1218", borderRadius: colors.radius - 6, padding: 8 }}>
+                      <Icon name="alert-triangle" size={14} color="#F39C12" />
+                      <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 12, flex: 1, textAlign: "right" }}>
+                        متوفر فقط: {item.availableQuantity} {ulbl(unitOf(item))} — سيتم تعديل الكمية للمتوفر عند التأكيد
+                      </Text>
+                    </View>
                   )}
                 </View>
               );
@@ -1708,7 +1618,7 @@ export default function OrderDetailScreen() {
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                   beginOrderEdit(order.id);
-                  router.push("/(tabs)/products" as any);
+                  router.push("/cart" as any);
                 }}
                 style={{
                   flex: 1,
@@ -1718,12 +1628,12 @@ export default function OrderDetailScreen() {
                   gap: 8,
                   paddingVertical: 14,
                   borderRadius: colors.radius,
-                  backgroundColor: colors.gold,
+                  backgroundColor: "#E74C3C",
                 }}
               >
-                <Icon name="refresh-cw" size={18} color={colors.background} />
-                <Text style={{ color: colors.background, fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                  اختيار منتجات بديلة
+                <Icon name="edit-3" size={18} color="#FFFFFF" />
+                <Text style={{ color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 14 }}>
+                  تعديل الطلب
                 </Text>
               </Pressable>
             </View>

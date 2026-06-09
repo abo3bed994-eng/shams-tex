@@ -6,7 +6,7 @@ import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
 import { canonicalPhone, samePhone } from "@/lib/phoneUtils";
 import { isWithinWorkingHours } from "@/lib/workingHours";
-import { EDIT_WINDOW_MS } from "@/lib/editOrder";
+import { EDIT_WINDOW_MS, acceptStaffAvailability, computeItemsTotal } from "@/lib/editOrder";
 
 export type UserRole = "customer" | "merchant" | "employee" | "supervisor" | "admin";
 export type ProductUnit = "meter" | "kilo";
@@ -425,7 +425,7 @@ interface AppContextType {
   addOrder: (order: Order) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus, assignedToId?: string, assignedToName?: string) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
-  cancelOrder: (orderId: string) => Promise<void>;
+  cancelOrder: (orderId: string, opts?: { notifyStaff?: boolean }) => Promise<void>;
   sendOrderMessage: (orderId: string, message: string) => Promise<void>;
   setOrderEditable: (orderId: string, editable: boolean) => Promise<void>;
   setOrderEditExpiry: (orderId: string, expiresAt: string | null) => Promise<void>;
@@ -1866,13 +1866,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const cancelOrder = useCallback(
-    async (orderId: string) => {
-      const updated = ordersRef.current.map((o) => (o.id === orderId ? { ...o, status: "cancelled" as OrderStatus } : o));
+    async (orderId: string, opts?: { notifyStaff?: boolean }) => {
+      const updated = ordersRef.current.map((o) =>
+        o.id === orderId
+          ? { ...o, status: "cancelled" as OrderStatus, editable: false, editableExpiresAt: undefined }
+          : o
+      );
       const cancelled = updated.find((o) => o.id === orderId);
       setOrdersState(updated);
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (cancelled) await FS.saveOrder(cancelled);
+      // Notify the staff member who received the order (or the staff role at large)
+      // that the customer cancelled it — used when a customer empties their order
+      // while editing, or when the edit window auto-cancels an all-unavailable order.
+      if (cancelled && opts?.notifyStaff) {
+        const assignedStaffId = cancelled.assignedTo;
+        const assignedStaffPhone = cancelled.assignedToPhone;
+        const staffNotif: Notification = {
+          id: `notif_cancelled_${orderId}_${Date.now()}`,
+          title: "تم إلغاء الطلب ❌",
+          body: `ألغى العميل ${cancelled.userName} طلبه #${orderId.slice(0, 8)} أثناء التعديل`,
+          createdAt: new Date().toISOString(),
+          read: false,
+          sourceUserId: cancelled.userId,
+          ...(assignedStaffId
+            ? { targetUserId: assignedStaffId, ...(assignedStaffPhone ? { targetUserPhone: assignedStaffPhone } : {}) }
+            : { targetRole: "staff" as any }),
+          linkedOrderId: orderId,
+        };
+        const updatedNotifs = [staffNotif, ...notificationsRef.current];
+        setNotifications(updatedNotifs);
+        await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
+        FS.saveNotification(staffNotif).catch(() => {});
+        if (assignedStaffId) {
+          const staffRecord = registeredCustomersRef.current.find((c) => c.id === assignedStaffId);
+          if (staffRecord?.phone) {
+            notifyUserByPhone(
+              staffRecord.phone,
+              "تم إلغاء الطلب ❌",
+              `ألغى العميل ${cancelled.userName} طلبه #${orderId.slice(0, 8)}`,
+              { type: "order_cancelled", orderId }
+            ).catch(() => {});
+          }
+        }
+      }
     },
     []
   );
@@ -1978,11 +2016,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const beginOrderEdit = useCallback((orderId: string) => {
     const order = ordersRef.current.find((o) => o.id === orderId);
     if (!order) return;
-    // Carry items into the cart WITHOUT resolving affected items: drop only the
-    // fully-unavailable ones, but keep partially-available items at their original
-    // quantity with their stockStatus/availableQuantity/customerDecision intact.
-    // This ensures picking alternatives does NOT auto-approve partial items — the
-    // customer must still choose موافق/غير موافق on the order edit card afterwards.
+    // Carry items into the cart, dropping only the fully-unavailable ones. Partial
+    // items keep their stockStatus/availableQuantity so the cart steppers can cap
+    // them at the available amount; the customer edits quantities directly.
     const carried = order.items.reduce<CartItem[]>((acc, it) => {
       if (it.stockStatus === "unavailable") return acc;
       acc.push({ ...it });
@@ -2241,6 +2277,65 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     [settings]
   );
+
+  // Auto-accept the staff's edits when the customer's edit window expires:
+  // applies the staff availability exactly as if the customer had pressed
+  // «تأكيد التعديل», then closes editing. If every item turned out unavailable
+  // the order is cancelled (and staff notified). Runs only on the order owner's
+  // device — or an admin's, as a fallback when the customer is offline — to limit
+  // duplicate writes; a per-order in-flight guard stops repeated firing.
+  const autoAcceptInFlightRef = useRef<Set<string>>(new Set());
+  const autoAcceptExpiredEdits = useCallback(async () => {
+    const now = Date.now();
+    const u = userRef.current;
+    const due = ordersRef.current.filter(
+      (o) =>
+        o.editable &&
+        o.editableExpiresAt &&
+        o.status !== "cancelled" &&
+        new Date(o.editableExpiresAt).getTime() <= now &&
+        !autoAcceptInFlightRef.current.has(o.id) &&
+        (!u || u.id === o.userId || u.role === "admin")
+    );
+    for (const o of due) {
+      autoAcceptInFlightRef.current.add(o.id);
+      try {
+        const finalItems = acceptStaffAvailability(o.items);
+        if (finalItems.length === 0) {
+          await cancelOrder(o.id, { notifyStaff: true });
+        } else {
+          await updateOrderItems(o.id, finalItems, computeItemsTotal(finalItems), false);
+        }
+      } catch {
+        // swallow — the periodic sweep will retry on the next pass
+      } finally {
+        // Always release the per-order guard: once finalized/cancelled the order is
+        // no longer editable so the `due` filter won't re-pick it, and clearing here
+        // keeps the in-flight set from growing without bound.
+        autoAcceptInFlightRef.current.delete(o.id);
+      }
+    }
+  }, [cancelOrder, updateOrderItems]);
+
+  useEffect(() => {
+    autoAcceptExpiredEdits();
+    const now = Date.now();
+    const upcoming = orders
+      .filter((o) => o.editable && o.editableExpiresAt && o.status !== "cancelled")
+      .map((o) => new Date(o.editableExpiresAt!).getTime())
+      .filter((t) => t > now);
+    // Precise wake-up at the soonest expiry so the close happens immediately,
+    // plus a periodic safety sweep in case the device was asleep.
+    const exact =
+      upcoming.length > 0
+        ? setTimeout(() => autoAcceptExpiredEdits(), Math.min(...upcoming) - now + 250)
+        : null;
+    const sweep = setInterval(() => autoAcceptExpiredEdits(), 30000);
+    return () => {
+      if (exact) clearTimeout(exact);
+      clearInterval(sweep);
+    };
+  }, [orders, autoAcceptExpiredEdits]);
 
   const addReturnRequest = useCallback(
     async (req: ReturnRequest) => {

@@ -1,4 +1,76 @@
-import type { Order, User } from "@/context/AppContext";
+import type { CartItem, Order, User } from "@/context/AppContext";
+
+// Weight (kg) or length (m) contained in one bolt ("ثوب"), used to estimate the
+// weight of a pieces order when no actual weight has been recorded yet.
+const bltOf = (u?: string) => (u === "meter" ? 100 : 20);
+
+// Removes the staff-availability metadata from an item once an edit is finalized
+// so the order no longer renders as "affected".
+export function cleanEditedItem(it: CartItem): CartItem {
+  const clean: CartItem = { ...it };
+  delete clean.stockStatus;
+  delete clean.availableQuantity;
+  delete clean.customerDecision;
+  delete clean.editMaxQty;
+  return clean;
+}
+
+// Applies the staff's availability decisions as an automatic acceptance: drops
+// fully-unavailable items, caps partially-available items to the available
+// quantity, and strips the availability metadata. Shared by the customer's
+// «تأكيد التعديل» action and the auto-accept that runs when the edit window
+// expires, so both behave identically.
+export function acceptStaffAvailability(items: CartItem[]): CartItem[] {
+  return items.reduce<CartItem[]>((acc, it) => {
+    if (it.stockStatus === "unavailable") return acc;
+    const clean = cleanEditedItem(it);
+    if (it.stockStatus === "partial" && it.availableQuantity != null) {
+      if (it.orderType === "weight") clean.weight = it.availableQuantity;
+      else clean.actualWeight = it.availableQuantity;
+    }
+    acc.push(clean);
+    return acc;
+  }, []);
+}
+
+// The availability cap for an item during editing: partially-available items cap
+// at the available quantity; otherwise an explicit editMaxQty if staff set one.
+function capOf(it: CartItem): number | undefined {
+  if (it.stockStatus === "partial" && it.availableQuantity != null) return it.availableQuantity;
+  return it.editMaxQty ?? undefined;
+}
+
+// Finalizes a customer-edited item: clamps the weight / actual weight DOWN to the
+// availability cap (so an untouched over-cap item can't survive finalize) while
+// respecting any further manual reduction the customer made, then strips the
+// staff-availability metadata. Unlike acceptStaffAvailability this never raises a
+// quantity up to the cap — the customer's own choices in the cart are preserved.
+export function finalizeEditedItem(it: CartItem): CartItem {
+  const cap = capOf(it);
+  const clean = cleanEditedItem(it);
+  if (cap != null) {
+    if (it.orderType === "weight") {
+      if ((clean.weight ?? 0) > cap) clean.weight = cap;
+    } else {
+      const aw = clean.actualWeight ?? it.quantity * bltOf(it.unit);
+      if (aw > cap) clean.actualWeight = cap;
+    }
+  }
+  return clean;
+}
+
+// Order total for a set of (already finalized) items. Weight items price by
+// weight; pieces items price by recorded actual weight, falling back to the
+// per-bolt estimate.
+export function computeItemsTotal(items: CartItem[]): number {
+  const weightTotal = items
+    .filter((i) => i.orderType === "weight")
+    .reduce((a, b) => a + b.unitPrice * (b.weight ?? 1), 0);
+  const piecesTotal = items
+    .filter((i) => i.orderType === "pieces")
+    .reduce((a, b) => a + (b.actualWeight ?? b.quantity * bltOf(b.unit)) * b.unitPrice, 0);
+  return weightTotal + piecesTotal;
+}
 
 // Height of the visible countdown row (excluding the status-bar safe area). The
 // EditCountdownBar overlays the top of the screen by this much, so the Toast
