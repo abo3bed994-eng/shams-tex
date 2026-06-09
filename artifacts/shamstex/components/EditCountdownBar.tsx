@@ -10,9 +10,14 @@ import { EDIT_BAR_CONTENT_H, selectActiveEditOrder } from "@/lib/editOrder";
 
 // Height of the visible countdown row (excluding the status-bar safe area). The
 // bar overlays the top of the screen via absolute positioning while a matching
-// flow spacer of this height pushes the screens below down, so the bar never
-// covers page content.
+// flow spacer pushes the screens below down, so the bar never covers page
+// content.
 const CONTENT_H = EDIT_BAR_CONTENT_H;
+// Extra breathing room reserved below the bar. Header rows place their cart icon
+// with a number badge that pokes ~6px above the icon; without this buffer that
+// badge (and the top of the icon) sits right under the bar's bottom edge and
+// gets clipped — the "السلة بالأعلى مختفية نصفها" report.
+const SPACER_H = CONTENT_H + 14;
 
 export default function EditCountdownBar() {
   const { orders, user, setOrderEditable } = useApp();
@@ -57,7 +62,7 @@ export default function EditCountdownBar() {
 
   return (
     <>
-      <View style={{ height: CONTENT_H }} />
+      <View style={{ height: SPACER_H }} />
       <Pressable
         onPress={() => router.push(`/order/${editOrder.id}` as any)}
         style={{
