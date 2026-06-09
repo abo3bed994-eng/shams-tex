@@ -5,6 +5,11 @@ import type { Order, User } from "@/context/AppContext";
 // must drop below it to avoid being covered.
 export const EDIT_BAR_CONTENT_H = 40;
 
+// Length of the customer's edit window. The countdown is armed the moment staff
+// make an order editable (request the customer's confirmation), so it runs even
+// if the customer hasn't opened the order yet.
+export const EDIT_WINDOW_MS = 10 * 60 * 1000;
+
 // The current customer's order that is in an active (armed) edit window. Shared
 // by EditCountdownBar (to render the bar) and Toast (to offset below the bar).
 export function selectActiveEditOrder(orders: Order[], user: User | null): Order | null {

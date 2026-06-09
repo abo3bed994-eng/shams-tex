@@ -16,6 +16,7 @@ import * as Sharing from "expo-sharing";
 import { persistImageUri } from "@/utils/persistImage";
 import { saveImageToDevice, shareImage } from "@/utils/imageActions";
 import { buildInvoiceHtml } from "@/utils/invoiceHtml";
+import { EDIT_WINDOW_MS } from "@/lib/editOrder";
 import { WebView } from "react-native-webview";
 
 const PICKUP_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
@@ -213,14 +214,16 @@ export default function OrderDetailScreen() {
     return () => clearTimeout(t);
   }, [order, isCustomer, hasAffectedItems, editSectionY]);
 
-  // Arm the 10-minute edit countdown the first time the customer opens an order
-  // that staff just made editable. The deadline lives on the order so the global
-  // countdown bar can show it on every screen; on expiry editing auto-closes.
+  // Fallback: the edit countdown is normally armed by staff the moment they make
+  // the order editable. This only kicks in for legacy editable orders that were
+  // saved before that change and still lack a deadline. The deadline lives on
+  // the order so the global countdown bar shows on every screen; on expiry
+  // editing auto-closes.
   useEffect(() => {
     if (!order || !isCustomer) return;
     if (!order.editable || order.status === "cancelled") return;
     if (order.editableExpiresAt) return;
-    setOrderEditExpiry(order.id, new Date(Date.now() + 10 * 60 * 1000).toISOString());
+    setOrderEditExpiry(order.id, new Date(Date.now() + EDIT_WINDOW_MS).toISOString());
   }, [order?.id, order?.editable, order?.editableExpiresAt, order?.status, isCustomer]);
 
   if (!order) {

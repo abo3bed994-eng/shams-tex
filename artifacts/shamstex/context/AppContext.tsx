@@ -6,6 +6,7 @@ import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
 import { canonicalPhone, samePhone } from "@/lib/phoneUtils";
 import { isWithinWorkingHours } from "@/lib/workingHours";
+import { EDIT_WINDOW_MS } from "@/lib/editOrder";
 
 export type UserRole = "customer" | "merchant" | "employee" | "supervisor" | "admin";
 export type ProductUnit = "meter" | "kilo";
@@ -1907,10 +1908,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setOrderEditable = useCallback(
     async (orderId: string, editable: boolean) => {
-      // Toggling editability always resets the edit countdown: enabling starts a
-      // fresh (unset) window the customer arms on entry; disabling clears it.
+      // Toggling editability resets the edit countdown: enabling arms a fresh
+      // window immediately (the moment staff request the customer's
+      // confirmation), so the countdown bar runs even before the customer opens
+      // the order; disabling clears it.
+      const expiresAt = editable
+        ? new Date(Date.now() + EDIT_WINDOW_MS).toISOString()
+        : undefined;
       const updated = ordersRef.current.map((o) =>
-        o.id === orderId ? { ...o, editable, editableExpiresAt: undefined } : o
+        o.id === orderId ? { ...o, editable, editableExpiresAt: expiresAt } : o
       );
       const updatedOrder = updated.find((o) => o.id === orderId);
       setOrdersState(updated);
@@ -1947,8 +1953,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  // Sets/clears the 10-minute edit countdown deadline on an order. Armed once the
-  // customer actually enters edit mode; cleared when editing ends or expires.
+  // Sets/clears the edit countdown deadline on an order. The deadline is normally
+  // armed by setOrderEditable when staff enable editing; this is used for the
+  // legacy-order fallback and to clear the deadline when editing ends or expires.
   const setOrderEditExpiry = useCallback(
     async (orderId: string, expiresAt: string | null) => {
       const updated = ordersRef.current.map((o) =>
