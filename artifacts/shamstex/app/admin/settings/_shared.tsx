@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
+import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -55,7 +56,7 @@ export function SettingsScreen({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title={title} onBack={() => router.back()} />
-      <ScrollView
+      <KeyboardAwareScroll
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
@@ -63,7 +64,7 @@ export function SettingsScreen({
         scrollEventThrottle={16}
       >
         {children}
-      </ScrollView>
+      </KeyboardAwareScroll>
       <View
         style={[
           styles.footer,

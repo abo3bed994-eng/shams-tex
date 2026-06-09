@@ -1,28 +1,33 @@
 ---
 name: Shams Tex Expo Go native-module crashes
-description: Why react-native-keyboard-controller's scroll view crashes in Expo Go and what to use instead
+description: Why react-native-keyboard-controller's scroll view crashes in Expo Go and the guarded wrapper that makes it safe everywhere
 ---
 
-# react-native-keyboard-controller crashes in Expo Go
+# react-native-keyboard-controller crashes in Expo Go (and the safe wrapper)
 
-`KeyboardAwareScrollView` from `react-native-keyboard-controller` relies on a native
-ViewManager (`ClippingScrollViewDecoratorView`) that is NOT bundled in Expo Go. Any
-screen that renders it crashes at runtime in Expo Go with:
-"Can't find ViewManager 'ClippingScrollViewDecoratorView'".
+`KeyboardAwareScrollView` / `KeyboardProvider` from `react-native-keyboard-controller`
+rely on native modules (e.g. ViewManager `ClippingScrollViewDecoratorView`) that are
+NOT in the Expo Go binary. Rendering them in Expo Go crashes at runtime
+("Can't find ViewManager …"), and mounting `KeyboardProvider` at the root crashes
+`RootLayout` on launch ("error occurred in the <RootLayout> component", app exits).
 
-**Why:** The user tests on Android Expo Go (via the dev domain inside canvas iframes),
-not a custom dev build, so any library shipping its own native module that isn't in the
-Expo Go binary will hard-crash the screen.
+**Why:** Edge-to-edge in Expo SDK 54 makes Android `adjustResize` ineffective, so the
+old `KeyboardAvoidingView` with `behavior=undefined` gave NO Android keyboard avoidance
+— the keyboard covered inputs even in a real APK. The real fix needs
+keyboard-controller, but it must never load in Expo Go or on web.
 
-**How to apply:** In this app, keyboard handling on touched screens (cart, addresses,
-any form) must use React Native's built-in `KeyboardAvoidingView` + `ScrollView`, not
-the keyboard-controller scroll views. CORRECTION (was previously believed harmless):
-the `KeyboardProvider` wrapper does NOT no-op without the native module — mounting it at
-the root crashes `RootLayout` on launch in Expo Go (the app "exits immediately" /
-console shows "error occurred in the <RootLayout(./_layout.tsx)> component"). So the
-entire `react-native-keyboard-controller` dependency was removed (provider import +
-wrapper in `_layout.tsx`, the unused `KeyboardAwareScrollViewCompat` component, and the
-package.json dep). Do not re-add it unless the app moves to a custom dev build. Before
-adding any library with a native module, confirm it is in the Expo Go binary or it will
-crash on launch — a lazy `require()` inside a try/catch (as in `lib/phoneAuth.ts` for
-`@react-native-firebase/auth`) is the safe pattern for native modules used only in builds.
+**How to apply:** The library is re-added but ALWAYS accessed through
+`components/KeyboardAware.tsx`, never imported at top level. That wrapper:
+- exports `KeyboardAwareScroll` (a ScrollView drop-in, forwardRef) and
+  `KeyboardProviderSafe`.
+- lazy `require()`s keyboard-controller ONLY when
+  `Platform.OS !== "web" && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient`
+  (i.e. real dev/standalone build). In Expo Go (StoreClient) and on web it falls back to
+  RN's built-in `KeyboardAvoidingView` + `ScrollView` and `KeyboardProviderSafe` is a
+  passthrough — so Expo Go/web behavior is unchanged and cannot crash.
+- `KeyboardProviderSafe` is wired once around `RootLayoutNav` in `app/_layout.tsx`.
+
+So: form screens use `KeyboardAwareScroll` instead of KAV+ScrollView; this is the
+sanctioned way to use a native-module library that must be inert in Expo Go. The same
+guard pattern (lazy require gated on executionEnvironment) is used in `lib/phoneAuth.ts`
+for `@react-native-firebase/auth`. Do NOT top-level import keyboard-controller anywhere.

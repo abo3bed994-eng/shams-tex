@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Alert,
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -129,8 +129,8 @@ export default function EditProductScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="تعديل المنتج" onBack={() => router.back()} />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <ScrollView
+      <KeyboardAwareScroll
+        androidBehavior="height"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
@@ -328,8 +328,7 @@ export default function EditProductScreen() {
             })}
           </View>
         </View>
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScroll>
 
       <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: bottomPad, position: "absolute", bottom: 0, left: 0, right: 0 }]}>
         <GoldButton label="حفظ التعديلات" onPress={handleSave} loading={saving} style={{ flex: 1 }} size="lg" />

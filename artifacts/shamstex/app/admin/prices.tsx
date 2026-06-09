@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -62,7 +63,7 @@ export default function AdminPricesScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GoldHeader title="إدارة الأسعار" onBack={() => router.back()} />
 
-      <ScrollView
+      <KeyboardAwareScroll
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
@@ -190,7 +191,7 @@ export default function AdminPricesScreen() {
             </Pressable>
           </View>
         ))}
-      </ScrollView>
+      </KeyboardAwareScroll>
     </View>
   );
 }

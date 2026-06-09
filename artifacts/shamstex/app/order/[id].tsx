@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -351,8 +352,7 @@ export default function OrderDetailScreen() {
         onBack={() => router.back()}
       />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView
+      <KeyboardAwareScroll
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -2074,8 +2074,7 @@ export default function OrderDetailScreen() {
             </Text>
           </Pressable>
         )}
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScroll>
 
       {order.transferProofImage && (
         <Modal visible={showTransferProof} transparent animationType="fade" onRequestClose={() => setShowTransferProof(false)}>

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 import { router, useLocalSearchParams } from "expo-router";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
@@ -570,8 +570,7 @@ export default function CartScreen() {
         </View>
       ) : (
         <>
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView
+          <KeyboardAwareScroll
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 220 }]}
@@ -1216,8 +1215,7 @@ export default function CartScreen() {
                 </View>
               </View>
             )}
-          </ScrollView>
-          </KeyboardAvoidingView>
+          </KeyboardAwareScroll>
 
           <View
             style={[

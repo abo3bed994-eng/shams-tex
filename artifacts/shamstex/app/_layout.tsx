@@ -27,6 +27,7 @@ import LoadingScreen from "@/components/LoadingScreen";
 import RoleSwitchOverlay from "@/components/RoleSwitchOverlay";
 import ForceUpdateScreen from "@/components/ForceUpdateScreen";
 import EditCountdownBar from "@/components/EditCountdownBar";
+import { KeyboardProviderSafe } from "@/components/KeyboardAware";
 import { registerForPushNotifications } from "@/lib/pushService";
 import { isUpdateRequired } from "@/lib/version";
 
@@ -195,7 +196,9 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AppProvider>
             <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0A0A0A" }}>
-              <RootLayoutNav />
+              <KeyboardProviderSafe>
+                <RootLayoutNav />
+              </KeyboardProviderSafe>
             </GestureHandlerRootView>
           </AppProvider>
         </QueryClientProvider>
