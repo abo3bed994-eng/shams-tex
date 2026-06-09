@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Icon from "@/components/Icon";
+import { cardShadow } from "@/constants/shadows";
 import { useColors } from "@/hooks/useColors";
 import { Order, OrderStatus } from "@/context/AppContext";
 
@@ -88,6 +89,7 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onP
           borderRadius: colors.radius,
           opacity: pressed ? 0.85 : 1,
         },
+        cardShadow(colors.isDark, "soft"),
       ]}
     >
       <View style={styles.header}>

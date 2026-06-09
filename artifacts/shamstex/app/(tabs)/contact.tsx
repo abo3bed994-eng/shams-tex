@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { cardShadow } from "@/constants/shadows";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
@@ -76,6 +77,7 @@ export default function ContactScreen() {
                   borderRadius: colors.radius,
                   opacity: pressed ? 0.8 : 1,
                 },
+                cardShadow(colors.isDark, "soft"),
               ]}
             >
               <Icon name="phone-call" size={18} color={colors.gold} />
@@ -111,6 +113,7 @@ export default function ContactScreen() {
                     borderRadius: colors.radius,
                     opacity: pressed ? 0.8 : 1,
                   },
+                  cardShadow(colors.isDark, "soft"),
                 ]}
               >
                 <Icon name={s.icon as any} size={22} color={colors.gold} />
@@ -132,6 +135,7 @@ export default function ContactScreen() {
               borderColor: colors.gold + "33",
               borderRadius: colors.radius,
             },
+            cardShadow(colors.isDark, "soft"),
           ]}
         >
           <Text style={[styles.aboutTitle, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>

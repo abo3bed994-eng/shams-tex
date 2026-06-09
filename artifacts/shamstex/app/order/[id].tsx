@@ -3,6 +3,7 @@ import { Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollV
 import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { cardShadow } from "@/constants/shadows";
 import { useColors } from "@/hooks/useColors";
 import { useApp, OrderStatus, PaymentMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_ICONS, SHIPPING_PROVIDER_DEFAULTS, ShippingProviderId, CartItem } from "@/context/AppContext";
 import { Linking } from "react-native";
@@ -354,7 +355,7 @@ export default function OrderDetailScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
-        <View style={[styles.statusCard, { backgroundColor: activeColor + "11", borderColor: activeColor + "44", borderRadius: colors.radius }]}>
+        <View style={[styles.statusCard, { backgroundColor: activeColor + "11", borderColor: activeColor + "44", borderRadius: colors.radius }, cardShadow(colors.isDark, "soft")]}>
           <Icon name={isCancelled ? "x-circle" : isScheduled ? "moon" : STATUS_STEPS[currentStep].icon as any} size={28} color={activeColor} />
           <Text style={[styles.statusLabel, { color: activeColor, fontFamily: "Inter_700Bold" }]}>
             {isCancelled ? "تم إلغاء الطلب" : isScheduled ? "معلّق — خارج أوقات العمل" : STATUS_STEPS[currentStep].label}
@@ -385,7 +386,7 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        <View style={[styles.stagesCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <View style={[styles.stagesCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }, cardShadow(colors.isDark, "soft")]}>
           <View style={styles.stepsRow}>
           {STATUS_STEPS.map((step, index) => {
             const isCompleted = index <= currentStep;
@@ -892,7 +893,7 @@ export default function OrderDetailScreen() {
             </View>
           );
         })()}
-        <View style={[styles.itemsSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+        <View style={[styles.itemsSection, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }, cardShadow(colors.isDark, "soft")]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
             المنتجات المطلوبة
           </Text>
@@ -1316,7 +1317,7 @@ export default function OrderDetailScreen() {
         </View>
 
         {order.notes && (
-          <View style={[styles.notesCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+          <View style={[styles.notesCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }, cardShadow(colors.isDark, "soft")]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
               ملاحظات
             </Text>

@@ -304,6 +304,7 @@ export interface AppSettings {
   bannerImageUri?: string;
   bannerImageUris?: string[];
   bannerVideoUris?: string[];
+  bannerCaption?: string;
   globalColors: ColorOption[];
   stats: { clients: string; products: string; years: string };
   statLabels?: { clients: string; products: string; years: string };
@@ -947,6 +948,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setNotifications([]);
           setOrdersState([]);
           setReturnRequests([]);
+          setCart([]);
+          setEditingOrderId(null);
           try {
             const { router } = await import("expo-router");
             router.replace("/auth/login" as any);
@@ -1038,6 +1041,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setNotifications([]);
         setOrdersState([]);
         setReturnRequests([]);
+        setCart([]);
+        setEditingOrderId(null);
         (async () => {
           try {
             await AsyncStorage.multiRemove([
@@ -1075,6 +1080,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setNotifications([]);
         setOrdersState([]);
         setReturnRequests([]);
+        setCart([]);
+        setEditingOrderId(null);
         (async () => {
           try {
             await AsyncStorage.multiRemove([
@@ -1210,6 +1217,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setNotifications([]);
       setOrdersState([]);
       setReturnRequests([]);
+      // Clear the in-memory cart and any active order-edit session so items from
+      // one account never leak into the next account logged in on the same device.
+      setCart([]);
+      setEditingOrderId(null);
     }
   }, []);
 
@@ -1230,6 +1241,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNotifications([]);
     setOrdersState([]);
     setReturnRequests([]);
+    setCart([]);
+    setEditingOrderId(null);
     Alert.alert(
       "تم إنهاء حسابك",
       "تم حذف حسابك من قِبل الإدارة. يرجى تسجيل الدخول مجدداً.",

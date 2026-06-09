@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { cardShadow } from "@/constants/shadows";
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { useCartPulse } from "@/hooks/useCartPulse";
@@ -243,6 +244,7 @@ export default function HomeScreen() {
           />
         }
       >
+        <View style={[styles.bannerShadow, { backgroundColor: colors.surface }, cardShadow(colors.isDark, "strong")]}>
         <View style={[styles.bannerCard, { borderColor: colors.gold + "33" }]}>
           {hasVideo ? (
             <VideoView
@@ -274,10 +276,20 @@ export default function HomeScreen() {
 
           <View style={styles.bannerNameRow} pointerEvents="none">
             <View style={styles.bannerNamePill}>
-              <Text style={styles.bannerGreeting}>{t("welcomeUser")}</Text>
-              <Text style={styles.bannerUserName} numberOfLines={1}>
-                {user?.name ?? t("guest")}
-              </Text>
+              <View style={styles.bannerNameTop}>
+                <Text style={styles.bannerGreeting}>{t("welcomeUser")}</Text>
+                <Text style={styles.bannerUserName} numberOfLines={1}>
+                  {user?.name ?? t("guest")}
+                </Text>
+              </View>
+              {!!settings.bannerCaption?.trim() && (
+                <Text
+                  style={[styles.bannerCaption, { color: colors.goldLight }]}
+                  numberOfLines={2}
+                >
+                  {settings.bannerCaption.trim()}
+                </Text>
+              )}
             </View>
             <View style={[styles.bannerRolePill, { backgroundColor: roleLabel.gold ? colors.gold : colors.surface + "CC" }]}>
               <Icon name={roleLabel.icon} size={11} color={roleLabel.gold ? "#0A0A0A" : colors.mutedForeground} />
@@ -322,6 +334,7 @@ export default function HomeScreen() {
               ))}
             </View>
           )}
+        </View>
         </View>
 
         {activeOrders.length > 0 && (
@@ -441,8 +454,11 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 16 },
   scrollContent: { paddingTop: 16, gap: 20, paddingBottom: 100 },
-  bannerCard: {
+  bannerShadow: {
     marginHorizontal: 16,
+    borderRadius: 18,
+  },
+  bannerCard: {
     borderRadius: 18,
     borderWidth: 1,
     height: 250,
@@ -467,9 +483,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bannerNamePill: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 3,
+    flexShrink: 1,
+  },
+  bannerNameTop: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
     flexShrink: 1,
   },
   bannerGreeting: {
@@ -479,8 +501,15 @@ const styles = StyleSheet.create({
   },
   bannerUserName: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 20,
     fontFamily: "Inter_700Bold",
+    flexShrink: 1,
+  },
+  bannerCaption: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontFamily: "Inter_500Medium",
+    textAlign: "right",
     flexShrink: 1,
   },
   bannerRolePill: {

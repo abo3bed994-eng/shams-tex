@@ -2,6 +2,7 @@ import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "@/components/Icon";
+import { cardShadow } from "@/constants/shadows";
 import { useColors } from "@/hooks/useColors";
 import { Product } from "@/context/AppContext";
 import { useApp } from "@/context/AppContext";
@@ -30,9 +31,8 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
         {
           backgroundColor: colors.surface,
           borderRadius: colors.radius,
-          shadowColor: colors.isDark ? "#000000" : "#2A2008",
-          shadowOpacity: colors.isDark ? 0.4 : 0.16,
         },
+        cardShadow(colors.isDark, "strong"),
       ]}
     >
       <View
@@ -58,7 +58,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
           )}
 
           <View style={styles.categoryBadge}>
-            <Text style={[styles.categoryText, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>
+            <Text style={[styles.categoryText, { color: colors.goldLight, fontFamily: "Inter_600SemiBold" }]}>
               {product.category}
             </Text>
           </View>
@@ -79,7 +79,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
 
           <View style={styles.infoOverlay}>
             <Text
-              style={[styles.name, { color: "#fff", fontFamily: "Inter_600SemiBold" }]}
+              style={[styles.name, { color: "#fff", fontFamily: "Inter_700Bold" }]}
               numberOfLines={1}
             >
               {product.name}
@@ -135,9 +135,6 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
 const styles = StyleSheet.create({
   shadowWrap: {
     marginBottom: 16,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 5,
   },
   card: {
     borderWidth: 1,
@@ -213,8 +210,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   name: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 22,
+    letterSpacing: 0.2,
     textAlign: "right",
   },
   bottomRow: {

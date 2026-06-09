@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { persistImageUri } from "@/utils/persistImage";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
-import { Card, SettingsScreen, useSettingsDraft, styles } from "./_shared";
+import { Card, Field, SettingsScreen, useSettingsDraft, styles } from "./_shared";
 
 const MAX_BANNER_IMAGES = 7;
 
@@ -120,6 +120,17 @@ export default function AdsSettings() {
         </View>
         <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
           يمكن رفع حتى 3 فيديوهات وحتى {MAX_BANNER_IMAGES} صور في البانر الرئيسي. تظهر الصور كشرائح متتابعة عندما لا يوجد فيديو.
+        </Text>
+      </Card>
+      <Card title="جملة ترحيبية">
+        <Field
+          label="الجملة الظاهرة تحت اسم العميل"
+          value={draft.bannerCaption ?? ""}
+          onChange={(text) => setDraft((d) => ({ ...d, bannerCaption: text }))}
+          placeholder="مثال: تعانق الجودة كل خيط"
+        />
+        <Text style={{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }}>
+          تظهر هذه الجملة في الصفحة الرئيسية أسفل اسم العميل مباشرة. اتركها فارغة لإخفائها.
         </Text>
       </Card>
     </SettingsScreen>

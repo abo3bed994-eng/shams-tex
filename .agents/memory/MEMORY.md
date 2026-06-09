@@ -11,3 +11,4 @@
 - [Shams Tex order-edit stock cap](shamstex-order-edit-stock-cap.md) — customer-edit "available only" cap uses stockStatus:"partial"+availableQuantity (a WEIGHT, caps weight/actualWeight); editMaxQty is a DEAD never-assigned field — don't rely on it.
 - [Shams Tex light-theme gold](shamstex-light-theme-gold.md) — gold token is used as TEXT everywhere; light-theme gold must stay deep (~#8C6D14, ≥4.5:1), bright gold looks faded AND fails contrast; goldLight is decoration-only.
 - [Shams Tex upload path/rules contract](shamstex-upload-rules.md) — client upload folders must match storage.rules exactly or every upload silently fails by default-deny; rules are inert until `firebase deploy --only storage`.
+- [Shams Tex logout reset paths](shamstex-logout-reset-paths.md) — per-session in-memory state (cart, editingOrderId) must clear in ALL 5 logout paths, not just setUser(null); forced-logout bypasses setUser.
