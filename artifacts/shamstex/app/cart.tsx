@@ -141,6 +141,31 @@ export default function CartScreen() {
     }
   }, [editingOrderId, paramEditId]);
 
+  // On entering edit mode, clamp any item that already exceeds the staff-marked
+  // availability cap down to it, so the displayed count/weight never shows more
+  // than what's available (pieces clamp to whole bolts, each bolt = perBolt).
+  useEffect(() => {
+    if (!editOrderId) return;
+    for (const it of cart) {
+      const cap = it.stockStatus === "partial" && it.availableQuantity != null ? it.availableQuantity : it.editMaxQty;
+      if (cap == null) continue;
+      const perBolt = it.unit === "meter" ? 100 : 20;
+      if (it.orderType === "weight") {
+        if ((it.weight ?? 0) > cap) updateCartWeight(it.productId, it.colorName, cap);
+      } else {
+        const maxBolts = Math.floor(cap / perBolt);
+        if (maxBolts < 1) {
+          // Less than one full bolt available → can't be fulfilled; drop it.
+          removeFromCart(it.productId, it.colorName);
+        } else if (it.quantity > maxBolts) {
+          updateCartItem(it.productId, it.colorName, maxBolts);
+          updateCartActualWeight(it.productId, it.colorName, maxBolts * perBolt);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editOrderId, cart.length]);
+
   const handleBack = () => {
     if (editingOrderId) {
       setEditingOrderId(null);
@@ -770,10 +795,10 @@ export default function CartScreen() {
                   const perBolt = item.unit === "meter" ? 100 : 20;
                   const isEdit = !!editOrderId;
                   const cap = item.stockStatus === "partial" && item.availableQuantity != null ? item.availableQuantity : item.editMaxQty;
-                  const clampCap = (n: number) => (cap != null ? Math.min(n, cap) : n);
+                  const maxBolts = cap != null ? Math.floor(cap / perBolt) : null;
+                  const clampBolts = (n: number) => (maxBolts != null ? Math.min(Math.max(1, n), maxBolts) : Math.max(1, n));
                   const rawAw = item.actualWeight ?? (item.quantity * perBolt);
                   const aw = cap != null ? Math.min(rawAw, cap) : rawAw;
-                  const awKey = `aw_${item.productId}_${item.colorName}`;
                   const qKey = `qty_${item.productId}_${item.colorName}`;
                   const fmt = (n: number) => Math.round(n * 100) / 100;
                   return (
@@ -805,9 +830,9 @@ export default function CartScreen() {
                     </Text>
                   </View>
 
-                  {isEdit && cap != null && (
+                  {isEdit && maxBolts != null && (
                     <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                      الحد الأقصى المتوفر: {fmt(cap)} {unitName}
+                      الحد الأقصى المتوفر: {maxBolts} ثوب ({fmt(maxBolts * perBolt)} {unitName})
                     </Text>
                   )}
 
@@ -816,9 +841,9 @@ export default function CartScreen() {
                     <View style={styles.stepperGroup}>
                       <Pressable
                         onPress={() => {
-                          const newQ = item.quantity - 1;
+                          const newQ = Math.max(1, item.quantity - 1);
                           updateCartItem(item.productId, item.colorName, newQ);
-                          if (isEdit && newQ > 0) updateCartActualWeight(item.productId, item.colorName, clampCap(newQ * perBolt));
+                          if (isEdit) updateCartActualWeight(item.productId, item.colorName, newQ * perBolt);
                         }}
                         style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                       >
@@ -833,17 +858,18 @@ export default function CartScreen() {
                           setWeightTexts(p => ({ ...p, [qKey]: txt }));
                           const val = parseInt(txt, 10);
                           if (isNaN(val) || val <= 0) return;
-                          updateCartItem(item.productId, item.colorName, val);
-                          if (isEdit) updateCartActualWeight(item.productId, item.colorName, clampCap(val * perBolt));
+                          const q = clampBolts(val);
+                          updateCartItem(item.productId, item.colorName, q);
+                          if (isEdit) updateCartActualWeight(item.productId, item.colorName, q * perBolt);
                         }}
                         onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[qKey]; return n; })}
                       />
                       <Text style={[styles.stepperUnit, { color: colors.mutedForeground }]}>ثوب</Text>
                       <Pressable
                         onPress={() => {
-                          const newQ = item.quantity + 1;
+                          const newQ = clampBolts(item.quantity + 1);
                           updateCartItem(item.productId, item.colorName, newQ);
-                          if (isEdit) updateCartActualWeight(item.productId, item.colorName, clampCap(newQ * perBolt));
+                          if (isEdit) updateCartActualWeight(item.productId, item.colorName, newQ * perBolt);
                         }}
                         style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
                       >
@@ -853,41 +879,17 @@ export default function CartScreen() {
                   </View>
 
                   {isEdit && (
-                    <>
-                      <View style={styles.editRow}>
-                        <Text style={[styles.editRowLabel, { color: colors.mutedForeground }]}>
-                          {item.unit === "meter" ? "الأمتار الفعلية (متر)" : "الوزن الفعلي (كغ)"}
+                    <View style={styles.editRow}>
+                      <Text style={[styles.editRowLabel, { color: colors.mutedForeground }]}>
+                        {item.unit === "meter" ? "الأمتار التقديرية" : "الوزن التقديري"}
+                      </Text>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                        {fmt(item.quantity * perBolt)} {unitName}
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
+                          {"  "}(كل ثوب {perBolt} {unitName})
                         </Text>
-                        <View style={styles.stepperGroup}>
-                          <Pressable
-                            onPress={() => updateCartActualWeight(item.productId, item.colorName, Math.max(1, aw - 1))}
-                            style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                          >
-                            <Icon name="minus" size={14} color={colors.gold} />
-                          </Pressable>
-                          <TextInput
-                            style={[styles.stepperInput, { color: colors.foreground, borderBottomColor: colors.border }]}
-                            value={weightTexts[awKey] !== undefined ? weightTexts[awKey] : String(aw)}
-                            keyboardType="decimal-pad"
-                            onChangeText={(txt) => {
-                              if (!/^\d*\.?\d*$/.test(txt)) return;
-                              setWeightTexts(p => ({ ...p, [awKey]: txt }));
-                              if (!txt || txt === "0") return;
-                              const val = parseFloat(txt);
-                              if (!isNaN(val) && val > 0) updateCartActualWeight(item.productId, item.colorName, val);
-                            }}
-                            onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[awKey]; return n; })}
-                          />
-                          <Text style={[styles.stepperUnit, { color: colors.mutedForeground }]}>{unitName}</Text>
-                          <Pressable
-                            onPress={() => updateCartActualWeight(item.productId, item.colorName, cap != null ? Math.min(aw + 1, cap) : aw + 1)}
-                            style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
-                          >
-                            <Icon name="plus" size={14} color={colors.background} />
-                          </Pressable>
-                        </View>
-                      </View>
-                    </>
+                      </Text>
+                    </View>
                   )}
                   </View>
                   );

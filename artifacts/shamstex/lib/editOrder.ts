@@ -25,8 +25,19 @@ export function acceptStaffAvailability(items: CartItem[]): CartItem[] {
     if (it.stockStatus === "unavailable") return acc;
     const clean = cleanEditedItem(it);
     if (it.stockStatus === "partial" && it.availableQuantity != null) {
-      if (it.orderType === "weight") clean.weight = it.availableQuantity;
-      else clean.actualWeight = it.availableQuantity;
+      if (it.orderType === "weight") {
+        clean.weight = it.availableQuantity;
+      } else {
+        // Pieces: each bolt is a whole unit (bltOf kg/m), so round the available
+        // weight DOWN to whole bolts and keep the count + actual weight in step.
+        // If less than one full bolt is available, the item can't be fulfilled at
+        // all → drop it just like a fully-unavailable item (never exceed the cap).
+        const perBolt = bltOf(it.unit);
+        const bolts = Math.floor(it.availableQuantity / perBolt);
+        if (bolts < 1) return acc;
+        clean.quantity = bolts;
+        clean.actualWeight = bolts * perBolt;
+      }
     }
     acc.push(clean);
     return acc;
@@ -48,13 +59,24 @@ function capOf(it: CartItem): number | undefined {
 export function finalizeEditedItem(it: CartItem): CartItem {
   const cap = capOf(it);
   const clean = cleanEditedItem(it);
-  if (cap != null) {
-    if (it.orderType === "weight") {
-      if ((clean.weight ?? 0) > cap) clean.weight = cap;
-    } else {
-      const aw = clean.actualWeight ?? it.quantity * bltOf(it.unit);
-      if (aw > cap) clean.actualWeight = cap;
+  if (it.orderType === "weight") {
+    if (cap != null && (clean.weight ?? 0) > cap) clean.weight = cap;
+  } else {
+    // Pieces: clamp the bolt count to the available whole bolts and keep the
+    // actual weight in lockstep (each bolt is exactly bltOf kg/m). This both
+    // respects a manual reduction by the customer and prevents an untouched
+    // over-cap count from surviving finalize.
+    const perBolt = bltOf(it.unit);
+    let bolts = clean.quantity;
+    if (cap != null) {
+      // Whole bolts that fit within the cap (no forced minimum: a sub-bolt cap
+      // means nothing can be fulfilled, but such items are dropped earlier by
+      // acceptStaffAvailability / the cart clamp, so guard against 0 here too).
+      const maxBolts = Math.max(0, Math.floor(cap / perBolt));
+      if (bolts > maxBolts) bolts = maxBolts;
     }
+    clean.quantity = bolts;
+    clean.actualWeight = bolts * perBolt;
   }
   return clean;
 }

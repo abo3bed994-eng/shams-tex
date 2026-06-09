@@ -2240,7 +2240,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updatedOrder) {
         const ok = await saveOrderReliable(updatedOrder);
         if (!ok) {
-          throw new Error("save_failed");
+          // Firestore is unreachable right now. saveOrderReliable has already
+          // updated local state and queued this order in pendingOrderSaves for
+          // automatic retry, so the edit is NOT lost. Mirror the create-order
+          // path (FS.saveOrder(...).catch) which tolerates offline saves instead
+          // of surfacing a hard "تعذّر حفظ التعديل" error to the customer.
+          console.warn("updateOrderItems: order queued for offline retry:", orderId);
         }
         if (!staffEdit) {
           const assignedStaffId = updatedOrder.assignedTo;
