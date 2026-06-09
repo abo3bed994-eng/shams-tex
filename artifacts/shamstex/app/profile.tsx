@@ -134,8 +134,8 @@ export default function ProfileScreen() {
           <Text style={[styles.phone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {user.phone}
           </Text>
-          <View style={[styles.roleBadge, { backgroundColor: colors.gold + "22" }]}>
-            <Text style={[styles.roleText, { color: colors.gold, fontFamily: "Inter_600SemiBold" }]}>
+          <View style={[styles.roleBadge, { backgroundColor: colors.isDark ? colors.gold + "22" : colors.gold }]}>
+            <Text style={[styles.roleText, { color: colors.isDark ? colors.gold : colors.primaryForeground, fontFamily: "Inter_600SemiBold" }]}>
               {ROLE_LABELS[user.role] ?? user.role}
             </Text>
           </View>
@@ -217,6 +217,11 @@ export default function ProfileScreen() {
                 borderColor: colors.border,
                 borderRadius: colors.radius,
                 backgroundColor: colors.card,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+                elevation: 3,
                 opacity: pressed ? 0.7 : 1,
               },
             ]}
@@ -390,7 +395,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, gap: 16 },
-  profileCard: { alignItems: "center", padding: 24, borderWidth: 1, gap: 10 },
+  profileCard: { alignItems: "center", padding: 24, borderWidth: 1, gap: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 36 },
   name: { fontSize: 22 },
@@ -399,21 +404,21 @@ const styles = StyleSheet.create({
   roleText: { fontSize: 14 },
   vipBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   statsRow: { flexDirection: "row-reverse", gap: 12 },
-  statCard: { flex: 1, alignItems: "center", paddingVertical: 20, gap: 6, borderWidth: 1 },
+  statCard: { flex: 1, alignItems: "center", paddingVertical: 20, gap: 6, borderWidth: 1, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   statNum: { fontSize: 28 },
   statLabel: { fontSize: 12 },
-  upgradeCard: { padding: 18, borderWidth: 1, gap: 12 },
+  upgradeCard: { padding: 18, borderWidth: 1, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   upgradeHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 8 },
   upgradeTitle: { fontSize: 16 },
   upgradeDesc: { fontSize: 13, textAlign: "right", lineHeight: 20 },
   pendingBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: "flex-end" },
   pendingText: { fontSize: 13 },
-  adminSection: { borderWidth: 1, overflow: "hidden" },
+  adminSection: { borderWidth: 1, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   adminTitle: { fontSize: 16, padding: 16, textAlign: "right", borderBottomWidth: 1 },
   adminItem: { flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12, borderBottomWidth: 1 },
   adminItemText: { flex: 1, fontSize: 14 },
   adminItemIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  themeCard: { padding: 16, borderWidth: 1, gap: 12 },
+  themeCard: { padding: 16, borderWidth: 1, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   themeHeader: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
   themeTitle: { fontSize: 15 },
   themeButtons: { flexDirection: "row-reverse", gap: 10 },

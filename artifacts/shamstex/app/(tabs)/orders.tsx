@@ -160,6 +160,11 @@ export default function OrdersScreen() {
         )}
       </View>
 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
+        keyboardShouldPersistTaps="handled"
+      >
       {user?.role === "admin" && myOrders.length > 0 && (
         <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
           <View style={[styles.statBox, { backgroundColor: "#9B59B611", borderColor: "#9B59B633" }]}>
@@ -259,10 +264,7 @@ export default function OrdersScreen() {
       </View>
       )}
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 100 }]}
-      >
+      <View style={styles.list}>
         {filter === "returns" ? (
           filteredReturns.length === 0 ? (
             <View style={styles.empty}>
@@ -470,6 +472,7 @@ export default function OrdersScreen() {
             );
           })
         )}
+      </View>
       </ScrollView>
     </View>
   );

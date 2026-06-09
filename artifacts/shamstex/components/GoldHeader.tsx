@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   rightContainer: {
-    width: 40,
+    minWidth: 40,
     alignItems: "flex-end",
   },
 });

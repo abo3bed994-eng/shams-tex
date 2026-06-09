@@ -127,6 +127,11 @@ export default function ProductsScreen() {
         </View>
       </View>
 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
+        keyboardShouldPersistTaps="handled"
+      >
       <View
         style={[
           styles.searchWrapper,
@@ -289,10 +294,7 @@ export default function ProductsScreen() {
         )}
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 100 }]}
-      >
+      <View style={styles.list}>
         {filtered.length === 0 ? (
           <View style={styles.empty}>
             <Icon name="layers" size={48} color={colors.mutedForeground} />
@@ -309,6 +311,7 @@ export default function ProductsScreen() {
             />
           ))
         )}
+      </View>
       </ScrollView>
     </View>
   );
