@@ -889,6 +889,13 @@ export default function OrderDetailScreen() {
                   {isStaff && order.status === "preparing" && !isLockedByOther && (
                     <Pressable
                       onPress={() => {
+                        if (order.editable) {
+                          Alert.alert(
+                            "التعديل قيد التنفيذ",
+                            "لا يمكن تعديل المتوفر بينما العميل يعدّل طلبه. أغلق صلاحية التعديل أولًا أو انتظر حتى يؤكّد العميل الطلب."
+                          );
+                          return;
+                        }
                         setAvailModalIndex(index);
                         setAvailInput(item.stockStatus === "partial" && item.availableQuantity != null ? String(item.availableQuantity) : "");
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1468,6 +1475,37 @@ export default function OrderDetailScreen() {
             <Icon name="x-circle" size={14} color="#F39C12" />
             <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
               إغلاق تعديل العميل
+            </Text>
+          </Pressable>
+        )}
+
+        {isStaff && order.status === "preparing" && !order.editable && hasAffectedItems && !isLockedByOther && (
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                "فتح التعديل للعميل",
+                "سيتم إعلام العميل ليعدّل طلبه خلال المهلة المحددة. لن تتمكن من تعديل المتوفر حتى ينهي العميل تعديله أو تُغلق التعديل. هل تريد المتابعة؟",
+                [
+                  { text: "تراجع", style: "cancel" },
+                  {
+                    text: "نعم، افتح التعديل",
+                    onPress: () => {
+                      setOrderEditable(order.id, true);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    },
+                  },
+                ]
+              );
+            }}
+            style={[styles.editableBtn, {
+              backgroundColor: "#27AE6018",
+              borderColor: "#27AE60",
+              borderRadius: colors.radius - 4,
+            }]}
+          >
+            <Icon name="edit-3" size={14} color="#27AE60" />
+            <Text style={{ color: "#27AE60", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+              فتح التعديل للعميل
             </Text>
           </Pressable>
         )}
@@ -2355,13 +2393,17 @@ export default function OrderDetailScreen() {
                         const idx = availModalIndex;
                         const val = parseFloat(availInput);
                         const hasVal = availInput.trim() !== "" && !isNaN(val) && val > 0;
-                        const wasEditable = order.editable;
                         const summary = !hasVal
                           ? "سيتم تحديد هذا الصنف كـ «غير متوفر» وحذفه عند تأكيد العميل."
                           : val < orderedQty
                             ? `سيتم تحديد المتوفر بـ ${val} ${ulbl(u)} من أصل ${orderedQty} ${ulbl(u)}.`
                             : "سيتم تحديد الصنف كمتوفر بالكامل.";
                         const doSave = async () => {
+                          if (order.editable) {
+                            setAvailModalIndex(null);
+                            Alert.alert("التعديل قيد التنفيذ", "لا يمكن تعديل المتوفر بينما العميل يعدّل طلبه. أغلق صلاحية التعديل أولًا أو انتظر حتى يؤكّد العميل الطلب.");
+                            return;
+                          }
                           const newItems = order.items.map((it, i) => {
                             if (i !== idx) return it;
                             const next = { ...it, customerDecision: undefined as CartItem["customerDecision"] };
@@ -2381,10 +2423,6 @@ export default function OrderDetailScreen() {
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                           try {
                             await updateOrderItems(order.id, newItems, order.total, true);
-                            const anyAffected = newItems.some((it) => it.stockStatus);
-                            if (anyAffected && !wasEditable) {
-                              await setOrderEditable(order.id, true);
-                            }
                           } catch {
                             Alert.alert("خطأ", "تعذّر حفظ التغيير. حاول مرة أخرى.");
                           }
@@ -2402,6 +2440,11 @@ export default function OrderDetailScreen() {
                       <Pressable
                         onPress={async () => {
                           if (availModalIndex === null) return;
+                          if (order.editable) {
+                            setAvailModalIndex(null);
+                            Alert.alert("التعديل قيد التنفيذ", "لا يمكن تعديل المتوفر بينما العميل يعدّل طلبه. أغلق صلاحية التعديل أولًا أو انتظر حتى يؤكّد العميل الطلب.");
+                            return;
+                          }
                           const idx = availModalIndex;
                           const newItems = order.items.map((it, i) => {
                             if (i !== idx) return it;

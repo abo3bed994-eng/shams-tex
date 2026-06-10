@@ -104,6 +104,11 @@ export default function CartScreen() {
   const editOrderId = paramEditId || editingOrderId;
 
   const editLoadedRef = useRef(false);
+  // Point 2: guards the auto-exit effect from firing on the customer's own
+  // confirm / cancel / back. mountedAtRef gives a brief grace window so we don't
+  // exit before the realtime orders list has had a chance to sync on first mount.
+  const exitingEditRef = useRef(false);
+  const mountedAtRef = useRef(Date.now());
   useEffect(() => {
     if (paramEditId && !editLoadedRef.current) {
       editLoadedRef.current = true;
@@ -166,8 +171,54 @@ export default function CartScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editOrderId, cart.length]);
 
+  // Point 2: re-check the edit window frequently so an expiry — or a sync that
+  // arrives just after the grace window — is caught even without a Firestore push.
+  const [editWatchTick, setEditWatchTick] = useState(0);
+  useEffect(() => {
+    if (!editOrderId) return;
+    // Reset the sync-grace window per edit session in case the cart stays
+    // mounted across flows (so a fresh edit gets its own grace, not a stale one).
+    mountedAtRef.current = Date.now();
+    exitingEditRef.current = false;
+    const id = setInterval(() => setEditWatchTick((t) => t + 1), 3000);
+    return () => clearInterval(id);
+  }, [editOrderId]);
+
+  // Point 2: if staff close the edit window (or it expires, or the order is
+  // cancelled) while the customer is editing in the cart, lock and exit
+  // automatically with a clear message.
+  useEffect(() => {
+    if (!editOrderId || exitingEditRef.current) return;
+    const order = orders.find((o) => o.id === editOrderId);
+    const expired = order?.editableExpiresAt
+      ? new Date(order.editableExpiresAt).getTime() <= Date.now()
+      : false;
+    const stillEditable = !!order && order.editable && order.status !== "cancelled" && !expired;
+    if (stillEditable) return;
+    // The order is missing or no longer editable. If it's simply not in the
+    // synced list yet, wait out a short grace window before treating it as
+    // removed — this avoids a false exit on first mount before orders sync.
+    if (!order && Date.now() - mountedAtRef.current < 2500) return;
+    exitingEditRef.current = true;
+    const oid = editOrderId;
+    const msg =
+      !order || order.status === "cancelled"
+        ? "تم إلغاء هذا الطلب."
+        : expired
+          ? "انتهت مهلة تعديل الطلب."
+          : "تم إغلاق صلاحية التعديل من قِبل فريق العمل.";
+    setEditingOrderId(null);
+    clearCart();
+    editLoadedRef.current = false;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert("تعذّر متابعة التعديل", msg);
+    router.replace(`/order/${oid}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editOrderId, orders, editWatchTick]);
+
   const handleBack = () => {
     if (editingOrderId) {
+      exitingEditRef.current = true;
       setEditingOrderId(null);
       clearCart();
       editLoadedRef.current = false;
@@ -300,6 +351,7 @@ export default function CartScreen() {
 
     try {
       if (editOrderId) {
+        exitingEditRef.current = true;
         // Finalize the edit directly: clamp each item to its availability cap, strip
         // the staff-availability metadata, recompute the total, and save with
         // staffEdit=false so the order is marked edited, closed for editing, and the
@@ -586,6 +638,7 @@ export default function CartScreen() {
             style: "destructive",
             onPress: async () => {
               try {
+                exitingEditRef.current = true;
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 await cancelOrder(editOrderId, { notifyStaff: true });
                 clearCart();
@@ -800,6 +853,7 @@ export default function CartScreen() {
                   const rawAw = item.actualWeight ?? (item.quantity * perBolt);
                   const aw = cap != null ? Math.min(rawAw, cap) : rawAw;
                   const qKey = `qty_${item.productId}_${item.colorName}`;
+                  const awKey = `aw_${item.productId}_${item.colorName}`;
                   const fmt = (n: number) => Math.round(n * 100) / 100;
                   return (
                   <View style={{ gap: 10 }}>
@@ -885,9 +939,34 @@ export default function CartScreen() {
                           ? (item.unit === "meter" ? "الأمتار المتوفرة" : "الوزن المتوفر")
                           : (item.unit === "meter" ? "الأمتار التقديرية" : "الوزن التقديري")}
                       </Text>
-                      <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 18 }}>
-                        {fmt(aw)} {unitName}
-                      </Text>
+                      <View style={styles.stepperGroup}>
+                        <Pressable
+                          onPress={() => updateCartActualWeight(item.productId, item.colorName, Math.max(1, fmt(aw - 1)))}
+                          style={[styles.qtyBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        >
+                          <Icon name="minus" size={14} color={colors.gold} />
+                        </Pressable>
+                        <TextInput
+                          style={[styles.stepperInput, { color: colors.gold, borderBottomColor: colors.border, fontSize: 16 }]}
+                          value={weightTexts[awKey] !== undefined ? weightTexts[awKey] : String(fmt(aw))}
+                          keyboardType="decimal-pad"
+                          onChangeText={(txt) => {
+                            if (!/^\d*\.?\d*$/.test(txt)) return;
+                            setWeightTexts(p => ({ ...p, [awKey]: txt }));
+                            if (!txt || txt === "0") return;
+                            const val = parseFloat(txt);
+                            if (!isNaN(val) && val > 0) updateCartActualWeight(item.productId, item.colorName, val);
+                          }}
+                          onBlur={() => setWeightTexts(p => { const n = { ...p }; delete n[awKey]; return n; })}
+                        />
+                        <Text style={[styles.stepperUnit, { color: colors.mutedForeground }]}>{unitName}</Text>
+                        <Pressable
+                          onPress={() => updateCartActualWeight(item.productId, item.colorName, fmt(aw + 1))}
+                          style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
+                        >
+                          <Icon name="plus" size={14} color={colors.background} />
+                        </Pressable>
+                      </View>
                     </View>
                   )}
                   </View>
