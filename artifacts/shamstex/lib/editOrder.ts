@@ -28,15 +28,14 @@ export function acceptStaffAvailability(items: CartItem[]): CartItem[] {
       if (it.orderType === "weight") {
         clean.weight = it.availableQuantity;
       } else {
-        // Pieces: each bolt is a whole unit (bltOf kg/m), so round the available
-        // weight DOWN to whole bolts and keep the count + actual weight in step.
-        // If less than one full bolt is available, the item can't be fulfilled at
-        // all → drop it just like a fully-unavailable item (never exceed the cap).
+        // Pieces: a bolt (ثوب) is normally bltOf kg/m, but the last/only bolt can
+        // be a partial remnant (e.g. 9kg). Keep AT LEAST 1 bolt even when the
+        // available weight is below a full bolt, and pin actualWeight to the real
+        // available amount so the remnant shows its true weight (never above cap).
         const perBolt = bltOf(it.unit);
-        const bolts = Math.floor(it.availableQuantity / perBolt);
-        if (bolts < 1) return acc;
+        const bolts = Math.max(1, Math.floor(it.availableQuantity / perBolt));
         clean.quantity = bolts;
-        clean.actualWeight = bolts * perBolt;
+        clean.actualWeight = Math.min(bolts * perBolt, it.availableQuantity);
       }
     }
     acc.push(clean);
@@ -69,14 +68,12 @@ export function finalizeEditedItem(it: CartItem): CartItem {
     const perBolt = bltOf(it.unit);
     let bolts = clean.quantity;
     if (cap != null) {
-      // Whole bolts that fit within the cap (no forced minimum: a sub-bolt cap
-      // means nothing can be fulfilled, but such items are dropped earlier by
-      // acceptStaffAvailability / the cart clamp, so guard against 0 here too).
-      const maxBolts = Math.max(0, Math.floor(cap / perBolt));
+      // At least 1 bolt: a partial last bolt (e.g. 9kg < 20kg) is still sellable.
+      const maxBolts = Math.max(1, Math.floor(cap / perBolt));
       if (bolts > maxBolts) bolts = maxBolts;
     }
     clean.quantity = bolts;
-    clean.actualWeight = bolts * perBolt;
+    clean.actualWeight = cap != null ? Math.min(bolts * perBolt, cap) : bolts * perBolt;
   }
   return clean;
 }

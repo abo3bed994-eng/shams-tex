@@ -153,14 +153,14 @@ export default function CartScreen() {
       if (it.orderType === "weight") {
         if ((it.weight ?? 0) > cap) updateCartWeight(it.productId, it.colorName, cap);
       } else {
-        const maxBolts = Math.floor(cap / perBolt);
-        if (maxBolts < 1) {
-          // Less than one full bolt available → can't be fulfilled; drop it.
-          removeFromCart(it.productId, it.colorName);
-        } else if (it.quantity > maxBolts) {
-          updateCartItem(it.productId, it.colorName, maxBolts);
-          updateCartActualWeight(it.productId, it.colorName, maxBolts * perBolt);
-        }
+        // Pieces: keep at least 1 bolt (a partial last bolt like 9kg is still
+        // sellable — never auto-delete), and pin the weight to the available
+        // amount so a sub-bolt remnant shows its real weight (e.g. 9 كغ).
+        const maxBolts = Math.max(1, Math.floor(cap / perBolt));
+        const q = Math.min(it.quantity, maxBolts);
+        if (q !== it.quantity) updateCartItem(it.productId, it.colorName, q);
+        const w = Math.min(q * perBolt, cap);
+        if ((it.actualWeight ?? q * perBolt) !== w) updateCartActualWeight(it.productId, it.colorName, w);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -706,7 +706,7 @@ export default function CartScreen() {
                         <Text style={[styles.itemPrice, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
                           {fmt(item.unitPrice * (item.weight ?? 1))} ج.م
                         </Text>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17 }}>
                           {fmt(item.weight ?? 1)} {unitName}
                         </Text>
                       </View>
@@ -795,7 +795,7 @@ export default function CartScreen() {
                   const perBolt = item.unit === "meter" ? 100 : 20;
                   const isEdit = !!editOrderId;
                   const cap = item.stockStatus === "partial" && item.availableQuantity != null ? item.availableQuantity : item.editMaxQty;
-                  const maxBolts = cap != null ? Math.floor(cap / perBolt) : null;
+                  const maxBolts = cap != null ? Math.max(1, Math.floor(cap / perBolt)) : null;
                   const clampBolts = (n: number) => (maxBolts != null ? Math.min(Math.max(1, n), maxBolts) : Math.max(1, n));
                   const rawAw = item.actualWeight ?? (item.quantity * perBolt);
                   const aw = cap != null ? Math.min(rawAw, cap) : rawAw;
@@ -830,9 +830,9 @@ export default function CartScreen() {
                     </Text>
                   </View>
 
-                  {isEdit && maxBolts != null && (
+                  {isEdit && maxBolts != null && cap != null && (
                     <Text style={{ color: "#F39C12", fontFamily: "Inter_600SemiBold", fontSize: 11, textAlign: "right", paddingHorizontal: 4 }}>
-                      الحد الأقصى المتوفر: {maxBolts} ثوب ({fmt(maxBolts * perBolt)} {unitName})
+                      الحد الأقصى المتوفر: {maxBolts} ثوب ({fmt(Math.min(maxBolts * perBolt, cap))} {unitName})
                     </Text>
                   )}
 
@@ -881,13 +881,12 @@ export default function CartScreen() {
                   {isEdit && (
                     <View style={styles.editRow}>
                       <Text style={[styles.editRowLabel, { color: colors.mutedForeground }]}>
-                        {item.unit === "meter" ? "الأمتار التقديرية" : "الوزن التقديري"}
+                        {cap != null
+                          ? (item.unit === "meter" ? "الأمتار المتوفرة" : "الوزن المتوفر")
+                          : (item.unit === "meter" ? "الأمتار التقديرية" : "الوزن التقديري")}
                       </Text>
-                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                        {fmt(item.quantity * perBolt)} {unitName}
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11 }}>
-                          {"  "}(كل ثوب {perBolt} {unitName})
-                        </Text>
+                      <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 18 }}>
+                        {fmt(aw)} {unitName}
                       </Text>
                     </View>
                   )}

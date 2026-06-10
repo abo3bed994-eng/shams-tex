@@ -22,16 +22,24 @@ available" (force to cap) is the right default.
 (or vice-versa). Keep `computeItemsTotal` after whichever pass runs so the saved
 total matches the clamped/forced items.
 
-## Pieces (ثوب/bolt) cap = WHOLE bolts only — no forced minimum
+## Pieces (ثوب/bolt) cap — a bolt is NOT always a full 20kg/100m; keep ≥1, never delete
 
-A pieces order is sold in whole bolts (`bltOf` = 20kg or 100m each). The
-availability cap is a WEIGHT (`availableQuantity` in kg/m), so the bolt cap is
-`floor(cap / perBolt)`. Never `Math.max(1, ...)` it: if less than one full bolt is
-available the item CANNOT be fulfilled and must be dropped (treated like
-`unavailable`), not rounded up to 1 bolt — rounding up exceeds the cap.
-- `acceptStaffAvailability`: `if (bolts < 1) return acc` (skip the item).
-- cart clamp-on-load effect: `if (maxBolts < 1) removeFromCart(...)`.
-- `finalizeEditedItem` / cart stepper `maxBolts`: plain `floor`, guarded ≥0.
+A ثوب is NORMALLY `bltOf` (20kg or 100m), but the last/only bolt can be a partial
+remnant (e.g. 9kg) — this is a real domain fact confirmed by the owner. So a
+sub-one-bolt availability is still sellable as a partial bolt; it must NOT be
+auto-deleted and must NOT be rounded up to a full 20kg.
+**Why:** an earlier "drop the item when `floor(cap/perBolt) < 1`" rule silently
+deleted every partial-remnant item on entering edit (and, combined with the staff
+modal asking availability in kg/m, deleted all-but-one item). The owner explicitly
+wants the customer to SEE the real remnant weight (9 كغ) + the cap + a capped
+bolt counter, never a silent delete.
+**How to apply:**
+- bolt cap = `Math.max(1, Math.floor(cap / perBolt))` everywhere (≥1).
+- actualWeight = `Math.min(bolts * perBolt, cap)` so a 1-bolt remnant shows 9, not 20.
+- `acceptStaffAvailability` pieces branch: `bolts = max(1, floor(avail/perBolt))`, NO `return acc` drop.
+- cart clamp-on-load effect: NO `removeFromCart`; pin actualWeight to `min(q*perBolt, cap)`.
+- `finalizeEditedItem` / cart stepper `maxBolts`: `Math.max(1, floor)`.
+- Display: «الوزن المتوفر» row shows the capped `aw` prominently (gold, ~18px), and the cap line shows `min(maxBolts*perBolt, cap)` (e.g. "1 ثوب (9 كغ)").
 
 ## Edit save must NOT hard-throw (offline tolerance)
 
