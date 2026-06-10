@@ -6,6 +6,7 @@ import { cardShadow } from "@/constants/shadows";
 import { useColors } from "@/hooks/useColors";
 import { Product } from "@/context/AppContext";
 import { useApp } from "@/context/AppContext";
+import { displayPriceFor, isOnOffer } from "@/lib/pricing";
 
 interface ProductCardProps {
   product: Product;
@@ -17,8 +18,8 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
   const { effectivePriceMode, user, favorites, toggleFavorite } = useApp();
   const fav = favorites.includes(product.id);
 
-  const displayPrice =
-    effectivePriceMode === "wholesale" ? product.wholesalePrice : product.retailPrice;
+  const displayPrice = displayPriceFor(product, effectivePriceMode);
+  const onOffer = effectivePriceMode !== "wholesale" && isOnOffer(product);
 
   const priceLabel = effectivePriceMode === "wholesale" ? "سعر الجملة" : "السعر";
 
@@ -70,6 +71,13 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
             </View>
           )}
 
+          {!isOutOfStock && onOffer && (
+            <View style={styles.offerBadge}>
+              <Icon name="tag" size={12} color="#fff" />
+              <Text style={[styles.offerBadgeText, { fontFamily: "Inter_700Bold" }]}>عرض</Text>
+            </View>
+          )}
+
           <LinearGradient
             colors={["transparent", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.82)"]}
             locations={[0, 0.45, 1]}
@@ -88,9 +96,20 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
             <View style={styles.bottomRow}>
               <View style={styles.priceWrap}>
                 <Text style={[styles.priceLabel, { fontFamily: "Inter_400Regular" }]}>{priceLabel}</Text>
-                <Text style={[styles.price, { color: colors.goldLight, fontFamily: "Inter_700Bold" }]}>
-                  {displayPrice} ج.م
-                </Text>
+                {onOffer ? (
+                  <View style={styles.offerPriceRow}>
+                    <Text style={[styles.oldPrice, { fontFamily: "Inter_500Medium" }]}>
+                      {product.retailPrice}
+                    </Text>
+                    <Text style={[styles.price, { color: colors.goldLight, fontFamily: "Inter_700Bold" }]}>
+                      {displayPrice} ج.م
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.price, { color: colors.goldLight, fontFamily: "Inter_700Bold" }]}>
+                    {displayPrice} ج.م
+                  </Text>
+                )}
               </View>
 
               <View style={styles.colorsRow}>
@@ -231,6 +250,32 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 16,
     textAlign: "right",
+  },
+  offerPriceRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+  },
+  oldPrice: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    textDecorationLine: "line-through",
+  },
+  offerBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "#C0392B",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 4,
+  },
+  offerBadgeText: {
+    color: "#fff",
+    fontSize: 11,
   },
   colorsRow: {
     flexDirection: "row-reverse",

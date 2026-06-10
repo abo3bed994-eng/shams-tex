@@ -705,7 +705,8 @@ export default function CartScreen() {
                   styles.cartItem,
                   {
                     backgroundColor: colors.card,
-                    borderColor: colors.border,
+                    borderColor: item.stockStatus ? "#C0392B" : colors.border,
+                    borderWidth: item.stockStatus ? 1.5 : 1,
                     borderRadius: colors.radius,
                   },
                 ]}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import Icon from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -195,6 +195,19 @@ export default function ReturnDetailScreen() {
           </Text>
         </View>
 
+        {ret.problemImage && (
+          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              صورة المشكلة
+            </Text>
+            <Image
+              source={{ uri: ret.problemImage }}
+              style={{ width: "100%", height: 220, borderRadius: colors.radius - 4, backgroundColor: colors.surface }}
+              resizeMode="cover"
+            />
+          </View>
+        )}
+
         {isCancelled && ret.cancelReason && (
           <View style={[styles.infoCard, {
             backgroundColor: "#E74C3C11",
@@ -238,12 +251,19 @@ export default function ReturnDetailScreen() {
                       {item.productName}
                     </Text>
                     <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" }}>
-                      {item.colorName} — {item.weight ? `${item.weight} ${(item as any).unit === "meter" ? "متر" : (products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ")}` : `${item.quantity} ثوب`}
+                      {item.colorName} — {item.quantity} ثوب{(() => {
+                        const measure = item.orderType === "weight" ? item.weight : (item.actualWeight ?? item.weight);
+                        const unitLabel = (item as any).unit === "meter" || products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ";
+                        return measure ? ` · ${measure} ${unitLabel}` : "";
+                      })()}
                     </Text>
                   </View>
                 </View>
                 <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 14 }}>
-                  {item.unitPrice > 0 ? `${(item.unitPrice * (item.weight || item.quantity)).toFixed(0)} ج.م` : ""}
+                  {(() => {
+                    const amount = item.orderType === "weight" ? (item.weight ?? item.quantity) : (item.actualWeight ?? item.weight ?? item.quantity);
+                    return item.unitPrice > 0 ? `${(item.unitPrice * amount).toFixed(0)} ج.م` : "";
+                  })()}
                 </Text>
               </View>
             ))}

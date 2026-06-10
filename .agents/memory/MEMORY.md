@@ -11,6 +11,7 @@
 - [Shams Tex order-edit stock cap](shamstex-order-edit-stock-cap.md) — customer-edit "available only" cap uses stockStatus:"partial"+availableQuantity (a WEIGHT, caps weight/actualWeight); editMaxQty is a DEAD never-assigned field — don't rely on it.
 - [Shams Tex light-theme gold](shamstex-light-theme-gold.md) — gold token is used as TEXT everywhere; light-theme gold must stay deep (~#8C6D14, ≥4.5:1), bright gold looks faded AND fails contrast; goldLight is decoration-only.
 - [Shams Tex upload path/rules contract](shamstex-upload-rules.md) — client upload folders must match storage.rules exactly or every upload silently fails by default-deny; rules are inert until `firebase deploy --only storage`.
+- [Shams Tex pieces vs weight measure](shamstex-pieces-vs-weight-measure.md) — pieces priced measure lives in actualWeight (quantity=bolts); weight orders use weight. Never price pieces off `weight`.
 - [Shams Tex realtime auto-exit](shamstex-realtime-auto-exit.md) — realtime-driven auto-exit screens must exit on any closed state with a mount-grace only for not-yet-synced; never gate on "saw-it-valid-once".
 - [Shams Tex order-edit finalize paths](shamstex-edit-finalize-paths.md) — cart finalize CLAMPS to cap (finalizeEditedItem) to respect customer reductions; staff/auto-accept FORCES to cap (acceptStaffAvailability). Never swap them.
 - [Shams Tex logout reset paths](shamstex-logout-reset-paths.md) — per-session in-memory state (cart, editingOrderId) must clear in ALL 5 logout paths, not just setUser(null); forced-logout bypasses setUser.

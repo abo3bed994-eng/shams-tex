@@ -12,6 +12,7 @@ interface OrderCardProps {
   onStatusChange?: (status: OrderStatus) => void;
   onPrevStatus?: (status: OrderStatus) => void;
   canControl?: boolean; // whether this user can change this specific order
+  hasReturn?: boolean; // order has an active (non-cancelled) return request
 }
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: string }> = {
@@ -62,7 +63,7 @@ function prevStatusFor(order: Order): { prev: OrderStatus; label: string } | und
   return map[order.status];
 }
 
-export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onPrevStatus, canControl }: OrderCardProps) {
+export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onPrevStatus, canControl, hasReturn }: OrderCardProps) {
   const colors = useColors();
   const statusInfo = STATUS_CONFIG[order.status];
   const nextAction = nextStatusFor(order);
@@ -85,7 +86,8 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onP
         styles.card,
         {
           backgroundColor: colors.card,
-          borderColor: order.status === "pending" ? "#9B59B644" : colors.border,
+          borderColor: hasReturn ? "#C0392B" : order.status === "pending" ? "#9B59B644" : colors.border,
+          borderWidth: hasReturn ? 1.5 : 1,
           borderRadius: colors.radius,
           opacity: pressed ? 0.85 : 1,
         },
@@ -108,6 +110,15 @@ export default function OrderCard({ order, onPress, isAdmin, onStatusChange, onP
         <Text style={[styles.customerName, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
           {order.userName} - {order.userPhone}
         </Text>
+      )}
+
+      {hasReturn && (
+        <View style={[styles.assignedRow, { backgroundColor: "#C0392B11", borderColor: "#C0392B44" }]}>
+          <Icon name="rotate-ccw" size={12} color="#C0392B" />
+          <Text style={{ color: "#C0392B", fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+            هذا الطلب عليه طلب استرجاع
+          </Text>
+        </View>
       )}
 
       {order.edited && (

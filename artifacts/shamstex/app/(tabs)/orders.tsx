@@ -431,6 +431,7 @@ export default function OrdersScreen() {
                 order={order}
                 isAdmin={canEditStatus}
                 canControl={userCanControlThisOrder}
+                hasReturn={returnRequests.some((r) => r.orderId === order.id && r.status !== "cancelled")}
                 onPress={() => router.push(`/order/${order.id}`)}
                 onStatusChange={
                   canEditStatus && order.status !== "cancelled" && userCanControlThisOrder

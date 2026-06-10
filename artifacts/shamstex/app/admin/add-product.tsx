@@ -35,6 +35,7 @@ export default function AddProductScreen() {
   const [category, setCategory] = useState(CATEGORIES[0] ?? "حرير");
   const [subcategory, setSubcategory] = useState("");
   const [retailPrice, setRetailPrice] = useState("");
+  const [offerPrice, setOfferPrice] = useState("");
   const [wholesalePrice, setWholesalePrice] = useState("");
   const [description, setDescription] = useState("");
   const [selectedColors, setSelectedColors] = useState<ColorOption[]>([]);
@@ -97,6 +98,11 @@ export default function AddProductScreen() {
       Alert.alert("خطأ", "الرجاء إكمال البيانات واختيار ألوان على الأقل");
       return;
     }
+    const offerNum = offerPrice.trim() ? Number(offerPrice) : 0;
+    if (offerNum > 0 && offerNum >= Number(retailPrice)) {
+      Alert.alert("خطأ", "سعر العرض يجب أن يكون أقل من سعر الزبون");
+      return;
+    }
     setLoading(true);
 
     const newProduct = {
@@ -104,6 +110,7 @@ export default function AddProductScreen() {
       name,
       images,
       retailPrice: Number(retailPrice),
+      offerPrice: offerNum > 0 ? offerNum : undefined,
       wholesalePrice: Number(wholesalePrice),
       category,
       subcategory: subcategory || undefined,
@@ -402,6 +409,35 @@ export default function AddProductScreen() {
                 />
               </View>
             ))}
+          </View>
+
+          <View style={styles.priceField}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+              سعر العرض للزبون (اختياري)
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  color: "#C0392B",
+                  backgroundColor: colors.input,
+                  borderColor: offerPrice.trim() ? "#C0392B" : colors.border,
+                  borderRadius: colors.radius - 4,
+                  fontFamily: "Inter_700Bold",
+                },
+              ]}
+              value={offerPrice}
+              onChangeText={setOfferPrice}
+              keyboardType="decimal-pad"
+              placeholder="بدون عرض"
+              placeholderTextColor={colors.mutedForeground}
+              textAlign="right"
+            />
+            {offerPrice.trim() !== "" && Number(offerPrice) > 0 && Number(offerPrice) < Number(retailPrice || 0) && (
+              <Text style={{ color: "#C0392B", fontSize: 11, textAlign: "right", fontFamily: "Inter_500Medium" }}>
+                سيظهر السعر القديم {retailPrice} ج.م مشطوباً والسعر الجديد {offerPrice} ج.م
+              </Text>
+            )}
           </View>
         </View>
 

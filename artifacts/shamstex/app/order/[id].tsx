@@ -161,11 +161,13 @@ export default function OrderDetailScreen() {
   const [submittingReturn, setSubmittingReturn] = useState(false);
   const [returnSelectedItems, setReturnSelectedItems] = useState<Record<number, boolean>>({});
   const [returnItemWeights, setReturnItemWeights] = useState<Record<number, number>>({});
+  const [returnItemBolts, setReturnItemBolts] = useState<Record<number, number>>({});
   const [weightTexts, setWeightTexts] = useState<Record<string, string>>({});
   const [returnWeightTexts, setReturnWeightTexts] = useState<Record<number, string>>({});
+  const [returnBoltTexts, setReturnBoltTexts] = useState<Record<number, string>>({});
   const [printingInvoice, setPrintingInvoice] = useState(false);
-  const [returnInvoiceImage, setReturnInvoiceImage] = useState<string | null>(null);
-  const [uploadingReturnInvoice, setUploadingReturnInvoice] = useState(false);
+  const [returnProblemImage, setReturnProblemImage] = useState<string | null>(null);
+  const [uploadingReturnProblem, setUploadingReturnProblem] = useState(false);
   const [uploadingTransferProof, setUploadingTransferProof] = useState(false);
   const [showTransferProof, setShowTransferProof] = useState(false);
   const [showChangeMethodModal, setShowChangeMethodModal] = useState(false);
@@ -341,6 +343,39 @@ export default function OrderDetailScreen() {
             </Text>
           )}
         </View>
+
+        {(() => {
+          const orderReturns = returnRequests.filter((r) => r.orderId === order.id && r.status !== "cancelled");
+          if (orderReturns.length === 0) return null;
+          const latest = orderReturns[0];
+          return (
+            <Pressable
+              onPress={() => router.push(`/return/${latest.id}`)}
+              style={({ pressed }) => [{
+                backgroundColor: "#C0392B15",
+                borderColor: "#C0392B",
+                borderWidth: 1.5,
+                borderRadius: colors.radius,
+                padding: 14,
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: 10,
+                opacity: pressed ? 0.85 : 1,
+              }]}
+            >
+              <Icon name="rotate-ccw" size={20} color="#C0392B" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#C0392B", fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>
+                  هذا الطلب عليه طلب استرجاع
+                </Text>
+                <Text style={{ color: "#C0392B99", fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
+                  اضغط لعرض تفاصيل الاسترجاع{orderReturns.length > 1 ? ` (${orderReturns.length} طلبات)` : ""}
+                </Text>
+              </View>
+              <Icon name="chevron-left" size={18} color="#C0392B" />
+            </Pressable>
+          );
+        })()}
 
         {order.edited && isStaff && (
           <View style={[{ backgroundColor: "#F39C1215", borderColor: "#F39C1244", borderWidth: 1, borderRadius: colors.radius, padding: 12, flexDirection: "row-reverse", alignItems: "center", gap: 10 }]}>
@@ -1791,18 +1826,23 @@ export default function OrderDetailScreen() {
 
                     {order.items.map((item, index) => {
                       const isWeight = item.orderType === "weight";
-                      const maxVal = isWeight ? (item.weight ?? 1) : item.quantity;
-                      const curVal = returnItemWeights[index] ?? maxVal;
-                      const unitLabel = isWeight
-                        ? ((item as any).unit === "meter" || products.find(p => p.id === item.productId)?.unit === "meter" ? "متر" : "كغ")
-                        : "ثوب";
+                      const unitIsMeter = (item as any).unit === "meter" || products.find(p => p.id === item.productId)?.unit === "meter";
+                      const measureLabel = unitIsMeter ? "متر" : "كغ";
+                      const perBolt = unitIsMeter ? 100 : 20;
+                      const maxBolts = item.quantity > 0 ? item.quantity : Math.max(1, Math.ceil((item.weight ?? perBolt) / perBolt));
+                      const maxWeight = isWeight ? (item.weight ?? 1) : (item.actualWeight ?? item.quantity * perBolt);
+                      const curBolts = returnItemBolts[index] ?? maxBolts;
+                      const curWeight = returnItemWeights[index] ?? maxWeight;
                       return (
                         <View key={index} style={{ gap: 4 }}>
                           <Pressable
                             onPress={() => {
                               setReturnSelectedItems((prev) => ({ ...prev, [index]: !prev[index] }));
                               if (!returnItemWeights[index]) {
-                                setReturnItemWeights((prev) => ({ ...prev, [index]: maxVal }));
+                                setReturnItemWeights((prev) => ({ ...prev, [index]: maxWeight }));
+                              }
+                              if (!returnItemBolts[index]) {
+                                setReturnItemBolts((prev) => ({ ...prev, [index]: maxBolts }));
                               }
                             }}
                             style={[{
@@ -1831,49 +1871,78 @@ export default function OrderDetailScreen() {
                                 {item.productName}
                               </Text>
                               <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 11, textAlign: "right" }}>
-                                {item.colorName} — {isWeight ? `${item.weight ?? 1} ${unitLabel}` : `${item.quantity} ${unitLabel}`}
+                                {item.colorName} — {item.quantity} ثوب · {maxWeight} {measureLabel}
                               </Text>
                             </View>
                           </Pressable>
                           {returnSelectedItems[index] && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8 }}>
-                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11 }}>
-                                الكمية للاسترجاع:
-                              </Text>
-                              <Pressable
-                                onPress={() => {
-                                  const nv = Math.max(1, curVal - 1);
-                                  setReturnItemWeights((prev) => ({ ...prev, [index]: nv }));
-                                }}
-                                style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-                              >
-                                <Icon name="minus" size={10} color="#C0392B" />
-                              </Pressable>
-                              <TextInput
-                                style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 12, minWidth: 36, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 1 }}
-                                value={returnWeightTexts[index] !== undefined ? returnWeightTexts[index] : String(curVal)}
-                                keyboardType="decimal-pad"
-                                onChangeText={(txt) => {
-                                  if (!/^\d*\.?\d*$/.test(txt)) return;
-                                  setReturnWeightTexts(p => ({ ...p, [index]: txt }));
-                                  const val = parseFloat(txt);
-                                  if (isNaN(val) || val <= 0 || val > maxVal) return;
-                                  setReturnItemWeights((prev) => ({ ...prev, [index]: val }));
-                                }}
-                                onBlur={() => setReturnWeightTexts(p => { const n={...p}; delete n[index]; return n; })}
-                              />
-                              <Pressable
-                                onPress={() => {
-                                  const nv = Math.min(maxVal, curVal + 1);
-                                  setReturnItemWeights((prev) => ({ ...prev, [index]: nv }));
-                                }}
-                                style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#C0392B", alignItems: "center", justifyContent: "center" }}
-                              >
-                                <Icon name="plus" size={10} color="#fff" />
-                              </Pressable>
-                              <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
-                                {unitLabel} (من {maxVal})
-                              </Text>
+                            <View style={{ gap: 8, paddingHorizontal: 8, paddingVertical: 6 }}>
+                              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, width: 90, textAlign: "right" }}>
+                                  عدد الأثواب:
+                                </Text>
+                                <Pressable
+                                  onPress={() => setReturnItemBolts((prev) => ({ ...prev, [index]: Math.max(1, curBolts - 1) }))}
+                                  style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                                >
+                                  <Icon name="minus" size={10} color="#C0392B" />
+                                </Pressable>
+                                <TextInput
+                                  style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 12, minWidth: 36, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 1 }}
+                                  value={returnBoltTexts[index] !== undefined ? returnBoltTexts[index] : String(curBolts)}
+                                  keyboardType="number-pad"
+                                  onChangeText={(txt) => {
+                                    if (!/^\d*$/.test(txt)) return;
+                                    setReturnBoltTexts(p => ({ ...p, [index]: txt }));
+                                    const val = parseInt(txt, 10);
+                                    if (isNaN(val) || val <= 0 || val > maxBolts) return;
+                                    setReturnItemBolts((prev) => ({ ...prev, [index]: val }));
+                                  }}
+                                  onBlur={() => setReturnBoltTexts(p => { const n={...p}; delete n[index]; return n; })}
+                                />
+                                <Pressable
+                                  onPress={() => setReturnItemBolts((prev) => ({ ...prev, [index]: Math.min(maxBolts, curBolts + 1) }))}
+                                  style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#C0392B", alignItems: "center", justifyContent: "center" }}
+                                >
+                                  <Icon name="plus" size={10} color="#fff" />
+                                </Pressable>
+                                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                                  (من {maxBolts})
+                                </Text>
+                              </View>
+                              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 11, width: 90, textAlign: "right" }}>
+                                  {unitIsMeter ? "الطول (متر):" : "الوزن (كغ):"}
+                                </Text>
+                                <Pressable
+                                  onPress={() => setReturnItemWeights((prev) => ({ ...prev, [index]: Math.max(1, curWeight - 1) }))}
+                                  style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                                >
+                                  <Icon name="minus" size={10} color="#C0392B" />
+                                </Pressable>
+                                <TextInput
+                                  style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 12, minWidth: 36, textAlign: "center", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 1 }}
+                                  value={returnWeightTexts[index] !== undefined ? returnWeightTexts[index] : String(curWeight)}
+                                  keyboardType="decimal-pad"
+                                  onChangeText={(txt) => {
+                                    if (!/^\d*\.?\d*$/.test(txt)) return;
+                                    setReturnWeightTexts(p => ({ ...p, [index]: txt }));
+                                    const val = parseFloat(txt);
+                                    if (isNaN(val) || val <= 0 || val > maxWeight) return;
+                                    setReturnItemWeights((prev) => ({ ...prev, [index]: val }));
+                                  }}
+                                  onBlur={() => setReturnWeightTexts(p => { const n={...p}; delete n[index]; return n; })}
+                                />
+                                <Pressable
+                                  onPress={() => setReturnItemWeights((prev) => ({ ...prev, [index]: Math.min(maxWeight, curWeight + 1) }))}
+                                  style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#C0392B", alignItems: "center", justifyContent: "center" }}
+                                >
+                                  <Icon name="plus" size={10} color="#fff" />
+                                </Pressable>
+                                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 10 }}>
+                                  {measureLabel} (من {maxWeight})
+                                </Text>
+                              </View>
                             </View>
                           )}
                         </View>
@@ -1892,19 +1961,22 @@ export default function OrderDetailScreen() {
                   />
 
                   <View style={{ marginTop: 10, gap: 8 }}>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
+                      صورة المشكلة (اختياري)
+                    </Text>
                     <Pressable
                       onPress={async () => {
                         try {
-                          setUploadingReturnInvoice(true);
+                          setUploadingReturnProblem(true);
                           const uri = await pickImage(order.id);
                           if (uri) {
-                            setReturnInvoiceImage(uri);
+                            setReturnProblemImage(uri);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                           }
                         } catch {
                           Alert.alert("خطأ", "تعذّر رفع الصورة");
                         } finally {
-                          setUploadingReturnInvoice(false);
+                          setUploadingReturnProblem(false);
                         }
                       }}
                       style={({ pressed }) => [{
@@ -1913,21 +1985,21 @@ export default function OrderDetailScreen() {
                         justifyContent: "center",
                         gap: 8,
                         paddingVertical: 10,
-                        backgroundColor: returnInvoiceImage ? "#C0392B11" : colors.surface,
-                        borderColor: returnInvoiceImage ? "#C0392B44" : colors.border,
+                        backgroundColor: returnProblemImage ? "#C0392B11" : colors.surface,
+                        borderColor: returnProblemImage ? "#C0392B44" : colors.border,
                         borderWidth: 1,
                         borderRadius: colors.radius - 4,
                         opacity: pressed ? 0.7 : 1,
                       }]}
                     >
-                      <Icon name={returnInvoiceImage ? "check-circle" : "camera"} size={16} color={returnInvoiceImage ? "#C0392B" : colors.mutedForeground} />
-                      <Text style={{ color: returnInvoiceImage ? "#C0392B" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                        {uploadingReturnInvoice ? "جاري الرفع..." : returnInvoiceImage ? "تم رفع صورة الفاتورة — تغيير" : "رفع صورة الفاتورة (اختياري)"}
+                      <Icon name={returnProblemImage ? "check-circle" : "camera"} size={16} color={returnProblemImage ? "#C0392B" : colors.mutedForeground} />
+                      <Text style={{ color: returnProblemImage ? "#C0392B" : colors.mutedForeground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                        {uploadingReturnProblem ? "جاري الرفع..." : returnProblemImage ? "تم رفع صورة المشكلة — تغيير" : "رفع صورة المشكلة"}
                       </Text>
                     </Pressable>
-                    {returnInvoiceImage && (
+                    {returnProblemImage && (
                       <Image
-                        source={{ uri: returnInvoiceImage }}
+                        source={{ uri: returnProblemImage }}
                         style={{ width: "100%", height: 120, borderRadius: colors.radius - 4, backgroundColor: colors.surface }}
                         resizeMode="cover"
                       />
@@ -1942,10 +2014,16 @@ export default function OrderDetailScreen() {
                           .map((item, i) => {
                             if (!returnSelectedItems[i]) return null;
                             const isW = item.orderType === "weight";
-                            const retQty = returnItemWeights[i] ?? (isW ? (item.weight ?? 1) : item.quantity);
+                            const unitIsMeter = (item as any).unit === "meter" || products.find(p => p.id === item.productId)?.unit === "meter";
+                            const perBolt = unitIsMeter ? 100 : 20;
+                            const maxBolts = item.quantity > 0 ? item.quantity : Math.max(1, Math.ceil((item.weight ?? perBolt) / perBolt));
+                            const maxWeight = isW ? (item.weight ?? 1) : (item.actualWeight ?? item.quantity * perBolt);
+                            const retBolts = returnItemBolts[i] ?? maxBolts;
+                            const retWeight = returnItemWeights[i] ?? maxWeight;
                             return {
                               ...item,
-                              ...(isW ? { weight: retQty } : { quantity: retQty }),
+                              quantity: retBolts,
+                              ...(isW ? { weight: retWeight } : { actualWeight: retWeight }),
                             };
                           })
                           .filter(Boolean) as typeof order.items;
@@ -1969,21 +2047,22 @@ export default function OrderDetailScreen() {
                           reason: returnReason.trim(),
                           status: "pending",
                           createdAt: new Date().toISOString(),
-                          ...(returnInvoiceImage ? { invoiceImage: returnInvoiceImage } : {}),
+                          ...(returnProblemImage ? { problemImage: returnProblemImage } : {}),
                         });
                         setSubmittingReturn(false);
                         setShowReturnForm(false);
                         setReturnReason("");
                         setReturnSelectedItems({});
                         setReturnItemWeights({});
-                        setReturnInvoiceImage(null);
+                        setReturnItemBolts({});
+                        setReturnProblemImage(null);
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         Alert.alert("تم", "تم إرسال طلب الاسترجاع وسيتم مراجعته");
                       }}
                       style={{ flex: 1 }}
                     />
                     <Pressable
-                      onPress={() => { setShowReturnForm(false); setReturnReason(""); setReturnSelectedItems({}); setReturnItemWeights({}); setReturnInvoiceImage(null); }}
+                      onPress={() => { setShowReturnForm(false); setReturnReason(""); setReturnSelectedItems({}); setReturnItemWeights({}); setReturnItemBolts({}); setReturnProblemImage(null); }}
                       style={[styles.msgCancelBtn, { borderColor: colors.border, borderRadius: colors.radius - 4 }]}
                     >
                       <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 13 }}>إلغاء</Text>

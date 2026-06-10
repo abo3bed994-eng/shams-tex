@@ -76,6 +76,10 @@ export interface Product {
   name: string;
   images: string[];
   retailPrice: number;
+  // Optional discounted retail price. When set (> 0 and < retailPrice) the product
+  // is "on offer": retailPrice is shown struck-through as the old price and
+  // offerPrice becomes the effective retail price. Wholesale is never affected.
+  offerPrice?: number;
   wholesalePrice: number;
   category: string;
   subcategory?: string;
@@ -204,6 +208,9 @@ export interface ReturnRequest {
   status: ReturnStatus;
   createdAt: string;
   invoiceImage?: string;
+  // Photo of the problem with the returned goods (replaces the old invoice photo
+  // in the return form — customers attach the issue, not the invoice).
+  problemImage?: string;
   cancelReason?: string;
   cancelledAt?: string;
   cancelledByName?: string;

@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, CartItem } from "@/context/AppContext";
+import { displayPriceFor, isOnOffer } from "@/lib/pricing";
 import { useCartPulse } from "@/hooks/useCartPulse";
 import GoldButton from "@/components/GoldButton";
 import GoldHeader from "@/components/GoldHeader";
@@ -110,8 +111,8 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const displayPrice =
-    effectivePriceMode === "wholesale" ? product.wholesalePrice : product.retailPrice;
+  const displayPrice = displayPriceFor(product, effectivePriceMode);
+  const onOffer = effectivePriceMode !== "wholesale" && isOnOffer(product);
 
   const totalPieces = Object.values(selectedColors).reduce((a, b) => a + b, 0);
   const selectedColorCount = Object.keys(selectedColors).length;
@@ -542,9 +543,24 @@ export default function ProductDetailScreen() {
             >
               {user?.role === "merchant" ? "سعر الجملة" : "السعر"}
             </Text>
-            <Text style={[styles.price, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-              {displayPrice} ج.م / {product.unit === "kilo" ? "كيلو" : "متر"}
-            </Text>
+            {onOffer ? (
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <Text style={[styles.price, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                  {displayPrice} ج.م / {product.unit === "kilo" ? "كيلو" : "متر"}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 16, textDecorationLine: "line-through" }}>
+                  {product.retailPrice} ج.م
+                </Text>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: "#C0392B", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 }}>
+                  <Icon name="tag" size={12} color="#fff" />
+                  <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 11 }}>عرض</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={[styles.price, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                {displayPrice} ج.م / {product.unit === "kilo" ? "كيلو" : "متر"}
+              </Text>
+            )}
           </View>
           {product.description && (
             <Text

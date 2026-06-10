@@ -38,6 +38,9 @@ export default function EditProductScreen() {
   const [category, setCategory] = useState(product?.category ?? CATEGORIES[0] ?? "");
   const [subcategory, setSubcategory] = useState(product?.subcategory ?? "");
   const [retailPrice, setRetailPrice] = useState(String(product?.retailPrice ?? ""));
+  const [offerPrice, setOfferPrice] = useState(
+    product?.offerPrice != null && product.offerPrice > 0 ? String(product.offerPrice) : ""
+  );
   const [wholesalePrice, setWholesalePrice] = useState(String(product?.wholesalePrice ?? ""));
   const [description, setDescription] = useState(product?.description ?? "");
   const [images, setImages] = useState<string[]>(product?.images ?? []);
@@ -89,6 +92,11 @@ export default function EditProductScreen() {
       Alert.alert("خطأ", "يرجى ملء جميع الحقول المطلوبة");
       return;
     }
+    const offerNum = offerPrice.trim() ? Number(offerPrice) : 0;
+    if (offerNum > 0 && offerNum >= Number(retailPrice)) {
+      Alert.alert("خطأ", "سعر العرض يجب أن يكون أقل من سعر الزبون");
+      return;
+    }
     setSaving(true);
     const existing = products.find((p) => p.id === id);
     if (!existing) {
@@ -102,6 +110,7 @@ export default function EditProductScreen() {
       category,
       subcategory: subcategory || undefined,
       retailPrice: Number(retailPrice),
+      offerPrice: offerNum > 0 ? offerNum : undefined,
       wholesalePrice: Number(wholesalePrice),
       description,
       images,
@@ -302,6 +311,26 @@ export default function EditProductScreen() {
                 />
               </View>
             ))}
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={[{ color: colors.mutedForeground, fontSize: 11, textAlign: "right", fontFamily: "Inter_400Regular" }]}>
+              سعر العرض للزبون (اختياري) — اتركه فارغاً لإلغاء العرض
+            </Text>
+            <TextInput
+              style={[styles.textInput, { color: "#C0392B", backgroundColor: colors.input, borderColor: offerPrice.trim() ? "#C0392B" : colors.border, fontFamily: "Inter_700Bold" }]}
+              value={offerPrice}
+              onChangeText={setOfferPrice}
+              keyboardType="decimal-pad"
+              textAlign="right"
+              placeholder="بدون عرض"
+              placeholderTextColor={colors.mutedForeground}
+            />
+            {offerPrice.trim() !== "" && Number(offerPrice) > 0 && Number(offerPrice) < Number(retailPrice || 0) && (
+              <Text style={{ color: "#C0392B", fontSize: 11, textAlign: "right", fontFamily: "Inter_500Medium" }}>
+                سيظهر السعر القديم {retailPrice} ج.م مشطوباً والسعر الجديد {offerPrice} ج.م
+              </Text>
+            )}
           </View>
         </View>
 
