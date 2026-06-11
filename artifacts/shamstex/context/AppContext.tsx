@@ -87,6 +87,10 @@ export interface Product {
   description?: string;
   inStock: boolean;
   unit?: ProductUnit;
+  // Fabric specifications
+  width?: number; // العرض بالسنتيمتر
+  gsm?: number; // المقطع / الوزن (جرام لكل متر مربع)
+  composition?: { yarn: string; percent: number }[]; // التركيب
 }
 
 export interface CartItem {
@@ -308,6 +312,7 @@ export interface AppSettings {
   aboutText: string;
   categories: string[];
   subcategories: Record<string, string[]>;
+  yarnTypes?: string[];
   featuredProductIds: string[];
   bannerImageUri?: string;
   bannerImageUris?: string[];
@@ -349,6 +354,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     "قطن": ["قطن مصري", "قطن تركي"],
     "ساتان": ["ساتان فرنسي", "ساتان كوري"],
   },
+  yarnTypes: ["قطن", "بوليستر", "فيسكوز", "ليكرا", "صوف", "حرير", "كتان", "نايلون"],
   featuredProductIds: ["1", "2", "3"],
   stats: { clients: "+500", products: "+50", years: "15+" },
   statLabels: { clients: "عميل", products: "خامة", years: "سنة خبرة" },

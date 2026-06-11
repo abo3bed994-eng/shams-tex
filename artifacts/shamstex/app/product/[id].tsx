@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, CartItem } from "@/context/AppContext";
 import { displayPriceFor, isOnOffer } from "@/lib/pricing";
+import { metersPerKg } from "@/lib/fabric";
 import { useCartPulse } from "@/hooks/useCartPulse";
 import GoldButton from "@/components/GoldButton";
 import GoldHeader from "@/components/GoldHeader";
@@ -571,6 +572,49 @@ export default function ProductDetailScreen() {
           )}
         </View>
 
+        {(product.width != null || product.gsm != null || (product.composition?.length ?? 0) > 0) && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              مواصفات القماش
+            </Text>
+            <View style={{ gap: 10 }}>
+              {product.width != null && (
+                <View style={styles.specLine}>
+                  <Text style={[styles.specLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>العرض</Text>
+                  <Text style={[styles.specValue, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>{product.width} سم</Text>
+                </View>
+              )}
+              {product.gsm != null && (
+                <View style={styles.specLine}>
+                  <Text style={[styles.specLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>المقطع (GSM)</Text>
+                  <Text style={[styles.specValue, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>{product.gsm} جم/م²</Text>
+                </View>
+              )}
+              {product.unit === "kilo" && metersPerKg(product.gsm, product.width) != null && (
+                <View style={styles.specLine}>
+                  <Text style={[styles.specLabel, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>المدّ</Text>
+                  <Text style={[styles.specValue, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                    ≈ {(metersPerKg(product.gsm, product.width) as number).toFixed(2)} متر / كيلو
+                  </Text>
+                </View>
+              )}
+              {(product.composition?.length ?? 0) > 0 && (
+                <View style={[styles.specLine, { alignItems: "flex-start" }]}>
+                  <Text style={[styles.specLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>التركيب</Text>
+                  <View style={{ flex: 1, flexDirection: "row-reverse", flexWrap: "wrap", gap: 6, justifyContent: "flex-start" }}>
+                    {product.composition!.map((c, i) => (
+                      <View key={i} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: colors.gold + "18", borderColor: colors.gold + "44", borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 }}>
+                        <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 12 }}>{c.percent}%</Text>
+                        <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>{c.yarn}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {!product.inStock && (
           <View
             style={[
@@ -809,6 +853,9 @@ const styles = StyleSheet.create({
   desc: { fontSize: 14, textAlign: "right", lineHeight: 22 },
   section: { borderRadius: 12, borderWidth: 1, padding: 16, gap: 14 },
   sectionTitle: { fontSize: 16, textAlign: "right" },
+  specLine: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  specLabel: { fontSize: 13 },
+  specValue: { fontSize: 14 },
   orderTypeRow: { flexDirection: "row-reverse", gap: 10 },
   typeBtn: { paddingVertical: 12, alignItems: "center", borderWidth: 1 },
   typeBtnText: { fontSize: 14 },

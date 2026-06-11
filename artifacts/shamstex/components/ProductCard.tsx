@@ -93,6 +93,17 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
               {product.name}
             </Text>
 
+            {(product.width != null || product.gsm != null) && (
+              <Text style={[styles.specsLine, { fontFamily: "Inter_500Medium" }]} numberOfLines={1}>
+                {[
+                  product.width != null ? `عرض ${product.width} سم` : null,
+                  product.gsm != null ? `${product.gsm} جم/م²` : null,
+                ]
+                  .filter(Boolean)
+                  .join("  •  ")}
+              </Text>
+            )}
+
             <View style={styles.bottomRow}>
               <View style={styles.priceWrap}>
                 <Text style={[styles.priceLabel, { fontFamily: "Inter_400Regular" }]}>{priceLabel}</Text>
@@ -233,6 +244,11 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.2,
     textAlign: "right",
+  },
+  specsLine: {
+    fontSize: 11,
+    textAlign: "right",
+    color: "rgba(255,255,255,0.75)",
   },
   bottomRow: {
     flexDirection: "row-reverse",

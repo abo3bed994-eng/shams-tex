@@ -21,6 +21,8 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import FabricSpecsEditor from "@/components/FabricSpecsEditor";
+import { CompositionEntry, normalizeComposition, compositionPercentTotal, parseOptionalPositiveNumber } from "@/lib/fabric";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function AddProductScreen() {
@@ -41,6 +43,9 @@ export default function AddProductScreen() {
   const [selectedColors, setSelectedColors] = useState<ColorOption[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [unit, setUnit] = useState<"meter" | "kilo">("meter");
+  const [width, setWidth] = useState("");
+  const [gsm, setGsm] = useState("");
+  const [composition, setComposition] = useState<CompositionEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
@@ -103,6 +108,11 @@ export default function AddProductScreen() {
       Alert.alert("خطأ", "سعر العرض يجب أن يكون أقل من سعر الزبون");
       return;
     }
+    const normalizedComp = normalizeComposition(composition);
+    if (normalizedComp.length > 1 && compositionPercentTotal(normalizedComp) !== 100) {
+      Alert.alert("خطأ", "مجموع نسب التركيب يجب أن يساوي 100%");
+      return;
+    }
     setLoading(true);
 
     const newProduct = {
@@ -118,6 +128,9 @@ export default function AddProductScreen() {
       description,
       inStock: true,
       unit,
+      width: parseOptionalPositiveNumber(width),
+      gsm: parseOptionalPositiveNumber(gsm),
+      composition: normalizedComp.length > 0 ? normalizedComp : undefined,
     };
 
     try {
@@ -140,6 +153,9 @@ export default function AddProductScreen() {
           setDescription("");
           setSelectedColors([]);
           setImages([]);
+          setWidth("");
+          setGsm("");
+          setComposition([]);
         },
       },
       { text: "الرجوع", onPress: () => router.back() },
@@ -440,6 +456,16 @@ export default function AddProductScreen() {
             )}
           </View>
         </View>
+
+        <FabricSpecsEditor
+          width={width}
+          setWidth={setWidth}
+          gsm={gsm}
+          setGsm={setGsm}
+          composition={composition}
+          setComposition={setComposition}
+          yarnTypes={settings.yarnTypes ?? []}
+        />
 
         <View
           style={[

@@ -21,6 +21,8 @@ import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
+import FabricSpecsEditor from "@/components/FabricSpecsEditor";
+import { CompositionEntry, normalizeComposition, compositionPercentTotal, parseOptionalPositiveNumber } from "@/lib/fabric";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 export default function EditProductScreen() {
@@ -46,6 +48,9 @@ export default function EditProductScreen() {
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [selectedColors, setSelectedColors] = useState<ColorOption[]>(product?.colors ?? []);
   const [unit, setUnit] = useState<ProductUnit>(product?.unit ?? "meter");
+  const [width, setWidth] = useState(product?.width != null ? String(product.width) : "");
+  const [gsm, setGsm] = useState(product?.gsm != null ? String(product.gsm) : "");
+  const [composition, setComposition] = useState<CompositionEntry[]>(product?.composition ?? []);
   const [saving, setSaving] = useState(false);
 
   const bottomPad = Platform.OS === "web" ? 34 : Math.max(insets.bottom, Platform.OS === "android" ? 56 : 16);
@@ -97,6 +102,11 @@ export default function EditProductScreen() {
       Alert.alert("خطأ", "سعر العرض يجب أن يكون أقل من سعر الزبون");
       return;
     }
+    const normalizedComp = normalizeComposition(composition);
+    if (normalizedComp.length > 1 && compositionPercentTotal(normalizedComp) !== 100) {
+      Alert.alert("خطأ", "مجموع نسب التركيب يجب أن يساوي 100%");
+      return;
+    }
     setSaving(true);
     const existing = products.find((p) => p.id === id);
     if (!existing) {
@@ -116,6 +126,9 @@ export default function EditProductScreen() {
       images,
       colors: selectedColors.length > 0 ? selectedColors : existing.colors,
       unit,
+      width: parseOptionalPositiveNumber(width),
+      gsm: parseOptionalPositiveNumber(gsm),
+      composition: normalizedComp.length > 0 ? normalizedComp : undefined,
     };
     try {
       await updateProductOne(updatedProduct);
@@ -333,6 +346,16 @@ export default function EditProductScreen() {
             )}
           </View>
         </View>
+
+        <FabricSpecsEditor
+          width={width}
+          setWidth={setWidth}
+          gsm={gsm}
+          setGsm={setGsm}
+          composition={composition}
+          setComposition={setComposition}
+          yarnTypes={settings.yarnTypes ?? []}
+        />
 
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>

@@ -14,6 +14,7 @@ const ITEMS: { key: string; title: string; icon: string; route: string }[] = [
   { key: "socials", title: "روابط التواصل الاجتماعي", icon: "globe", route: "/admin/settings/socials" },
   { key: "ads", title: "المحتوى الإعلاني", icon: "image", route: "/admin/settings/ads" },
   { key: "categories", title: "فئات المنتجات والفئات الفرعية", icon: "grid", route: "/admin/settings/categories" },
+  { key: "yarns", title: "أنواع الفتلة", icon: "layers", route: "/admin/settings/yarns" },
   { key: "hours", title: "مواعيد العمل", icon: "clock", route: "/admin/settings/hours" },
   { key: "branches", title: "الفروع ووسائل الدفع لكل فرع", icon: "map-pin", route: "/admin/settings/branches" },
   { key: "shipping", title: "شركات الشحن", icon: "truck", route: "/admin/settings/shipping" },
