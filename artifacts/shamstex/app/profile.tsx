@@ -252,13 +252,13 @@ export default function ProfileScreen() {
                 { borderBottomColor: colors.border, borderBottomWidth: idx === arr.length - 1 ? 0 : 1, opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <Icon name="chevron-left" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.adminItemText, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
-                {language === "ar" ? item.label : item.labelEn}
-              </Text>
               <View style={[styles.adminItemIcon, { backgroundColor: colors.gold + "22" }]}>
                 <Icon name={item.icon as any} size={16} color={colors.gold} />
               </View>
+              <Text style={[styles.adminItemText, { color: colors.foreground, fontFamily: "Inter_500Medium", textAlign: "right" }]}>
+                {language === "ar" ? item.label : item.labelEn}
+              </Text>
+              <Icon name="chevron-left" size={16} color={colors.mutedForeground} />
             </Pressable>
           ))}
         </View>

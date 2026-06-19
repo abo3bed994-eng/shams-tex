@@ -150,7 +150,7 @@ export default function AddressesScreen() {
                   style={({ pressed }) => ({ flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 7, borderWidth: 1, borderColor: colors.gold + "55", opacity: pressed ? 0.7 : 1 })}
                 >
                   <Icon name="star" size={12} color={colors.gold} />
-                  <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 11 }}>اجعله افتراضي</Text>
+                  <Text style={{ color: colors.gold, fontFamily: "Inter_700Bold", fontSize: 11 }}>افتراضي</Text>
                 </Pressable>
               )}
               <Pressable

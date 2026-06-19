@@ -80,7 +80,6 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
 
           {!isOutOfStock && onOffer && (
             <View style={styles.offerTagWrap} pointerEvents="none">
-              <View style={styles.offerBackTab} />
               <View style={styles.offerTag}>
                 <Icon name="tag" size={11} color="#fff" />
                 <Text style={[styles.offerTagText, { fontFamily: "Inter_700Bold" }]}>
@@ -300,32 +299,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 5,
   },
-  offerBackTab: {
-    width: 46,
-    height: 13,
-    backgroundColor: "#1E7E45",
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-  },
   offerTag: {
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 4,
-    marginTop: -5,
     backgroundColor: "#27AE60",
     paddingHorizontal: 12,
     paddingVertical: 5,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.18)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.32,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 8,
   },
   offerTagText: {
     color: "#fff",
