@@ -80,7 +80,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
           {!isOutOfStock && onOffer && (
             <View style={styles.offerBadge}>
               <Icon name="tag" size={12} color="#fff" />
-              <Text style={[styles.offerBadgeText, { fontFamily: "Inter_700Bold" }]}>عرض</Text>
+              <Text style={[styles.offerBadgeText, { fontFamily: "Inter_700Bold" }]}>خصم</Text>
             </View>
           )}
 
@@ -288,8 +288,8 @@ const styles = StyleSheet.create({
   },
   offerBadge: {
     position: "absolute",
-    top: 10,
-    left: 10,
+    top: 46,
+    right: 10,
     backgroundColor: "#C0392B",
     flexDirection: "row",
     alignItems: "center",
