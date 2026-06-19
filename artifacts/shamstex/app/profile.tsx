@@ -134,11 +134,13 @@ export default function ProfileScreen() {
           <Text style={[styles.phone, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             {user.phone}
           </Text>
-          <View style={[styles.roleBadge, { backgroundColor: colors.isDark ? colors.gold + "22" : colors.gold }]}>
-            <Text style={[styles.roleText, { color: colors.isDark ? colors.gold : colors.primaryForeground, fontFamily: "Inter_600SemiBold" }]}>
-              {ROLE_LABELS[user.role] ?? user.role}
-            </Text>
-          </View>
+          {user.role !== "customer" && (
+            <View style={[styles.roleBadge, { backgroundColor: colors.isDark ? colors.gold + "22" : colors.gold }]}>
+              <Text style={[styles.roleText, { color: colors.isDark ? colors.gold : colors.primaryForeground, fontFamily: "Inter_600SemiBold" }]}>
+                {ROLE_LABELS[user.role] ?? user.role}
+              </Text>
+            </View>
+          )}
           {user.vip && (
             <View style={[styles.vipBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "44" }]}>
               <Icon name="star" size={13} color={colors.gold} />
@@ -147,32 +149,26 @@ export default function ProfileScreen() {
               </Text>
             </View>
           )}
-          {!user.vip && user.role === "customer" && (
-            <View style={[styles.vipBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Icon name="user" size={13} color={colors.mutedForeground} />
-              <Text style={[{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }]}>
-                {t("regularCustomer")}
-              </Text>
-            </View>
-          )}
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-              {myOrdersCount}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {t("myOrdersCount")}
-            </Text>
+        {user.role !== "customer" && (
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <Text style={[styles.statNum, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
+                {myOrdersCount}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                {t("myOrdersCount")}
+              </Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <Icon name={user.vip ? "star" : "user"} size={24} color={user.vip ? colors.gold : colors.mutedForeground} />
+              <Text style={[styles.statLabel, { color: user.vip ? colors.gold : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                {user.vip ? t("vipCustomer") : t("regularCustomer")}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-            <Icon name={user.vip ? "star" : "user"} size={24} color={user.vip ? colors.gold : colors.mutedForeground} />
-            <Text style={[styles.statLabel, { color: user.vip ? colors.gold : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {user.vip ? t("vipCustomer") : t("regularCustomer")}
-            </Text>
-          </View>
-        </View>
+        )}
 
         {user.role === "customer" && !user.vip && (
           <View style={[styles.upgradeCard, { backgroundColor: colors.card, borderColor: colors.gold + "44", borderRadius: colors.radius }]}>

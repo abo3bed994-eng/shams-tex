@@ -291,12 +291,14 @@ export default function HomeScreen() {
                 </Text>
               )}
             </View>
-            <View style={[styles.bannerRolePill, { backgroundColor: roleLabel.gold ? colors.gold : colors.surface + "CC" }]}>
-              <Icon name={roleLabel.icon} size={11} color={roleLabel.gold ? "#0A0A0A" : colors.mutedForeground} />
-              <Text style={[styles.bannerRoleText, { color: roleLabel.gold ? "#0A0A0A" : colors.mutedForeground }]}>
-                {roleLabel.text}
-              </Text>
-            </View>
+            {isStaff && (
+              <View style={[styles.bannerRolePill, { backgroundColor: roleLabel.gold ? colors.gold : colors.surface + "CC" }]}>
+                <Icon name={roleLabel.icon} size={11} color={roleLabel.gold ? "#0A0A0A" : colors.mutedForeground} />
+                <Text style={[styles.bannerRoleText, { color: roleLabel.gold ? "#0A0A0A" : colors.mutedForeground }]}>
+                  {roleLabel.text}
+                </Text>
+              </View>
+            )}
             {user?.role === "admin" && (
               <View style={[styles.bannerRolePill, { backgroundColor: "#27AE60", marginInlineStart: 6 }]}>
                 <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#FFFFFF" }} />
