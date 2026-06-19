@@ -1290,6 +1290,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [registeredCustomers]
   );
 
+  // Resolve a customer's CURRENT canonical phone from the live registered-customers
+  // list (matched by id or canonical phone), falling back to the value frozen on the
+  // order/return. Both notification delivery (the Firestore `targetUserPhone`
+  // exact-match subscription) and push-token lookup are EXACT matches, so a
+  // stale/format-drifted phone frozen on an old order silently fails to deliver.
+  // Using the live record is exactly what the working admin "message" path does.
+  const resolveRecipientPhone = useCallback(
+    (userId?: string, userPhone?: string): string => {
+      const list = registeredCustomersRef.current;
+      const rec = list.find(
+        (c) =>
+          (!!userId && c.id === userId) ||
+          (!!userPhone && samePhone(c.phone, userPhone))
+      );
+      return rec?.phone ?? userPhone ?? "";
+    },
+    []
+  );
+
   const registerCustomer = useCallback(async (newUser: User) => {
     // Match canonically so a re-registration under a different phone format
     // (legacy local vs E.164) updates the existing record instead of forking it.
@@ -1631,6 +1650,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           FS.saveNotification(staffNotif).catch(() => {});
           notifyStaffNewOrder(order.id, order.userName).catch(() => {});
           // Notify customer that work has begun on their order.
+          const recipientPhone = resolveRecipientPhone(order.userId, order.userPhone);
           const custNotif: Notification = {
             id: `notif_release_cust_${order.id}`,
             title: "✅ بدأ العمل على طلبك",
@@ -1638,13 +1658,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: nowIso,
             read: false,
             targetUserId: order.userId,
-            targetUserPhone: order.userPhone,
+            targetUserPhone: recipientPhone,
             linkedOrderId: order.id,
           };
           FS.saveNotification(custNotif).catch(() => {});
-          if (order.userPhone) {
+          if (recipientPhone) {
             notifyUserByPhone(
-              order.userPhone,
+              recipientPhone,
               "✅ بدأ العمل على طلبك",
               `طلبك #${order.id.slice(0, 8)} وصل إلى فريق العمل`,
               { type: "order_released", orderId: order.id }
@@ -1796,6 +1816,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           pending: "تم إلغاء استلام طلبك — سيتم مراجعته مجدداً",
         };
         if (!statusLabels[status]) return;
+        const recipientPhone = resolveRecipientPhone(updatedOrder.userId, updatedOrder.userPhone);
         const custNotif: Notification = {
           id: `notif_status_${orderId}_${status}_${Date.now()}`,
           title: statusLabels[status],
@@ -1803,13 +1824,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: updatedOrder.userId,
-          targetUserPhone: updatedOrder.userPhone,
+          targetUserPhone: recipientPhone,
           linkedOrderId: orderId,
         };
         FS.saveNotification(custNotif).catch(() => {});
-        if (updatedOrder.userPhone) {
+        if (recipientPhone) {
           notifyUserByPhone(
-            updatedOrder.userPhone,
+            recipientPhone,
             statusLabels[status],
             `طلبك #${orderId.slice(0, 8)} — ${statusLabels[status]}`,
             { type: "order_status", orderId, status }
@@ -1941,6 +1962,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async (orderId: string, message: string) => {
       const order = ordersRef.current.find((o) => o.id === orderId);
       if (!order) return;
+      const recipientPhone = resolveRecipientPhone(order.userId, order.userPhone);
       const notif: Notification = {
         id: `notif_msg_${orderId}_${Date.now()}`,
         title: `رسالة بخصوص طلبك #${orderId.slice(0, 8)}`,
@@ -1948,15 +1970,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         read: false,
         targetUserId: order.userId,
-        targetUserPhone: order.userPhone,
+        targetUserPhone: recipientPhone,
       };
       const updated = [notif, ...notificationsRef.current];
       setNotifications(updated);
       await AsyncStorage.setItem("notifications", JSON.stringify(updated));
       FS.saveNotification(notif).catch(() => {});
-      if (order.userPhone) {
+      if (recipientPhone) {
         notifyUserByPhone(
-          order.userPhone,
+          recipientPhone,
           notif.title,
           message,
           { type: "order_message", orderId }
@@ -1985,6 +2007,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updatedOrder) {
         FS.saveOrder(updatedOrder).catch(() => {});
         if (editable) {
+          const recipientPhone = resolveRecipientPhone(updatedOrder.userId, updatedOrder.userPhone);
           const notif: Notification = {
             id: `notif_editable_${orderId}_${Date.now()}`,
             title: "يمكنك تعديل طلبك",
@@ -1992,16 +2015,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
-            targetUserPhone: updatedOrder.userPhone,
+            targetUserPhone: recipientPhone,
             linkedOrderId: orderId,
           };
           const updatedNotifs = [notif, ...notificationsRef.current];
           setNotifications(updatedNotifs);
           await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
           FS.saveNotification(notif).catch(() => {});
-          if (updatedOrder.userPhone) {
+          if (recipientPhone) {
             notifyUserByPhone(
-              updatedOrder.userPhone,
+              recipientPhone,
               notif.title,
               notif.body,
               { type: "order_editable", orderId }
@@ -2067,6 +2090,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (updatedOrder) {
         FS.saveOrder(updatedOrder).catch(() => {});
         if (imageUri) {
+          const recipientPhone = resolveRecipientPhone(updatedOrder.userId, updatedOrder.userPhone);
           const notif: Notification = {
             id: `notif_invoice_${orderId}_${Date.now()}`,
             title: "تم رفع فاتورة طلبك 🧾",
@@ -2074,16 +2098,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date().toISOString(),
             read: false,
             targetUserId: updatedOrder.userId,
-            targetUserPhone: updatedOrder.userPhone,
+            targetUserPhone: recipientPhone,
             linkedOrderId: orderId,
           };
           const updatedNotifs = [notif, ...notificationsRef.current];
           setNotifications(updatedNotifs);
           AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs)).catch(() => {});
           FS.saveNotification(notif).catch(() => {});
-          if (updatedOrder.userPhone) {
+          if (recipientPhone) {
             notifyUserByPhone(
-              updatedOrder.userPhone,
+              recipientPhone,
               notif.title,
               notif.body,
               { type: "invoice_uploaded", orderId }
@@ -2396,6 +2420,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const req = updated.find((r) => r.id === reqId);
       if (req) {
         FS.saveReturnRequest(req).catch(() => {});
+        const recipientPhone = resolveRecipientPhone(req.userId, req.userPhone);
         const custNotif: Notification = {
           id: `notif_return_${reqId}_${status}_${Date.now()}`,
           title: status === "returned" ? "تم استرجاع الطلب" : status === "settled" ? "تمت المخالصة" : "طلب الاسترجاع قيد المراجعة",
@@ -2403,7 +2428,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: req.userId,
-          targetUserPhone: req.userPhone,
+          targetUserPhone: recipientPhone,
           linkedOrderId: req.orderId,
           linkedReturnId: req.id,
         };
@@ -2411,6 +2436,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setNotifications(updatedNotifs);
         await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
         FS.saveNotification(custNotif).catch(() => {});
+        if (recipientPhone) {
+          notifyUserByPhone(
+            recipientPhone,
+            custNotif.title,
+            custNotif.body,
+            { type: "return_status", orderId: req.orderId, status }
+          ).catch(() => {});
+        }
       }
     },
     [returnRequests]
@@ -2435,6 +2468,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const req = updated.find((r) => r.id === reqId);
       if (req) {
         FS.saveReturnRequest(req).catch(() => {});
+        const recipientPhone = resolveRecipientPhone(req.userId, req.userPhone);
         const custNotif: Notification = {
           id: `notif_return_cancel_${reqId}_${Date.now()}`,
           title: "تم إلغاء طلب الاسترجاع",
@@ -2444,7 +2478,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString(),
           read: false,
           targetUserId: req.userId,
-          targetUserPhone: req.userPhone,
+          targetUserPhone: recipientPhone,
           linkedOrderId: req.orderId,
           linkedReturnId: req.id,
         };
@@ -2452,14 +2486,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setNotifications(updatedNotifs);
         await AsyncStorage.setItem("notifications", JSON.stringify(updatedNotifs));
         FS.saveNotification(custNotif).catch(() => {});
-        notifyUserByPhone(
-          req.userPhone,
-          "تم إلغاء طلب الاسترجاع ❌",
-          reason
-            ? `تم إلغاء طلب استرجاعك للطلب #${req.orderId.slice(0, 8)} — السبب: ${reason}`
-            : `تم إلغاء طلب استرجاعك للطلب #${req.orderId.slice(0, 8)}`,
-          { type: "return_cancelled", orderId: req.orderId }
-        ).catch(() => {});
+        if (recipientPhone) {
+          notifyUserByPhone(
+            recipientPhone,
+            "تم إلغاء طلب الاسترجاع ❌",
+            reason
+              ? `تم إلغاء طلب استرجاعك للطلب #${req.orderId.slice(0, 8)} — السبب: ${reason}`
+              : `تم إلغاء طلب استرجاعك للطلب #${req.orderId.slice(0, 8)}`,
+            { type: "return_cancelled", orderId: req.orderId }
+          ).catch(() => {});
+        }
       }
     },
     [returnRequests]
