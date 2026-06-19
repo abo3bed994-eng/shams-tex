@@ -17,6 +17,12 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
   const colors = useColors();
   const { effectivePriceMode, user, favorites, toggleFavorite } = useApp();
   const fav = favorites.includes(product.id);
+  const specsText = [
+    product.width != null ? `عرض ${product.width}سم` : null,
+    product.gsm != null ? `${product.gsm} جم/م²` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const displayPrice = displayPriceFor(product, effectivePriceMode);
   const onOffer = effectivePriceMode !== "wholesale" && isOnOffer(product);
@@ -93,34 +99,30 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
               {product.name}
             </Text>
 
-            {(product.width != null || product.gsm != null) && (
-              <Text style={[styles.specsLine, { fontFamily: "Inter_500Medium" }]} numberOfLines={1}>
-                {[
-                  product.width != null ? `عرض ${product.width} سم` : null,
-                  product.gsm != null ? `${product.gsm} جم/م²` : null,
-                ]
-                  .filter(Boolean)
-                  .join("  •  ")}
-              </Text>
-            )}
-
             <View style={styles.bottomRow}>
               <View style={styles.priceWrap}>
                 <Text style={[styles.priceLabel, { fontFamily: "Inter_400Regular" }]}>{priceLabel}</Text>
-                {onOffer ? (
-                  <View style={styles.offerPriceRow}>
-                    <Text style={[styles.oldPrice, { fontFamily: "Inter_500Medium" }]}>
-                      {product.retailPrice}
-                    </Text>
+                <View style={styles.priceLine}>
+                  {onOffer ? (
+                    <View style={styles.offerPriceRow}>
+                      <Text style={[styles.oldPrice, { fontFamily: "Inter_500Medium" }]}>
+                        {product.retailPrice}
+                      </Text>
+                      <Text style={[styles.price, { color: colors.goldLight, fontFamily: "Inter_700Bold" }]}>
+                        {displayPrice} ج.م
+                      </Text>
+                    </View>
+                  ) : (
                     <Text style={[styles.price, { color: colors.goldLight, fontFamily: "Inter_700Bold" }]}>
                       {displayPrice} ج.م
                     </Text>
-                  </View>
-                ) : (
-                  <Text style={[styles.price, { color: colors.goldLight, fontFamily: "Inter_700Bold" }]}>
-                    {displayPrice} ج.م
-                  </Text>
-                )}
+                  )}
+                  {!!specsText && (
+                    <Text style={[styles.specsInline, { fontFamily: "Inter_500Medium" }]} numberOfLines={1}>
+                      {specsText}
+                    </Text>
+                  )}
+                </View>
               </View>
 
               <View style={styles.colorsRow}>
@@ -245,18 +247,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     textAlign: "right",
   },
-  specsLine: {
-    fontSize: 11,
-    textAlign: "right",
-    color: "rgba(255,255,255,0.75)",
-  },
   bottomRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
   },
   priceWrap: {
+    flexShrink: 1,
     alignItems: "flex-end",
+  },
+  priceLine: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+  },
+  specsInline: {
+    flexShrink: 1,
+    fontSize: 11,
+    textAlign: "right",
+    color: "rgba(255,255,255,0.72)",
   },
   priceLabel: {
     fontSize: 10,

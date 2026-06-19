@@ -236,6 +236,9 @@ export default function AdminNotificationsScreen() {
       body: body.trim(),
       createdAt: new Date().toISOString(),
       read: false,
+      // Stamp the author so the sender's own Firestore listener skips it (no
+      // self-notification for a broadcast they just sent).
+      ...(user?.id ? { sourceUserId: user.id } : {}),
     };
 
     if (notifType === "all") notif.targetRole = "all";

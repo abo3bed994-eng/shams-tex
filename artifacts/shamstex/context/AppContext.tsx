@@ -2481,12 +2481,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       FS.saveNotification(notification).catch(() => {});
 
       // Trigger phone notification tray + elegant sound for the current device.
-      // Targeted notifications only fire locally if they're for current user (or broadcast).
+      // IMPORTANT: only fire immediately for notifications explicitly aimed at
+      // THIS user that they did not author. Broadcasts / role-targeted items are
+      // delivered to recipients via the Firestore listener (watermark-deduped) —
+      // firing them here too would double-notify the author (and spuriously
+      // notify the author of items meant for other roles).
       const currentUser = userRef.current;
       const isForMe =
-        !notification.targetUserId ||
         notification.targetUserId === "self" ||
-        notification.targetUserId === currentUser?.id;
+        (!!currentUser &&
+          notification.targetUserId === currentUser.id &&
+          notification.sourceUserId !== currentUser.id);
       if (isForMe) {
         if (Platform.OS !== "web") {
           try {

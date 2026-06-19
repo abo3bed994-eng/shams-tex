@@ -594,7 +594,7 @@ export default function ProductDetailScreen() {
                 <View style={styles.specLine}>
                   <Text style={[styles.specLabel, { color: colors.gold, fontFamily: "Inter_500Medium" }]}>المدّ</Text>
                   <Text style={[styles.specValue, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
-                    ≈ {(metersPerKg(product.gsm, product.width) as number).toFixed(2)} متر / كيلو
+                    ≈ {(metersPerKg(product.gsm, product.width) as number).toFixed(1)} متر للكيلو
                   </Text>
                 </View>
               )}

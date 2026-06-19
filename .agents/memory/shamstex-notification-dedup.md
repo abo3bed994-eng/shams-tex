@@ -34,3 +34,25 @@ The watermark is immune to both: pre-existing docs always have
 ever add a new notification-creation path, set `createdAt` the same way, or it
 may be silently skipped (or, with a future clock, re-alert). Do NOT reintroduce
 `prevIds`/`isFirstNotifLoad`-based newness detection.
+
+## Second dedup source: author-side immediate fire
+
+`addNotification` ALSO fires an immediate local notification on the author's
+device. There are therefore TWO local-fire paths: (1) the listener (above), and
+(2) `addNotification`'s immediate fire. They collide whenever the author is also
+a recipient — the listener re-fires the same doc when the Firestore write echoes
+back.
+
+**Rule:** `addNotification`'s immediate fire must be restricted to notifications
+explicitly aimed at the current user that they did NOT author
+(`targetUserId === "self"` OR `targetUserId === me.id && sourceUserId !== me.id`).
+Broadcasts and role-targeted items must be delivered to recipients ONLY via the
+listener path. Composed broadcasts (e.g. `app/admin/notifications.tsx`) must
+stamp `sourceUserId = author.id` so the listener's `sourceUserId === me.id` skip
+prevents the author from notifying themselves.
+
+**Why:** Previously `isForMe` treated "no `targetUserId`" (every broadcast) as
+"for me", so an admin sending an "all" broadcast got it twice (immediate +
+listener echo) and got spurious local alerts for role broadcasts aimed at other
+roles. The listener already handles correct recipient delivery + watermark
+dedup, so the immediate fire only needs to cover true direct-to-self items.
