@@ -20,3 +20,10 @@ export function effectiveRetailPrice(p: OfferFields): number {
 export function displayPriceFor(p: Product, mode: "wholesale" | "retail"): number {
   return mode === "wholesale" ? p.wholesalePrice : effectiveRetailPrice(p);
 }
+
+// The whole-number discount percentage off the retail price when on offer.
+// Returns 0 when there is no active offer. No decimal places (rounded).
+export function discountPercent(p: OfferFields): number {
+  if (!isOnOffer(p) || p.retailPrice <= 0) return 0;
+  return Math.round(((p.retailPrice - (p.offerPrice as number)) / p.retailPrice) * 100);
+}

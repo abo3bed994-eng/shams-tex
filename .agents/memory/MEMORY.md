@@ -1,5 +1,6 @@
 - [expo-print version pin](expo-print-crash.md) — pin expo-print to the installed Expo SDK range; a future-SDK major crashes the PDF/print path at runtime.
 - [Shams Tex notification de-dup](shamstex-notification-dedup.md) — local OS notifications de-duped via login-time createdAt watermark; never use in-memory prevIds (Firestore sends 2 merge batches).
+- [Shams Tex notification targeting](shamstex-notification-targeting.md) — non-staff heads-up "forMe" must match direct notifs by phone (or id), not id alone; subscription is phone-keyed and order.userId drifts.
 - [Shams Tex theme toggle](shamstex-theme-toggle.md) — single dark/light toggle keeps AppTheme="system" internally until first manual tap; that's what gives first-launch device-follow. Don't drop "system".
 - [RN Web nested Pressable](rn-web-nested-pressable.md) — on Expo web, an inner Pressable's tap bubbles to an outer navigating Pressable; make action buttons siblings (non-pressable common ancestor), not descendants.
 - [Shams Tex user-field sync](shamstex-user-field-sync.md) — new synced User fields must be added to the syncUserWithRecords change predicate, not just persisted, or they go stale on other devices.

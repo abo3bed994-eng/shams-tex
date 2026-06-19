@@ -149,9 +149,9 @@ export default function OrdersScreen() {
             <Animated.View style={{ transform: [{ scale: cartPulse }] }}>
               <Icon name="shopping-cart" size={22} color={colors.foreground} />
               {cart.length > 0 && (
-                <View style={[styles.cartBadge, { backgroundColor: colors.gold }]}>
-                  <Text style={[styles.cartBadgeText, { color: colors.background, fontFamily: "Inter_700Bold" }]}>
-                    {cart.length > 9 ? "9+" : cart.length}
+                <View style={[styles.cartBadge, { backgroundColor: "#E74C3C" }]}>
+                  <Text style={[styles.cartBadgeText, { color: "#fff", fontFamily: "Inter_700Bold" }]}>
+                    {cart.length}
                   </Text>
                 </View>
               )}
@@ -494,15 +494,15 @@ const styles = StyleSheet.create({
   cartBadge: {
     position: "absolute" as const,
     top: -6,
-    right: 0,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    left: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: "center" as const,
     justifyContent: "center" as const,
     paddingHorizontal: 3,
   },
-  cartBadgeText: { fontSize: 9 },
+  cartBadgeText: { fontSize: 10 },
   statsRow: {
     flexDirection: "row-reverse" as const,
     paddingHorizontal: 12,

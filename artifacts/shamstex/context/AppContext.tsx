@@ -843,8 +843,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (!me) return false;
             if (n.targetUserId === "self") return false;
             if (n.sourceUserId === me.id) return false;
-            // Direct-to-user notifications: only the targeted user.
-            if (n.targetUserId) return n.targetUserId === me.id;
+            // Direct-to-user notifications: match by id OR phone. Non-staff
+            // subscriptions key off targetUserPhone, and an order's stored
+            // userId can differ from the current session's user.id (phone is
+            // the stable identity), so phone-matching is what reliably fires
+            // the heads-up for the customer (e.g. order-status updates).
+            if (n.targetUserId || n.targetUserPhone) {
+              return (
+                (!!n.targetUserId && n.targetUserId === me.id) ||
+                (!!n.targetUserPhone && n.targetUserPhone === me.phone)
+              );
+            }
             // Role-targeted notifications: must match role exactly or be a
             // staff/all broadcast that the current user is allowed to see.
             if (n.targetRole === "staff") return meIsStaff;

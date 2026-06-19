@@ -6,7 +6,7 @@ import { cardShadow } from "@/constants/shadows";
 import { useColors } from "@/hooks/useColors";
 import { Product } from "@/context/AppContext";
 import { useApp } from "@/context/AppContext";
-import { displayPriceFor, isOnOffer } from "@/lib/pricing";
+import { discountPercent, displayPriceFor, isOnOffer } from "@/lib/pricing";
 
 interface ProductCardProps {
   product: Product;
@@ -26,6 +26,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
 
   const displayPrice = displayPriceFor(product, effectivePriceMode);
   const onOffer = effectivePriceMode !== "wholesale" && isOnOffer(product);
+  const offerPct = discountPercent(product);
 
   const priceLabel = effectivePriceMode === "wholesale" ? "سعر الجملة" : "السعر";
 
@@ -78,9 +79,14 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
           )}
 
           {!isOutOfStock && onOffer && (
-            <View style={styles.offerBadge}>
-              <Icon name="tag" size={12} color="#fff" />
-              <Text style={[styles.offerBadgeText, { fontFamily: "Inter_700Bold" }]}>خصم</Text>
+            <View style={styles.offerTagWrap} pointerEvents="none">
+              <View style={styles.offerTagStem} />
+              <View style={styles.offerTag}>
+                <Icon name="tag" size={11} color="#fff" />
+                <Text style={[styles.offerTagText, { fontFamily: "Inter_700Bold" }]}>
+                  خصم {offerPct}%
+                </Text>
+              </View>
             </View>
           )}
 
@@ -286,19 +292,37 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.65)",
     textDecorationLine: "line-through",
   },
-  offerBadge: {
+  offerTagWrap: {
     position: "absolute",
-    top: 46,
-    right: 10,
-    backgroundColor: "#C0392B",
-    flexDirection: "row",
+    top: 0,
+    left: 0,
+    right: 0,
     alignItems: "center",
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 4,
+    zIndex: 5,
   },
-  offerBadgeText: {
+  offerTagStem: {
+    width: 2,
+    height: 9,
+    backgroundColor: "#1E8449",
+  },
+  offerTag: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#27AE60",
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  offerTagText: {
     color: "#fff",
     fontSize: 11,
   },

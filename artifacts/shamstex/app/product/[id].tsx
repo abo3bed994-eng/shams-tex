@@ -20,7 +20,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, CartItem } from "@/context/AppContext";
-import { displayPriceFor, isOnOffer } from "@/lib/pricing";
+import { discountPercent, displayPriceFor, isOnOffer } from "@/lib/pricing";
 import { metersPerKg } from "@/lib/fabric";
 import { useCartPulse } from "@/hooks/useCartPulse";
 import GoldButton from "@/components/GoldButton";
@@ -552,9 +552,9 @@ export default function ProductDetailScreen() {
                 <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 16, textDecorationLine: "line-through" }}>
                   {product.retailPrice} ج.م
                 </Text>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: "#C0392B", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: "#27AE60", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 }}>
                   <Icon name="tag" size={12} color="#fff" />
-                  <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 11 }}>عرض</Text>
+                  <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 11 }}>خصم {discountPercent(product)}%</Text>
                 </View>
               </View>
             ) : (

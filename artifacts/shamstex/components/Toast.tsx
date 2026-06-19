@@ -29,6 +29,9 @@ export default function Toast() {
 
   const bgColor = toast.type === "success" ? colors.gold : "#E74C3C";
   const icon = toast.type === "success" ? "check-circle" : "alert-circle";
+  // In light mode the gold pill needs white text/icon for contrast; dark mode
+  // keeps the near-black look the user prefers. Error toasts (red) stay white.
+  const contentColor = toast.type === "success" && colors.isDark ? "#0A0A0A" : "#fff";
   // Show the toast near the bottom (above the tab bar / home indicator) so it
   // never covers the cart icon and other action buttons in the top header.
   const bottomOffset = (Platform.OS === "web" ? 24 : insets.bottom + 24) + 64;
@@ -42,8 +45,8 @@ export default function Toast() {
       ]}
     >
       <View style={[styles.pill, { backgroundColor: bgColor }]}>
-        <Icon name={icon} size={16} color="#0A0A0A" />
-        <Text style={styles.text}>{toast.message}</Text>
+        <Icon name={icon} size={16} color={contentColor} />
+        <Text style={[styles.text, { color: contentColor }]}>{toast.message}</Text>
       </View>
     </Animated.View>
   );
@@ -71,7 +74,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   text: {
-    color: "#0A0A0A",
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
   },
