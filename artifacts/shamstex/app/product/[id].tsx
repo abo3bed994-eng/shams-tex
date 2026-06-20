@@ -36,7 +36,8 @@ export default function ProductDetailScreen() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartPulse = useCartPulse(cartCount);
 
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
+  const isLargeFont = fontScale >= 1.3;
   const imgScrollRef = useRef<ScrollView>(null);
   const viewerScrollRef = useRef<ScrollView>(null);
   const product = products.find((p) => p.id === id);
@@ -321,11 +322,14 @@ export default function ProductDetailScreen() {
                       <Icon name="minus" size={14} color={colors.gold} />
                     </Pressable>
                   </View>
-                  <View style={styles.colorRowRight}>
-                    <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                  <View style={[styles.colorRowRight, isLargeFont && { flexDirection: "column", gap: 4 }]}>
+                    <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
                       {color.name}
                     </Text>
-                    <View style={[styles.colorRing, w > 0 && { borderColor: colors.gold }]}>
+                    <Pressable
+                      onPress={() => addColorWeight(color.name)}
+                      style={[styles.colorRing, w > 0 && { borderColor: colors.gold }]}
+                    >
                       <View
                         style={[
                           styles.colorSwatch,
@@ -336,7 +340,7 @@ export default function ProductDetailScreen() {
                           },
                         ]}
                       />
-                    </View>
+                    </Pressable>
                   </View>
                 </View>
               );
@@ -372,11 +376,14 @@ export default function ProductDetailScreen() {
                     </>
                   ) : null}
                 </View>
-                <View style={styles.colorRowRight}>
-                  <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                <View style={[styles.colorRowRight, isLargeFont && { flexDirection: "column", gap: 4 }]}>
+                  <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
                     {color.name}
                   </Text>
-                  <View style={[styles.colorRing, qty > 0 && { borderColor: colors.gold }]}>
+                  <Pressable
+                    onPress={() => addColorPiece(color.name)}
+                    style={[styles.colorRing, qty > 0 && { borderColor: colors.gold }]}
+                  >
                     <View
                       style={[
                         styles.colorSwatch,
@@ -387,7 +394,7 @@ export default function ProductDetailScreen() {
                         },
                       ]}
                     />
-                  </View>
+                  </Pressable>
                 </View>
               </View>
             );
@@ -879,10 +886,10 @@ const styles = StyleSheet.create({
   },
   colorRowRight: { flexDirection: "row-reverse", alignItems: "center", gap: 8, flex: 1 },
   colorRowLeft: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
-  colorSwatch: { width: 24, height: 24, borderRadius: 12 },
+  colorSwatch: { width: 30, height: 30, borderRadius: 15 },
   colorRing: {
     padding: 2,
-    borderRadius: 16,
+    borderRadius: 19,
     borderWidth: 1.5,
     borderColor: "transparent",
   },
