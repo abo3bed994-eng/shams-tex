@@ -293,6 +293,13 @@ export default function CartScreen() {
       Alert.alert("غير مسموح", "أعضاء فريق العمل لا يمكنهم تقديم طلبات شراء.");
       return;
     }
+    if (!user?.id) {
+      Alert.alert("تسجيل الدخول مطلوب", "يرجى تسجيل الدخول قبل إتمام الطلب.", [
+        { text: "إلغاء", style: "cancel" },
+        { text: "تسجيل الدخول", onPress: () => router.push("/auth/login" as any) },
+      ]);
+      return;
+    }
     if (cart.length === 0) return;
 
     if (!editOrderId && !selectedPayment) {

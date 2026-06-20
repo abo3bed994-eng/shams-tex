@@ -368,16 +368,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     { day: "الجمعة", enabled: false, from: "00:00", to: "00:00" },
   ],
   payment: {
-    ewallets: [
-      { id: "w_default_vf", number: "01000000001", name: "شمس تكس", provider: "فودافون كاش" },
-    ],
-    instapays: [
-      { id: "ip_default", handle: "01000000001", name: "شمس تكس" },
-    ],
-    bankName: "البنك الأهلي المصري",
-    bankAccountName: "شمس تكس للأقمشة",
-    bankAccountNumber: "1234567890123",
-    bankIBAN: "EG000012345678901234567890",
+    ewallets: [],
+    instapays: [],
+    bankName: "",
+    bankAccountName: "",
+    bankAccountNumber: "",
+    bankIBAN: "",
     ewalletFeePercent: 1,
     cashEnabled: true,
     bankTransferEnabled: true,

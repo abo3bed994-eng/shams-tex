@@ -34,10 +34,8 @@ service cloud.firestore {
     // Owner phone numbers — auto-recognized as admin even without a Firestore doc.
     // This ensures the owner can always manage settings and orders, even on first login.
     function isOwnerPhone() {
-      return isSignedIn() && (
-        request.auth.token.phone_number == '+201221131138' ||
-        request.auth.token.phone_number == '+200000000001'
-      );
+      return isSignedIn() &&
+        request.auth.token.phone_number == '+201221131138';
     }
 
     function isAdmin() {

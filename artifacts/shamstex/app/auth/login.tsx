@@ -26,7 +26,7 @@ import { isValidLocal, toE164 } from "@/lib/phoneUtils";
 import { startPhoneSignIn, PhoneAuthConfirmation } from "@/lib/phoneAuth";
 import { cardShadow } from "@/constants/shadows";
 
-type Step = "phone" | "otp" | "name" | "adminBypass" | "enterPin" | "setPin";
+type Step = "phone" | "otp" | "name" | "enterPin" | "setPin";
 
 // Primary admin account (the one signed in when secret bypass is used)
 const PRIMARY_ADMIN = { id: "u0", phone: "+201221131138", name: "المدير", role: "admin" as const };
@@ -36,28 +36,8 @@ const PRIMARY_ADMIN = { id: "u0", phone: "+201221131138", name: "المدير", 
 // `isOwnerPhone()` whitelist in firestore.rules.
 const OWNER_PHONES = new Set<string>([
   "+201221131138",
-  "+200000000001",
 ]);
 const isOwnerPhone = (phone: string) => OWNER_PHONES.has(phone);
-
-// SECRET BYPASS — Firebase test phone used to authenticate the bypass admin.
-// This phone MUST be registered in Firebase Console → Authentication →
-// Settings → Phone numbers for testing, with the matching code below.
-// The bypass calls Firebase Phone Auth with this number so the admin gets a
-// real `request.auth` token (phone_number = +200000000001), which matches
-// `isOwnerPhone()` in firestore.rules and grants full admin access.
-const BYPASS_AUTH_PHONE = "+200000000001";
-const BYPASS_AUTH_CODE = "987654";
-
-// SECRET ADMIN ENTRY (Method D — magic phone + password + verify code)
-// Triggered when user types the magic local digits in the phone field.
-const SECRET_MAGIC_PHONE_LOCAL = "9998765432";
-const SECRET_MAGIC_PHONE_E164 =
-  (process.env.EXPO_PUBLIC_ADMIN_MAGIC_PHONE as string | undefined) || "+9998765432";
-const ADMIN_BYPASS_PASSWORD =
-  (process.env.EXPO_PUBLIC_ADMIN_BYPASS_PASSWORD as string | undefined) || "$h@m$TEX1994";
-const ADMIN_VERIFY_CODE =
-  (process.env.EXPO_PUBLIC_ADMIN_VERIFY_CODE as string | undefined) || "096746";
 
 export default function LoginScreen() {
   const colors = useColors();
@@ -76,8 +56,6 @@ export default function LoginScreen() {
   const [step, setStep] = useState<Step>("phone");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [bypassPassword, setBypassPassword] = useState("");
-  const [bypassVerifyCode, setBypassVerifyCode] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinPurpose, setPinPurpose] = useState<"newUser" | "existingNoPin" | "reset">("newUser");
@@ -118,15 +96,6 @@ export default function LoginScreen() {
 
   // ---------- Phone submit: PIN-first routing ----------
   const handlePhoneSubmit = async () => {
-    // SECRET ADMIN ENTRY: detect magic phone number → switch to bypass step silently
-    const digitsOnly = phone.replace(/\D/g, "").replace(/^0+/, "");
-    if (digitsOnly === SECRET_MAGIC_PHONE_LOCAL || e164Phone === SECRET_MAGIC_PHONE_E164) {
-      setError("");
-      setBypassPassword("");
-      setBypassVerifyCode("");
-      setStep("adminBypass");
-      return;
-    }
     if (!phoneValid) {
       setError("رقم الهاتف غير صحيح");
       return;
@@ -197,8 +166,9 @@ export default function LoginScreen() {
     } catch (e: any) {
       const code = e?.code || "";
       const msg = String(e?.message || e);
-      // Log details to the developer console only — never surface to user.
-      console.log("[PhoneAuth ERROR]", { code, msg, e164Phone });
+      // Log details to the developer console only (dev builds) — never surface
+      // to user, and never log the phone number.
+      if (__DEV__) console.log("[PhoneAuth ERROR]", { code, msg });
       let friendly = "تعذّر إرسال الكود حالياً، حاول مرة أخرى";
       if (msg.includes("quota")) friendly = "وصلت الحصة اليومية للرسائل، حاول غداً";
       else if (code.includes("invalid-phone") || msg.includes("invalid-phone")) friendly = "رقم الهاتف غير صحيح";
@@ -260,7 +230,7 @@ export default function LoginScreen() {
       }
     } catch (e: any) {
       const msg = String(e?.message || e);
-      console.log("[OTP verify ERROR]", { msg });
+      if (__DEV__) console.log("[OTP verify ERROR]", { msg });
       let friendly = "كود التحقق غير صحيح";
       if (msg.includes("expired") || msg.includes("session-expired")) {
         friendly = "انتهت صلاحية الكود، أعد إرساله";
@@ -415,49 +385,17 @@ export default function LoginScreen() {
     setStep("setPin");
   };
 
-  // ---------- Secret admin bypass (Method D) ----------
-  const handleAdminBypassSubmit = async () => {
-    if (bypassPassword !== ADMIN_BYPASS_PASSWORD) {
-      setError("بيانات الدخول غير صحيحة");
-      return;
-    }
-    if (bypassVerifyCode !== ADMIN_VERIFY_CODE) {
-      setError("بيانات الدخول غير صحيحة");
-      return;
-    }
+  // ---------- DEV-ONLY admin login (stripped from production builds) ----------
+  // Lets developers enter the app as the primary admin without sending a real
+  // SMS. Guarded by __DEV__ so it never ships in a release build. In production
+  // the owner signs in normally with the owner phone + real OTP (isOwnerPhone).
+  const handleDevLogin = async () => {
+    if (!__DEV__) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setLoading(true);
-    setError("");
-    // STEP 1: Authenticate with Firebase using the dedicated bypass test phone.
-    // Without this, the bypass admin has no `request.auth` token and every
-    // Firestore write/read will silently fail.
-    try {
-      const conf = await startPhoneSignIn(BYPASS_AUTH_PHONE);
-      await conf.confirm(BYPASS_AUTH_CODE);
-    } catch (e: any) {
-      const code = e?.code || "";
-      const msg = String(e?.message || e);
-      console.log("[Bypass Firebase Auth ERROR]", { code, msg });
-      setError(
-        "تعذّر تسجيل دخول الطوارئ في Firebase. تأكد أن الرقم " +
-          BYPASS_AUTH_PHONE +
-          " مضاف كرقم تجريبي في Firebase Console مع الكود " +
-          BYPASS_AUTH_CODE +
-          ` (${code || msg})`
-      );
-      setLoading(false);
-      return;
-    }
-    // STEP 2: Build the local admin user object using the OWNER phone (the
-    // real admin identity), not the bypass test phone. Firestore rules
-    // recognize +200000000001 (bypass phone) as an owner via isOwnerPhone(),
-    // so admin access is granted server-side too.
-    const ownerPhone = BYPASS_AUTH_PHONE;
-    const existing = findCustomerByPhone(ownerPhone);
+    const existing = findCustomerByPhone(PRIMARY_ADMIN.phone);
     const userObj = existing
-      ? { ...existing, phone: ownerPhone, role: "admin" as const, permissions: [] }
-      : { ...PRIMARY_ADMIN, phone: ownerPhone, permissions: [] as any };
-    updateRegisteredCustomer(userObj as any);
+      ? { ...existing, phone: PRIMARY_ADMIN.phone, role: "admin" as const }
+      : { ...PRIMARY_ADMIN };
     await finishLogin(userObj.name, "admin", userObj);
   };
 
@@ -619,6 +557,14 @@ export default function LoginScreen() {
                 disabled={!phoneValid}
                 style={{ width: "100%" }}
               />
+
+              {__DEV__ ? (
+                <Pressable onPress={handleDevLogin} style={{ marginTop: 12, alignSelf: "center" }} hitSlop={8}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                    دخول مطوّر (تجريبي)
+                  </Text>
+                </Pressable>
+              ) : null}
 
               <View style={[styles.divider, { borderColor: colors.border }]} />
               <Text style={[styles.newCustomerNote, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
@@ -848,79 +794,6 @@ export default function LoginScreen() {
             </>
           )}
 
-          {step === "adminBypass" && (
-            <>
-              <View style={styles.backRow}>
-                <Pressable onPress={() => { setStep("phone"); setError(""); }}>
-                  <Icon name="arrow-right" size={20} color={colors.foreground} />
-                </Pressable>
-              </View>
-              <View style={styles.stepIcon}>
-                <Icon name="shield" size={28} color={colors.gold} />
-              </View>
-              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-                دخول مسؤول النظام
-              </Text>
-              <Text style={[styles.cardSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                أدخل كلمة السر ورمز التحقق
-              </Text>
-
-              <View
-                style={[
-                  styles.inputWrapper,
-                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
-                ]}
-              >
-                <TextInput
-                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_400Regular" }]}
-                  placeholder="كلمة السر"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={bypassPassword}
-                  onChangeText={(v) => { setBypassPassword(v); setError(""); }}
-                  secureTextEntry
-                  textAlign="right"
-                  autoFocus
-                />
-              </View>
-
-              <View
-                style={[
-                  styles.inputWrapper,
-                  { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius - 4 },
-                ]}
-              >
-                <TextInput
-                  style={[styles.input, { color: colors.foreground, fontFamily: "Inter_700Bold", letterSpacing: 6 }]}
-                  placeholder="رمز التحقق"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={bypassVerifyCode}
-                  onChangeText={(v) => { setBypassVerifyCode(v); setError(""); }}
-                  secureTextEntry
-                  keyboardType="numeric"
-                  maxLength={6}
-                  textAlign="center"
-                  onSubmitEditing={handleAdminBypassSubmit}
-                />
-              </View>
-
-              {error ? (
-                <View style={[styles.errorBox, { backgroundColor: "#E74C3C11", borderColor: "#E74C3C44" }]}>
-                  <Icon name="alert-circle" size={14} color="#E74C3C" />
-                  <Text style={{ color: "#E74C3C", fontFamily: "Inter_500Medium", fontSize: 12, flex: 1, textAlign: "right" }}>
-                    {error}
-                  </Text>
-                </View>
-              ) : null}
-
-              <GoldButton
-                label="دخول"
-                onPress={handleAdminBypassSubmit}
-                loading={loading}
-                disabled={!bypassPassword || bypassVerifyCode.length < 4}
-                style={{ width: "100%" }}
-              />
-            </>
-          )}
         </View>
 
         <View style={styles.legalRow}>

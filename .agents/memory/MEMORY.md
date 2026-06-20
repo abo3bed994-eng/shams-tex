@@ -16,4 +16,5 @@
 - [Shams Tex realtime auto-exit](shamstex-realtime-auto-exit.md) — realtime-driven auto-exit screens must exit on any closed state with a mount-grace only for not-yet-synced; never gate on "saw-it-valid-once".
 - [Shams Tex order-edit finalize paths](shamstex-edit-finalize-paths.md) — cart finalize CLAMPS to cap (finalizeEditedItem) to respect customer reductions; staff/auto-accept FORCES to cap (acceptStaffAvailability). Never swap them.
 - [Shams Tex logout reset paths](shamstex-logout-reset-paths.md) — per-session in-memory state (cart, editingOrderId) must clear in ALL 5 logout paths, not just setUser(null); forced-logout bypasses setUser.
+- [Shams Tex owner whitelist sync](shamstex-owner-whitelist.md) — owner/admin = phone whitelist in login.tsx + firestore.rules + Firebase Console test numbers; all 3 must agree, rules inert until deploy, never hardcode admin secrets (use __DEV__ login).
 - [Shams Tex native auth-state split](shamstex-native-auth-split.md) — native must use @react-native-firebase firestore/storage (not JS SDK) so writes share the native phone-auth session; else rules reject all → "تعذّر الحفظ". Platform-split lib/fb.ts vs lib/fb.native.ts.
