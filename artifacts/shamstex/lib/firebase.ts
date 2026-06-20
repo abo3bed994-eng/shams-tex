@@ -1,12 +1,15 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
+// Firestore/Storage/Auth instances + the modular API come from the
+// platform-resolved data layer (./fb on web, ./fb.native on native) so the
+// native build shares its auth session with @react-native-firebase phone auth.
 import {
-  initializeFirestore,
-  getFirestore,
+  db,
+  storage,
+  auth,
   collection,
   doc,
   setDoc,
-  getDocs,
   getDoc,
+  getDocs,
   deleteDoc,
   onSnapshot,
   query,
@@ -14,21 +17,18 @@ import {
   limit,
   where,
   runTransaction,
-  Unsubscribe,
-  memoryLocalCache,
   writeBatch,
   addDoc,
   serverTimestamp,
-} from "firebase/firestore";
-import {
-  getAuth,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  ConfirmationResult,
-  Auth,
-} from "firebase/auth";
-import { Platform } from "react-native";
+  updateDoc,
+  type Unsubscribe,
+} from "./fb";
+import { RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
 import { canonicalPhone } from "./phoneUtils";
+
+// Re-export the platform-resolved instances so existing importers keep working
+// (phoneAuth.ts → auth, utils/persistImage.ts → storage).
+export { db, storage, auth };
 
 // Canonical Firestore doc key for a phone number. Strips formatting and prefers
 // the canonical (last 10 digits) form so the same person resolves to the same
@@ -37,30 +37,6 @@ function sessionKey(phone: string): string {
   const c = canonicalPhone(phone);
   return c || (phone || "").replace(/[^0-9A-Za-z]/g, "_") || "_";
 }
-
-const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyD9tLziFlwyRBpSgMj0Pa_qfNG--XP2csQ",
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "shamstexapp.firebaseapp.com",
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "shamstexapp",
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "shamstexapp.firebasestorage.app",
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_SENDER_ID || "22978900641",
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "1:22978900641:web:c9fdc26bb0b7baea8db6e0",
-  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-HK64J683SZ",
-};
-
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const storage = getStorage(app);
-
-let auth: Auth;
-try {
-  auth = getAuth(app);
-  auth.languageCode = "ar";
-} catch {
-  auth = getAuth(app);
-}
-export { auth };
 
 let recaptchaVerifierInstance: RecaptchaVerifier | null = null;
 
@@ -93,14 +69,6 @@ export function setupRecaptcha(): RecaptchaVerifier {
 //   • @react-native-firebase/auth (native)
 // The fake client-side OTP previously implemented here has been removed.
 export type { ConfirmationResult };
-
-let db: ReturnType<typeof getFirestore>;
-try {
-  db = initializeFirestore(app, { localCache: memoryLocalCache() });
-} catch {
-  db = getFirestore(app);
-}
-export { db };
 
 // Firebase JS SDK throws on `undefined` field values. setDoc() replaces the
 // whole document, so stripping undefined keys here is equivalent to deleting
@@ -441,7 +409,6 @@ export const FS = {
   // Pairs with the strict Firestore rule that limits non-staff updates to
   // affectedKeys().hasOnly(['read']).
   async markNotificationReadFlag(id: string) {
-    const { updateDoc } = await import("firebase/firestore");
     await updateDoc(doc(db, "notifications", id), { read: true });
   },
 
