@@ -35,7 +35,7 @@ service firebase.storage {
 
     // Owner phones are always treated as admin, even without a Firestore doc.
     function isOwnerPhone() {
-      return authPhone() == '+201221131138' || authPhone() == '+200000000001';
+      return authPhone() == '+201221131138';
     }
 
     function roleAt(phone) {
