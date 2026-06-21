@@ -236,6 +236,21 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (phone == userPhone() || isAdmin());
     }
 
+    // ============ Presence (online counter) ============
+    // Heartbeat doc per logged-in user; staff read it to show the online count.
+    match /presence/{userId} {
+      allow read: if isStaff();
+      allow write: if isSignedIn();
+    }
+
+    // ============ Audit Log ============
+    // Append-only record of staff actions; staff read, staff append, never edit/delete.
+    match /audit_log/{entryId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if false;
+    }
+
     // Default: deny everything else
     match /{document=**} {
       allow read, write: if false;
