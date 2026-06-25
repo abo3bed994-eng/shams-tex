@@ -31,3 +31,14 @@ large videos. Web fetches the uri → Blob → `uploadBytesResumable`.
 **Cannot verify in this env:** Expo Go can't load these native modules; needs a
 dev/EAS build to smoke-test an authenticated write + upload. RNFirebase
 `snapshot.exists()` is a METHOD in v24 (same as JS SDK), so no normalization.
+
+**Build-time trap (cost many turns):** the installed APK runs the JS that was
+bundled AT BUILD TIME. A code fix to `fb.native.ts` does NOT reach the user
+until a NEW EAS build is installed. The Replit dev server runs `--go` and only
+bundles `lib/fb.ts` (web), so on-device diagnostics opened in a browser, and
+the web write/upload tests, can ALL pass while the user's old native binary
+still fails. Never conclude "native is fixed" from web/dev-server diagnostics —
+confirm the APK was rebuilt after the fix landed. Symptom signature: web ✅
+everything, but installed app can neither add NOR delete (any product save
+fails because a prior failed upload left a multi-MB base64 string in the doc,
+pushing it over Firestore's 1MB limit).

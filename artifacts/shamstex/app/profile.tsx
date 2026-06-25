@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, AppTheme } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
-import { subscribeAuthState } from "@/lib/phoneAuth";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
@@ -26,42 +25,6 @@ export default function ProfileScreen() {
   const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme, language, setLanguage, registeredCustomers, settings } = useApp();
   const { t, isRTL } = useTranslation();
 
-  // --- TEMP DIAGNOSTIC: live Firebase Auth session state ---
-  const [fbAuth, setFbAuth] = useState<{ uid: string; phone: string | null } | null>(null);
-  useEffect(() => subscribeAuthState(setFbAuth), []);
-  const [writeTest, setWriteTest] = useState<string>("");
-  const runWriteTest = async () => {
-    setWriteTest("...جارٍ الاختبار");
-    const fb = await import("@/lib/fb");
-    const uid = fbAuth?.uid ?? user?.id ?? "anon";
-    // Test 1: presence write — rule only needs isSignedIn()
-    let presenceRes = "";
-    try {
-      await fb.setDoc(fb.doc(fb.db, "presence", uid), { userId: uid, name: user?.name ?? "", role: user?.role ?? "", phone: fbAuth?.phone ?? "", lastSeen: Date.now() });
-      presenceRes = "✅ نجح";
-    } catch (e: any) {
-      presenceRes = `❌ ${e?.code ?? e?.message ?? e}`;
-    }
-    // Test 2: staff-gated write — config doc needs isAdmin()/staff
-    let staffRes = "";
-    try {
-      await fb.setDoc(fb.doc(fb.db, "config", "_writeTest"), { at: Date.now() }, { merge: true } as any);
-      staffRes = "✅ نجح";
-    } catch (e: any) {
-      staffRes = `❌ ${e?.code ?? e?.message ?? e}`;
-    }
-    // Test 3: Storage upload — exact path the app uses (images/), needs isStaff()
-    let storageRes = "";
-    try {
-      const tinyPng =
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-      const url = await fb.uploadToStorage(`images/_writeTest_${Date.now()}.png`, tinyPng, "image/png");
-      storageRes = url ? "✅ نجح" : "❌ بدون رابط";
-    } catch (e: any) {
-      storageRes = `❌ ${e?.code ?? e?.message ?? e}`;
-    }
-    setWriteTest(`حضور (تسجيل دخول): ${presenceRes}\nإعدادات (موظّف): ${staffRes}\nرفع صورة (Storage): ${storageRes}`);
-  };
   const systemScheme = useColorScheme();
   const themeResolved: "dark" | "light" =
     theme === "system" ? (systemScheme === "light" ? "light" : "dark") : theme;
@@ -160,40 +123,6 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
-        {/* TEMP DIAGNOSTIC — remove after debugging. Shows the REAL Firebase Auth
-            session state. If this says "غير مسجّل", Firestore writes (presence,
-            products, image upload) WILL be denied by the security rules. */}
-        <View
-          style={{
-            backgroundColor: fbAuth ? "#0f3d1f" : "#4d1212",
-            borderColor: fbAuth ? "#1f7a3d" : "#a11",
-            borderWidth: 1,
-            borderRadius: 12,
-            padding: 12,
-            marginBottom: 12,
-          }}
-        >
-          <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "center" }}>
-            {fbAuth ? "✅ مسجّل في Firebase" : "❌ غير مسجّل في Firebase"}
-          </Text>
-          <Text style={{ color: "#fff", opacity: 0.85, fontSize: 11, textAlign: "center", marginTop: 4 }}>
-            {fbAuth ? `phone: ${fbAuth.phone ?? "—"}\nuid: ${fbAuth.uid.slice(0, 10)}…` : "لا توجد جلسة — الرفع والحفظ سيُرفضان"}
-          </Text>
-          <Pressable
-            onPress={runWriteTest}
-            style={{ marginTop: 10, backgroundColor: "#fff2", borderColor: "#fff5", borderWidth: 1, borderRadius: 8, paddingVertical: 8 }}
-          >
-            <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 12, textAlign: "center" }}>
-              اختبار الكتابة الآن
-            </Text>
-          </Pressable>
-          {writeTest ? (
-            <Text style={{ color: "#fff", fontSize: 11, textAlign: "center", marginTop: 8, lineHeight: 18 }}>
-              {writeTest}
-            </Text>
-          ) : null}
-        </View>
-
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.gold + "33", borderRadius: 20 }]}>
           <View style={[styles.avatar, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}>
             <Text style={[styles.avatarText, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>

@@ -15,7 +15,7 @@ import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { persistImageUris, getLastUploadError } from "@/utils/persistImage";
+import { persistImageUris } from "@/utils/persistImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
@@ -63,17 +63,7 @@ export default function AddProductScreen() {
       selectionLimit: 7,
     });
     if (!result.canceled && result.assets.length > 0) {
-      // TEMP DIAGNOSTIC: report the picked source URI scheme, the upload result
-      // scheme (http = real Storage URL, data:/blob: = upload failed), and the
-      // exact storage error code so we can see what the REAL upload path does.
-      const srcUris = result.assets.map((a) => a.uri);
-      const srcInfo = srcUris.map((u) => u.slice(0, 14)).join(" | ");
-      const uris = await persistImageUris(srcUris);
-      const ok = uris.every((u) => u.startsWith("http"));
-      Alert.alert(
-        ok ? "تم الرفع ✅" : "فشل رفع الصورة ❌",
-        `المصدر: ${srcInfo}\nالنتيجة: ${uris.map((u) => u.slice(0, 14)).join(" | ")}\nكود: ${getLastUploadError() || "—"}`
-      );
+      const uris = await persistImageUris(result.assets.map((a) => a.uri));
       setImages((prev) => [...prev, ...uris].slice(0, 7));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
