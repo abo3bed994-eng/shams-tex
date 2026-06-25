@@ -63,12 +63,17 @@ export default function AddProductScreen() {
       selectionLimit: 7,
     });
     if (!result.canceled && result.assets.length > 0) {
-      const uris = await persistImageUris(result.assets.map((a) => a.uri));
-      // TEMP DIAGNOSTIC: if any image fell back to base64 (data:), the Storage
-      // upload was rejected — surface the REAL error code instead of failing silently.
-      if (uris.some((u) => u.startsWith("data:"))) {
-        Alert.alert("فشل رفع الصورة", `كود الخطأ: ${getLastUploadError() || "غير معروف"}`);
-      }
+      // TEMP DIAGNOSTIC: report the picked source URI scheme, the upload result
+      // scheme (http = real Storage URL, data:/blob: = upload failed), and the
+      // exact storage error code so we can see what the REAL upload path does.
+      const srcUris = result.assets.map((a) => a.uri);
+      const srcInfo = srcUris.map((u) => u.slice(0, 14)).join(" | ");
+      const uris = await persistImageUris(srcUris);
+      const ok = uris.every((u) => u.startsWith("http"));
+      Alert.alert(
+        ok ? "تم الرفع ✅" : "فشل رفع الصورة ❌",
+        `المصدر: ${srcInfo}\nالنتيجة: ${uris.map((u) => u.slice(0, 14)).join(" | ")}\nكود: ${getLastUploadError() || "—"}`
+      );
       setImages((prev) => [...prev, ...uris].slice(0, 7));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
