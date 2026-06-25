@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, AppTheme } from "@/context/AppContext";
 import { useTranslation } from "@/lib/i18n";
+import { subscribeAuthState } from "@/lib/phoneAuth";
 import GoldHeader from "@/components/GoldHeader";
 import GoldButton from "@/components/GoldButton";
 
@@ -24,6 +25,10 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, setUser, orders, addNotification, updateRegisteredCustomer, theme, setTheme, language, setLanguage, registeredCustomers, settings } = useApp();
   const { t, isRTL } = useTranslation();
+
+  // --- TEMP DIAGNOSTIC: live Firebase Auth session state ---
+  const [fbAuth, setFbAuth] = useState<{ uid: string; phone: string | null } | null>(null);
+  useEffect(() => subscribeAuthState(setFbAuth), []);
   const systemScheme = useColorScheme();
   const themeResolved: "dark" | "light" =
     theme === "system" ? (systemScheme === "light" ? "light" : "dark") : theme;
@@ -122,6 +127,27 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 40 }]}
       >
+        {/* TEMP DIAGNOSTIC — remove after debugging. Shows the REAL Firebase Auth
+            session state. If this says "غير مسجّل", Firestore writes (presence,
+            products, image upload) WILL be denied by the security rules. */}
+        <View
+          style={{
+            backgroundColor: fbAuth ? "#0f3d1f" : "#4d1212",
+            borderColor: fbAuth ? "#1f7a3d" : "#a11",
+            borderWidth: 1,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "center" }}>
+            {fbAuth ? "✅ مسجّل في Firebase" : "❌ غير مسجّل في Firebase"}
+          </Text>
+          <Text style={{ color: "#fff", opacity: 0.85, fontSize: 11, textAlign: "center", marginTop: 4 }}>
+            {fbAuth ? `phone: ${fbAuth.phone ?? "—"}\nuid: ${fbAuth.uid.slice(0, 10)}…` : "لا توجد جلسة — الرفع والحفظ سيُرفضان"}
+          </Text>
+        </View>
+
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.gold + "33", borderRadius: 20 }]}>
           <View style={[styles.avatar, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}>
             <Text style={[styles.avatarText, { color: colors.gold, fontFamily: "Inter_700Bold" }]}>
