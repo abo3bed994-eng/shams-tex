@@ -60,11 +60,11 @@ export default function AddProductScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: 3,
+      selectionLimit: 7,
     });
     if (!result.canceled && result.assets.length > 0) {
       const uris = await persistImageUris(result.assets.map((a) => a.uri));
-      setImages((prev) => [...prev, ...uris].slice(0, 3));
+      setImages((prev) => [...prev, ...uris].slice(0, 7));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
@@ -80,7 +80,7 @@ export default function AddProductScreen() {
     });
     if (!result.canceled && result.assets.length > 0) {
       const [uri] = await persistImageUris([result.assets[0].uri]);
-      setImages((prev) => [...prev, uri].slice(0, 5));
+      setImages((prev) => [...prev, uri].slice(0, 7));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
@@ -224,7 +224,7 @@ export default function AddProductScreen() {
           </ScrollView>
           {images.length > 0 && (
             <Text style={[styles.imageCount, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {images.length} / 3 صور
+              {images.length} / 7 صور
             </Text>
           )}
         </View>
