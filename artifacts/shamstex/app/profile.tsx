@@ -50,7 +50,17 @@ export default function ProfileScreen() {
     } catch (e: any) {
       staffRes = `❌ ${e?.code ?? e?.message ?? e}`;
     }
-    setWriteTest(`حضور (تسجيل دخول فقط): ${presenceRes}\nإعدادات (موظّف): ${staffRes}`);
+    // Test 3: Storage upload — exact path the app uses (images/), needs isStaff()
+    let storageRes = "";
+    try {
+      const tinyPng =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      const url = await fb.uploadToStorage(`images/_writeTest_${Date.now()}.png`, tinyPng, "image/png");
+      storageRes = url ? "✅ نجح" : "❌ بدون رابط";
+    } catch (e: any) {
+      storageRes = `❌ ${e?.code ?? e?.message ?? e}`;
+    }
+    setWriteTest(`حضور (تسجيل دخول): ${presenceRes}\nإعدادات (موظّف): ${staffRes}\nرفع صورة (Storage): ${storageRes}`);
   };
   const systemScheme = useColorScheme();
   const themeResolved: "dark" | "light" =
