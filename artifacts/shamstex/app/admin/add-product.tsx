@@ -15,7 +15,7 @@ import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 import Icon from "@/components/Icon";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { persistImageUris } from "@/utils/persistImage";
+import { persistImageUris, getLastUploadError } from "@/utils/persistImage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useApp, ColorOption, ProductUnit } from "@/context/AppContext";
@@ -64,6 +64,11 @@ export default function AddProductScreen() {
     });
     if (!result.canceled && result.assets.length > 0) {
       const uris = await persistImageUris(result.assets.map((a) => a.uri));
+      // TEMP DIAGNOSTIC: if any image fell back to base64 (data:), the Storage
+      // upload was rejected — surface the REAL error code instead of failing silently.
+      if (uris.some((u) => u.startsWith("data:"))) {
+        Alert.alert("فشل رفع الصورة", `كود الخطأ: ${getLastUploadError() || "غير معروف"}`);
+      }
       setImages((prev) => [...prev, ...uris].slice(0, 7));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
