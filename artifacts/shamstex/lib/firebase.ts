@@ -173,7 +173,13 @@ export const FS = {
   },
 
   async saveSettings(settings: object) {
-    await setDoc(doc(db, "config", "main"), settings);
+    // Same as products/orders: strip undefined recursively. The settings blob
+    // is large and nested (payment, subcategories, stats, workingHours,
+    // globalColors, featuredProductIds…); a single nested `undefined` makes
+    // setDoc throw, which surfaced as a generic "تأكد من اتصال الإنترنت" and
+    // meant featured/colors/settings edits saved locally but never to the
+    // server (so they showed only for the person who made the change).
+    await setDoc(doc(db, "config", "main"), stripUndefined(settings));
   },
 
   async getSettings(): Promise<any | null> {

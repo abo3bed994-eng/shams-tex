@@ -22,3 +22,11 @@ Both customer notification delivery sinks are **exact** phone matches with no ca
 **Why:** the two sinks do not use `samePhone`/`canonicalPhone`, so the only safe place to reconcile format drift is at emit time by reading the live record.
 
 **How to apply:** any new customer notification path (status, message, editable, invoice, return status/cancel, scheduled release) must call `resolveRecipientPhone` first. Staff-targeted notifications are unaffected and stay as-is.
+
+## Third sink: the display filter must also match by phone
+
+There are THREE independent sinks that gate a notification, and all three must agree on the id-OR-phone rule: (1) the Firestore subscription (phone-keyed), (2) the local heads-up `forMe` in AppContext, and (3) the display-list filter `filterNotificationsForUser` in `lib/notificationFilter.ts`. Staff download ALL notifications, so the display filter is what keeps a customer's private notifications out of staff inboxes.
+
+**Bug:** `filterNotificationsForUser` treated a notification as private only when `targetUserId` was set. Order-status notifications often carry only `targetUserPhone` (userId empty/drifts), so with an empty `targetUserId` they looked like broadcasts and leaked into EVERY staff member's list.
+
+**Rule:** in the display filter, "direct/private" = `targetUserId || targetUserPhone`, and it matches me only if `targetUserId===user.id || targetUserPhone===user.phone`. The pre-registration broadcast cutoff must gate on `!isDirect` (never suppress a direct notification by date).
