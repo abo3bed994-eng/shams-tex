@@ -140,7 +140,7 @@ export default function OfflineGate() {
                 { borderColor: colors.gold, backgroundColor: "rgba(0,0,0,0.55)" },
               ]}
             >
-              <Icon name="zap-off" size={46} color={colors.gold} />
+              <Icon name="wifi-off" size={46} color={colors.gold} />
             </View>
           </View>
         </View>

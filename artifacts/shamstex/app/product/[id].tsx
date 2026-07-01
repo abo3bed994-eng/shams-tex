@@ -25,6 +25,7 @@ import { metersPerKg } from "@/lib/fabric";
 import { useCartPulse } from "@/hooks/useCartPulse";
 import GoldButton from "@/components/GoldButton";
 import GoldHeader from "@/components/GoldHeader";
+import { KeyboardAwareScroll } from "@/components/KeyboardAware";
 
 const KG_STEP = 0.5;
 
@@ -37,7 +38,7 @@ export default function ProductDetailScreen() {
   const cartPulse = useCartPulse(cartCount);
 
   const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
-  const isLargeFont = fontScale >= 1.3;
+  const isLargeFont = fontScale >= 1.15;
   const imgScrollRef = useRef<ScrollView>(null);
   const viewerScrollRef = useRef<ScrollView>(null);
   const product = products.find((p) => p.id === id);
@@ -323,7 +324,7 @@ export default function ProductDetailScreen() {
                     </Pressable>
                   </View>
                   <View style={[styles.colorRowRight, isLargeFont && { flexDirection: "column", gap: 4 }]}>
-                    <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
+                    <Text numberOfLines={1} style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
                       {color.name}
                     </Text>
                     <Pressable
@@ -377,7 +378,7 @@ export default function ProductDetailScreen() {
                   ) : null}
                 </View>
                 <View style={[styles.colorRowRight, isLargeFont && { flexDirection: "column", gap: 4 }]}>
-                  <Text style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
+                  <Text numberOfLines={1} style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
                     {color.name}
                   </Text>
                   <Pressable
@@ -485,10 +486,12 @@ export default function ProductDetailScreen() {
         }
       />
 
-      <ScrollView
+      <KeyboardAwareScroll
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: bottomPad + 100 }]}
         keyboardShouldPersistTaps="handled"
+        androidBehavior="height"
+        bottomOffset={120}
       >
         {product.images && product.images.length > 0 ? (
           <View style={[styles.imageCarousel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -729,7 +732,7 @@ export default function ProductDetailScreen() {
           )}
         </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScroll>
 
       <View
         style={[
@@ -893,7 +896,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "transparent",
   },
-  colorName: { fontSize: 13, flex: 1, textAlign: "right" },
+  colorName: { fontSize: 13, flex: 1, flexShrink: 1, textAlign: "right" },
   qtyBtn: {
     width: 28,
     height: 28,
