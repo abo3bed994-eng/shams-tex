@@ -22,16 +22,16 @@ import { WebView } from "react-native-webview";
 
 const PICKUP_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
-  { key: "received", label: "تم استلام الطلب", icon: "inbox" },
-  { key: "preparing", label: "جاري تجهيز الطلب", icon: "package" },
-  { key: "ready", label: "الطلب جاهز للاستلام", icon: "gift" },
+  { key: "received", label: "تم الاستلام", icon: "inbox" },
+  { key: "preparing", label: "جاري التجهيز", icon: "package" },
+  { key: "ready", label: "الطلب جاهز", icon: "gift" },
   { key: "delivered", label: "تم التسليم", icon: "check-circle" },
 ];
 
 const SHIPPING_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "pending", label: "بانتظار الاستلام", icon: "clock" },
-  { key: "received", label: "تم استلام الطلب", icon: "inbox" },
-  { key: "preparing", label: "جاري تجهيز الطلب", icon: "package" },
+  { key: "received", label: "تم الاستلام", icon: "inbox" },
+  { key: "preparing", label: "جاري التجهيز", icon: "package" },
   { key: "ready_to_ship", label: "جاهز للشحن", icon: "package" },
   { key: "shipped", label: "تم الشحن", icon: "truck" },
 ];
