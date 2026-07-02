@@ -26,6 +26,7 @@ import {
   addDoc,
   serverTimestamp,
   updateDoc,
+  deleteField,
   type Unsubscribe,
 } from "firebase/firestore";
 import {
@@ -100,5 +101,6 @@ export {
   addDoc,
   serverTimestamp,
   updateDoc,
+  deleteField,
 };
 export type { Unsubscribe };

@@ -21,6 +21,7 @@ import {
   addDoc,
   serverTimestamp,
   updateDoc,
+  deleteField,
   type Unsubscribe,
 } from "./fb";
 import { RecaptchaVerifier, type ConfirmationResult } from "firebase/auth";
@@ -128,6 +129,21 @@ export const FS = {
 
   async saveOrder(order: object & { id: string }) {
     await setDoc(doc(db, "orders", order.id), stripUndefined(order));
+  },
+
+  // Targeted field update on an order doc. Unlike saveOrder (full-doc setDoc),
+  // this only touches the given fields, so field-restricted security rules
+  // (e.g. the customer transfer-proof rule using affectedKeys().hasOnly)
+  // can't be broken by unrelated local/remote drift. Pass `null` to remove
+  // a field from the document.
+  async patchOrder(orderId: string, fields: Record<string, any>) {
+    const patch: Record<string, any> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value === undefined) continue;
+      patch[key] = value === null ? deleteField() : value;
+    }
+    if (Object.keys(patch).length === 0) return;
+    await updateDoc(doc(db, "orders", orderId), patch);
   },
 
   async getAllOrders(): Promise<any[]> {

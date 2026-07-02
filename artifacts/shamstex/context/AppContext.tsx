@@ -2168,7 +2168,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
       if (updatedOrder) {
-        await FS.saveOrder(updatedOrder);
+        // Targeted patch (NOT full-doc save): the customer rule only allows
+        // changing transferProofImage, so writing the whole doc gets rejected
+        // whenever the local copy drifts from the server in any other field.
+        await FS.patchOrder(orderId, { transferProofImage: imageUri });
         if (imageUri) {
           const notif: Notification = {
             id: `notif_proof_${orderId}_${Date.now()}`,

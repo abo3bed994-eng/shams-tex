@@ -14,7 +14,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { persistImageUri } from "@/utils/persistImage";
+import { persistImageUri, UploadFailedError } from "@/utils/persistImage";
 import { saveImageToDevice, shareImage } from "@/utils/imageActions";
 import { buildInvoiceHtml } from "@/utils/invoiceHtml";
 import { EDIT_WINDOW_MS, acceptStaffAvailability, computeItemsTotal } from "@/lib/editOrder";
@@ -868,8 +868,11 @@ export default function OrderDetailScreen() {
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                           Alert.alert("تم", "تم رفع إيصال التحويل وإشعار الفريق");
                         }
-                      } catch {
-                        Alert.alert("خطأ", "تعذّر رفع الصورة");
+                      } catch (err) {
+                        // UploadFailedError already showed a detailed alert.
+                        if (!(err instanceof UploadFailedError)) {
+                          Alert.alert("خطأ", "تعذّر حفظ الصورة على الطلب");
+                        }
                       } finally {
                         setUploadingTransferProof(false);
                       }
@@ -1973,8 +1976,10 @@ export default function OrderDetailScreen() {
                             setReturnProblemImage(uri);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                           }
-                        } catch {
-                          Alert.alert("خطأ", "تعذّر رفع الصورة");
+                        } catch (err) {
+                          if (!(err instanceof UploadFailedError)) {
+                            Alert.alert("خطأ", "تعذّر رفع الصورة");
+                          }
                         } finally {
                           setUploadingReturnProblem(false);
                         }
@@ -2322,8 +2327,10 @@ export default function OrderDetailScreen() {
                   });
                   setWaybillImageInput(uri);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                } catch {
-                  Alert.alert("خطأ", "تعذّر رفع الصورة");
+                } catch (err) {
+                  if (!(err instanceof UploadFailedError)) {
+                    Alert.alert("خطأ", "تعذّر رفع الصورة");
+                  }
                 } finally {
                   setUploadingWaybill(false);
                 }

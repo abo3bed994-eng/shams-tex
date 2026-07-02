@@ -25,6 +25,7 @@ import {
   addDoc,
   serverTimestamp,
   updateDoc,
+  deleteField,
 } from "@react-native-firebase/firestore";
 import {
   getStorage,
@@ -75,4 +76,5 @@ export {
   addDoc,
   serverTimestamp,
   updateDoc,
+  deleteField,
 };

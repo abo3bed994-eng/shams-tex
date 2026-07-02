@@ -132,7 +132,20 @@ export async function persistImageUri(uri: string, dest: UploadFolder = "media",
     throw new UploadFailedError();
   }
 
-  // Images: fall back to base64 so the user still has a usable preview locally.
+  // Private images (transfer proofs, return invoices): NEVER fall back to
+  // base64 — a base64 photo easily exceeds Firestore's 1MB doc limit, so the
+  // follow-up order write fails anyway and masks the real upload error. Fail
+  // loudly with the actual reason instead.
+  if (dest === "private") {
+    const detail = lastUploadError ? `\n\nالتفاصيل: ${lastUploadError}` : "";
+    Alert.alert(
+      "تعذّر رفع الصورة",
+      `حاول مرة أخرى. تأكد أنك متصل بإنترنت مستقر.${detail}`
+    );
+    throw new UploadFailedError();
+  }
+
+  // Public media images: fall back to base64 so the user still has a usable preview locally.
   return toBase64(uri);
 }
 
