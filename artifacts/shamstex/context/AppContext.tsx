@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Alert, Platform } from "react-native";
 import { FS } from "@/lib/firebase";
 import { notifyStaffNewOrder, notifyUserByPhone, notifyByRoles, notifyAll } from "@/lib/pushService";
-import { canonicalPhone, samePhone } from "@/lib/phoneUtils";
+import { canonicalPhone, samePhone, migrateLocalToE164 } from "@/lib/phoneUtils";
 import { isWithinWorkingHours } from "@/lib/workingHours";
 import { EDIT_WINDOW_MS, acceptStaffAvailability, computeItemsTotal } from "@/lib/editOrder";
 
@@ -410,6 +410,7 @@ interface AppContextType {
   findCustomerByPhone: (phone: string) => User | undefined;
   registerCustomer: (user: User) => Promise<void>;
   updateRegisteredCustomer: (user: User) => void;
+  purgeCustomerCache: (phone: string) => void;
   deleteRegisteredCustomer: (phone: string) => void;
   addAddress: (data: Omit<SavedAddress, "id" | "createdAt">) => Promise<SavedAddress | null>;
   updateAddress: (addressId: string, patch: Partial<Omit<SavedAddress, "id">>) => Promise<void>;
@@ -948,7 +949,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const localToken = await getSecureItem("sessionToken");
       if (!localToken || cancelled) return;
 
-      unsub = FS.subscribeSession(user.phone, async (remoteToken) => {
+      // Sessions are keyed by the E.164 phone (matches firestore.rules); legacy
+      // local-format phones must be migrated to the same key used at login.
+      unsub = FS.subscribeSession(migrateLocalToE164(user.phone), async (remoteToken) => {
         if (cancelled || !remoteToken) return;
         if (remoteToken !== localToken) {
           // Another device took over this account → log out FULLY immediately:
@@ -1163,7 +1166,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const secureToken = await getSecureItem("sessionToken");
         try {
           if (parsedUser.phone && secureToken) {
-            const remoteToken = await FS.getSession(parsedUser.phone);
+            const remoteToken = await FS.getSession(migrateLocalToE164(parsedUser.phone));
             if (remoteToken && remoteToken !== secureToken) {
               await AsyncStorage.removeItem("user");
               await deleteSecureItem("sessionToken");
@@ -1253,9 +1256,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         "notifications",
         "orders",
         "returnRequests",
+        // Also drop the cached customer registry: it still contains the deleted
+        // account's old record (stale role/permissions/phone format), which
+        // would poison a future re-registration and get it rejected by rules.
+        "registered_customers",
       ]).catch(() => {});
       await deleteSecureItem("sessionToken");
     } catch {}
+    setRegisteredCustomersState([]);
     setUserState(null);
     setNotifications([]);
     setOrdersState([]);
@@ -1304,6 +1312,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // Remove a customer record from the LOCAL cache only (state + AsyncStorage).
+  // Used when Firestore authoritatively says the account no longer exists (e.g.
+  // deleted by admin): keeping the stale record would resurrect its old
+  // role/permissions/phone format on re-registration and get the recreated doc
+  // rejected by security rules.
+  const purgeCustomerCache = useCallback((phone: string) => {
+    setRegisteredCustomersState((prev) => {
+      const filtered = prev.filter((c) => !samePhone(c.phone, phone));
+      if (filtered.length !== prev.length) {
+        AsyncStorage.setItem("registered_customers", JSON.stringify(filtered)).catch(() => {});
+      }
+      return filtered;
+    });
+  }, []);
 
   const registerCustomer = useCallback(async (newUser: User) => {
     // Match canonically so a re-registration under a different phone format
@@ -1761,6 +1784,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // automatically (staff no longer needs the customer to adjust quantities).
       if (status === "ready_to_ship" || status === "ready") {
         patch.editable = false;
+        // Finalize estimated weights: any pieces item that never got an actual
+        // weight recorded during preparing has its per-bolt estimate locked in
+        // as the actual weight, so the order stops showing "تقديري" once ready.
+        const needsFinalize = prevOrder.items.some(
+          (it) => it.orderType === "pieces" && !it.actualWeight
+        );
+        if (needsFinalize) {
+          const finalizedItems = prevOrder.items.map((it) =>
+            it.orderType === "pieces" && !it.actualWeight
+              ? { ...it, actualWeight: it.quantity * (it.unit === "meter" ? 100 : 20) }
+              : it
+          );
+          patch.items = finalizedItems;
+          patch.total = computeItemsTotal(finalizedItems);
+        }
       }
       // Shipping invariant: cannot advance to "shipped" without waybill image + provider
       if (status === "shipped" && (prevOrder.fulfillmentType ?? "branch") === "shipping") {
@@ -2697,6 +2735,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         findCustomerByPhone,
         registerCustomer,
         updateRegisteredCustomer,
+        purgeCustomerCache,
         deleteRegisteredCustomer,
         addAddress,
         updateAddress,

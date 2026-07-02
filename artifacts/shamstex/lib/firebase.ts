@@ -89,13 +89,13 @@ function stripUndefined(value: any): any {
 }
 
 export const FS = {
+  // NOTE: throws on read failure (network/rules) — callers must catch and fall
+  // back to their local cache. Returning null here would be indistinguishable
+  // from an authoritative "account does not exist", and login uses that signal
+  // to purge the local cache of deleted accounts.
   async getCustomer(phone: string): Promise<any | null> {
-    try {
-      const snap = await getDoc(doc(db, "customers", phone));
-      return snap.exists() ? snap.data() : null;
-    } catch {
-      return null;
-    }
+    const snap = await getDoc(doc(db, "customers", phone));
+    return snap.exists() ? snap.data() : null;
   },
 
   async saveCustomer(customer: object & { id: string; phone: string }) {

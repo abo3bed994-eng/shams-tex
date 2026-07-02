@@ -22,7 +22,7 @@ import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
 import CountryPicker from "@/components/CountryPicker";
 import { COUNTRIES, DEFAULT_COUNTRY, Country } from "@/lib/countries";
-import { isValidLocal, toE164 } from "@/lib/phoneUtils";
+import { isValidLocal, toE164, migrateLocalToE164 } from "@/lib/phoneUtils";
 import { startPhoneSignIn, PhoneAuthConfirmation } from "@/lib/phoneAuth";
 import { cardShadow } from "@/constants/shadows";
 
@@ -42,7 +42,7 @@ const isOwnerPhone = (phone: string) => OWNER_PHONES.has(phone);
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, settings, setCustomerPin, verifyCustomerPin, language, theme, setTheme } = useApp();
+  const { setUser, findCustomerByPhone, registerCustomer, updateRegisteredCustomer, purgeCustomerCache, settings, setCustomerPin, verifyCustomerPin, language, theme, setTheme } = useApp();
   const systemScheme = useColorScheme();
   const themeResolved: "dark" | "light" =
     theme === "system" ? (systemScheme === "light" ? "light" : "dark") : theme;
@@ -84,7 +84,11 @@ export default function LoginScreen() {
         return fresh;
       }
       // Firestore says no such customer → treat as new account regardless of
-      // local cache.
+      // local cache. Purge the stale cached record too: otherwise finishLogin/
+      // registerCustomer would resurrect its old role/permissions/phone format
+      // and the recreated doc would be rejected by security rules, locking the
+      // user out with "تم حذف حسابك" forever.
+      purgeCustomerCache(p);
       return undefined;
     } catch {
       // Network/Firestore failure: fall back to cache so legitimate users
@@ -431,10 +435,35 @@ export default function LoginScreen() {
       vip: resolvedVip,
       sessionToken,
     };
+    // Sessions MUST be keyed by the E.164 phone so firestore.rules
+    // (`phone == request.auth.token.phone_number`) accepts the write. A legacy
+    // local-format phone here would get silently rejected, leaving the OLD
+    // token on the server — and the enforcement listener would then kick this
+    // device right after login ("تم تسجيل الدخول من جهاز آخر").
+    let sessionSaved = false;
     try {
       const { FS } = await import("@/lib/firebase");
-      await FS.saveSession(userToSet.phone, sessionToken);
+      const sessionKey = migrateLocalToE164(userToSet.phone);
+      try {
+        await FS.saveSession(sessionKey, sessionToken);
+        sessionSaved = true;
+      } catch {
+        // One retry for transient network hiccups.
+        await FS.saveSession(sessionKey, sessionToken);
+        sessionSaved = true;
+      }
     } catch {}
+    if (!sessionSaved) {
+      // Couldn't register this session (offline or rules rejection). Do NOT
+      // keep a local token: the enforcement listener would compare it against
+      // a stale remote token and immediately log this device out. Skipping the
+      // token simply disables single-device enforcement for this session.
+      delete (userToSet as any).sessionToken;
+      try {
+        const { deleteSecureItem } = await import("@/lib/secureStorage");
+        await deleteSecureItem("sessionToken");
+      } catch {}
+    }
     if (ownerOverride) {
       // updateRegisteredCustomer overwrites role; registerCustomer would preserve
       // the stale "customer" role and silently keep the owner downgraded.
