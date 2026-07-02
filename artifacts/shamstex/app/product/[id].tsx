@@ -39,6 +39,11 @@ export default function ProductDetailScreen() {
 
   const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
   const isLargeFont = fontScale >= 1.15;
+  // On narrow screens (or large display-size settings, common on Xiaomi) the
+  // fixed-width weight input + the two round buttons squeeze the color name
+  // out of the row. Shrink the input responsively so the name always fits.
+  const isNarrow = windowWidth < 390;
+  const weightInputWidth = isNarrow ? 72 : 104;
   const imgScrollRef = useRef<ScrollView>(null);
   const viewerScrollRef = useRef<ScrollView>(null);
   const product = products.find((p) => p.id === id);
@@ -279,7 +284,9 @@ export default function ProductDetailScreen() {
                       <Icon name="plus" size={14} color={colors.background} />
                     </Pressable>
                     <TextInput
+                      maxFontSizeMultiplier={1.15}
                       style={[styles.weightInput, {
+                        width: weightInputWidth,
                         color: w > 0 ? colors.gold : colors.mutedForeground,
                         backgroundColor: colors.input,
                         borderColor: w > 0 ? colors.gold + "55" : colors.border,
@@ -324,7 +331,7 @@ export default function ProductDetailScreen() {
                     </Pressable>
                   </View>
                   <View style={[styles.colorRowRight, isLargeFont && { flexDirection: "column", gap: 4 }]}>
-                    <Text numberOfLines={1} style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
+                    <Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
                       {color.name}
                     </Text>
                     <Pressable
@@ -378,7 +385,7 @@ export default function ProductDetailScreen() {
                   ) : null}
                 </View>
                 <View style={[styles.colorRowRight, isLargeFont && { flexDirection: "column", gap: 4 }]}>
-                  <Text numberOfLines={1} style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
+                  <Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
                     {color.name}
                   </Text>
                   <Pressable
