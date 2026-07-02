@@ -22,8 +22,8 @@ import GoldButton from "@/components/GoldButton";
 import Icon from "@/components/Icon";
 import CountryPicker from "@/components/CountryPicker";
 import { COUNTRIES, DEFAULT_COUNTRY, Country } from "@/lib/countries";
-import { isValidLocal, toE164, migrateLocalToE164 } from "@/lib/phoneUtils";
-import { startPhoneSignIn, PhoneAuthConfirmation } from "@/lib/phoneAuth";
+import { isValidLocal, toE164, migrateLocalToE164, samePhone } from "@/lib/phoneUtils";
+import { startPhoneSignIn, getCurrentAuthPhone, PhoneAuthConfirmation } from "@/lib/phoneAuth";
 import { cardShadow } from "@/constants/shadows";
 
 type Step = "phone" | "otp" | "name" | "enterPin" | "setPin";
@@ -126,7 +126,19 @@ export default function LoginScreen() {
       setPin("");
       setConfirmPin("");
       if (existing.pin) {
-        setStep("enterPin");
+        // PIN is only a QUICK-UNLOCK for a device that already holds a
+        // matching Firebase phone-auth identity. A brand-new device must
+        // verify via OTP first — otherwise it would have no Firebase auth
+        // session, Firestore rules would silently reject its session
+        // registration (breaking single-device enforcement) and every other
+        // protected write (orders, uploads).
+        const authPhone = getCurrentAuthPhone();
+        if (authPhone && samePhone(authPhone, e164Phone)) {
+          setStep("enterPin");
+        } else {
+          forgotPinModeRef.current = false;
+          await sendOtp();
+        }
       } else {
         // SECURITY: existing account without PIN must verify ownership via SMS
         // before being allowed to set one — otherwise anyone who knows the
@@ -316,6 +328,14 @@ export default function LoginScreen() {
             return;
           }
         }
+      }
+      // Defensive: NEVER finish a PIN login on a device without a matching
+      // Firebase auth identity (protected writes would all silently fail).
+      const authPhone = getCurrentAuthPhone();
+      if (!authPhone || !samePhone(authPhone, e164Phone)) {
+        forgotPinModeRef.current = false;
+        await sendOtp();
+        return;
       }
       await finishLogin(existing.name, existing.role as any, { ...existing, phone: e164Phone });
     } finally {

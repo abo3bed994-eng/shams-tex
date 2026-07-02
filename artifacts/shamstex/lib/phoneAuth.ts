@@ -60,6 +60,25 @@ export async function startPhoneSignIn(e164Phone: string): Promise<PhoneAuthConf
   };
 }
 
+// Returns the E.164 phone number of the Firebase auth session persisted on
+// THIS device, or null if the device has never completed a phone OTP sign-in.
+// Used to decide whether PIN quick-unlock is allowed: PIN alone must never
+// grant access on a device that has no matching Firebase identity, because
+// Firestore security rules would silently reject every protected write
+// (session registration, orders, uploads) on that device.
+export function getCurrentAuthPhone(): string | null {
+  try {
+    if (Platform.OS === "web") {
+      return webAuth.currentUser?.phoneNumber ?? null;
+    }
+    const rnAuth = getNativeAuth();
+    if (!rnAuth) return null;
+    return rnAuth().currentUser?.phoneNumber ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function signOut(): Promise<void> {
   try {
     if (Platform.OS === "web") {
