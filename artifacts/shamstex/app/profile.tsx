@@ -341,7 +341,18 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLanguage(language === "ar" ? "en" : "ar"); }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (language === "ar") {
+                  Alert.alert(
+                    "قريباً",
+                    "اللغة الإنجليزية ستكون متاحة قريباً",
+                    [{ text: "حسناً" }]
+                  );
+                } else {
+                  setLanguage("ar");
+                }
+              }}
               style={{
                 flexDirection: "row-reverse",
                 alignItems: "center",
