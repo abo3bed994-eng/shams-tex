@@ -1953,7 +1953,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setOrdersState(updated);
       ordersRef.current = updated;
       await AsyncStorage.setItem("orders", JSON.stringify(updated));
-      if (cancelled) await FS.saveOrder(cancelled);
+      // Use patchOrder (targeted field update) so only the `status` field changes
+      // in Firestore — the customer cancel rule uses affectedKeys().hasOnly(['status']).
+      // A full setDoc via saveOrder would also write `editable: false` which is
+      // outside the allowed set and causes a permission-denied error.
+      if (cancelled) await FS.patchOrder(orderId, { status: "cancelled", editable: false });
       // Notify the staff member who received the order (or the staff role at large)
       // that the customer cancelled it — used when a customer empties their order
       // while editing, or when the edit window auto-cancels an all-unavailable order.
