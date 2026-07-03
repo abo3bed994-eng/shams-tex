@@ -188,7 +188,14 @@ service cloud.firestore {
         );
       // Staff can also fully update notifications they manage.
       allow update: if isStaff();
-      allow create: if isStaff();
+      // Any authenticated user may create a staff-broadcast notification
+      // (e.g. a customer placing an order sends a "new order" alert to staff).
+      // Direct/private notifications (targeting a specific user) are staff-only.
+      allow create: if isStaff()
+        || (isSignedIn()
+            && request.resource.data.get('targetRole', '') == 'staff'
+            && !('targetUserId' in request.resource.data)
+            && !('targetUserPhone' in request.resource.data));
       allow delete: if isAdmin();
     }
 

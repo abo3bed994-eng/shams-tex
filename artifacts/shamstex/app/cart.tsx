@@ -275,7 +275,7 @@ export default function CartScreen() {
     if (selectedPayment && !PAYMENT_METHODS.some((p) => p.key === selectedPayment)) {
       setSelectedPayment(null);
     }
-  }, [fulfillmentType, selectedPayment]);
+  }, [fulfillmentType, selectedPayment, selectedBranchId]);
   const feeAmount = selectedPayment === "ewallet" ? Math.ceil(totalPrice * ewalletFee / 100) : 0;
   const totalWithFee = totalPrice + feeAmount;
 

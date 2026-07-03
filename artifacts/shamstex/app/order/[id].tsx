@@ -784,7 +784,7 @@ export default function OrderDetailScreen() {
                 </View>
               ) : null}
 
-              {isStaff && !isLockedByOther && (
+              {isStaff && !isLockedByOther && order.status !== "delivered" && order.status !== "shipped" && (
                 <View style={{ marginTop: 4, gap: 6 }}>
                   {!showOverrideInput ? (
                     <Pressable
