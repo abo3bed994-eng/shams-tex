@@ -153,20 +153,6 @@ export default function ProductDetailScreen() {
     }));
   };
 
-  const removeColorWeight = (colorName: string) => {
-    setColorWeights((prev) => {
-      const current = prev[colorName] ?? 0;
-      if (current <= KG_STEP) {
-        const next = { ...prev };
-        delete next[colorName];
-        return next;
-      }
-      return {
-        ...prev,
-        [colorName]: parseFloat((current - KG_STEP).toFixed(1)),
-      };
-    });
-  };
 
   const isStaff = user?.role === "admin" || user?.role === "employee" || user?.role === "supervisor";
 
@@ -277,12 +263,6 @@ export default function ProductDetailScreen() {
                   ]}
                 >
                   <View style={styles.colorRowLeft}>
-                    <Pressable
-                      onPress={() => addColorWeight(color.name)}
-                      style={[styles.qtyBtn, { backgroundColor: colors.gold }]}
-                    >
-                      <Icon name="plus" size={14} color={colors.background} />
-                    </Pressable>
                     <TextInput
                       maxFontSizeMultiplier={1.15}
                       style={[styles.weightInput, {
@@ -315,20 +295,6 @@ export default function ProductDetailScreen() {
                       }}
                       onBlur={() => setWeightTexts((prev) => { const n = { ...prev }; delete n[color.name]; return n; })}
                     />
-                    <Pressable
-                      onPress={() => removeColorWeight(color.name)}
-                      disabled={w === 0}
-                      style={[
-                        styles.qtyBtn,
-                        {
-                          backgroundColor: w > 0 ? colors.surface : colors.surface + "55",
-                          borderColor: colors.border,
-                          opacity: w > 0 ? 1 : 0.4,
-                        },
-                      ]}
-                    >
-                      <Icon name="minus" size={14} color={colors.gold} />
-                    </Pressable>
                   </View>
                   <View style={[styles.colorRowRight, isLargeFont && { flexDirection: "column", gap: 4 }]}>
                     <Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={[styles.colorName, { color: colors.foreground, fontFamily: "Inter_500Medium" }, isLargeFont && { textAlign: "center", flex: 0 }]}>
