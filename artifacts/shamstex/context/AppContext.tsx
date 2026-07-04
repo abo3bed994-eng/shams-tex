@@ -1508,9 +1508,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setProducts = useCallback(async (prods: Product[]) => {
-    setProductsState(prods);
-    await AsyncStorage.setItem("products", JSON.stringify(prods));
-    prods.forEach((p) => FS.saveProduct(p).catch(() => {}));
+    // Stamp each product with its new array index so the Firestore subscription
+    // (which sorts by `a.order - b.order`) preserves the drag-reordered sequence.
+    const withOrder = prods.map((p, i) => ({ ...p, order: i }));
+    setProductsState(withOrder);
+    await AsyncStorage.setItem("products", JSON.stringify(withOrder));
+    withOrder.forEach((p) => FS.saveProduct(p).catch(() => {}));
   }, []);
 
   // Single-product helpers — avoid re-writing the entire collection on
