@@ -57,7 +57,7 @@ function formatDate(iso?: string): string {
 
 function formatMoney(n: number): string {
   const v = Number(n) || 0;
-  return v.toLocaleString("en-EG", { maximumFractionDigits: 2 });
+  return v.toLocaleString("en-EG", { maximumFractionDigits: 2, useGrouping: false });
 }
 
 export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
@@ -83,7 +83,7 @@ export function buildInvoiceHtml(order: Order, settings: AppSettings): string {
       const qtyDisplay = `${boltCount} ثوب — ${formatMoney(amount)} ${unitAr}`;
       const lineTotal = isWeight
         ? (it.actualWeight ?? it.weight ?? 0) * it.unitPrice
-        : it.quantity * it.unitPrice;
+        : (it.actualWeight ?? it.quantity * perBolt) * it.unitPrice;
       return `
         <tr>
           <td class="c">${idx + 1}</td>

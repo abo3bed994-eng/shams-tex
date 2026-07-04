@@ -2643,7 +2643,7 @@ const styles = StyleSheet.create({
   },
   orderItemInfo: { gap: 2 },
   orderItemName: { fontSize: 14 },
-  orderItemColor: { fontSize: 12 },
+  orderItemColor: { fontSize: 13 },
   orderItemLeft: { alignItems: "flex-end" },
   orderItemPrice: { fontSize: 15 },
   orderItemQty: { fontSize: 15 },
