@@ -355,7 +355,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     "ساتان": ["ساتان فرنسي", "ساتان كوري"],
   },
   yarnTypes: ["قطن", "بوليستر", "فيسكوز", "ليكرا", "صوف", "حرير", "كتان", "نايلون"],
-  featuredProductIds: ["1", "2", "3"],
+  featuredProductIds: [],
   stats: { clients: "+500", products: "+50", years: "15+" },
   statLabels: { clients: "عميل", products: "خامة", years: "سنة خبرة" },
   workingHours: [

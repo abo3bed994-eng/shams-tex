@@ -202,7 +202,7 @@ export default function ProductsScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.catScroll}
-          onLayout={() => catScrollRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() => catScrollRef.current?.scrollToEnd({ animated: false })}
         >
           {[...CATEGORIES, OUT_OF_STOCK_LABEL].reverse().map((cat) => (
             <Pressable
@@ -250,26 +250,9 @@ export default function ProductsScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.subCatScroll}
+            onContentSizeChange={() => subCatScrollRef.current?.scrollToEnd({ animated: false })}
           >
-            <Pressable
-              onPress={() => setActiveSubcategory(null)}
-              style={({ pressed }) => [
-                styles.subCatChip,
-                {
-                  backgroundColor: !activeSubcategory ? colors.gold + "33" : "transparent",
-                  borderColor: !activeSubcategory ? colors.gold : colors.border,
-                  opacity: pressed ? 0.8 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.subCatText, {
-                color: !activeSubcategory ? colors.gold : colors.mutedForeground,
-                fontFamily: !activeSubcategory ? "Inter_600SemiBold" : "Inter_400Regular",
-              }]}>
-                {t("allCategories")}
-              </Text>
-            </Pressable>
-            {subcategoriesForActive.map((sub) => (
+            {[...subcategoriesForActive].reverse().map((sub) => (
               <Pressable
                 key={sub}
                 onPress={() => setActiveSubcategory(sub)}
@@ -290,6 +273,24 @@ export default function ProductsScreen() {
                 </Text>
               </Pressable>
             ))}
+            <Pressable
+              onPress={() => setActiveSubcategory(null)}
+              style={({ pressed }) => [
+                styles.subCatChip,
+                {
+                  backgroundColor: !activeSubcategory ? colors.gold + "33" : "transparent",
+                  borderColor: !activeSubcategory ? colors.gold : colors.border,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.subCatText, {
+                color: !activeSubcategory ? colors.gold : colors.mutedForeground,
+                fontFamily: !activeSubcategory ? "Inter_600SemiBold" : "Inter_400Regular",
+              }]}>
+                {t("allCategories")}
+              </Text>
+            </Pressable>
           </ScrollView>
         )}
       </View>
