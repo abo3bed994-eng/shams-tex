@@ -856,7 +856,7 @@ export default function OrderDetailScreen() {
                 </Pressable>
               ) : null}
 
-              {isCustomer && (
+              {isCustomer && order.status !== "delivered" && order.status !== "shipped" && (
                 <View style={{ gap: 8, marginTop: 4 }}>
                   <Pressable
                     onPress={async () => {
