@@ -325,6 +325,7 @@ export interface AppSettings {
   payment?: PaymentSettings;
   branches?: Branch[];
   shippingProviders?: ShippingProviderConfig[];
+  shippingAllowedPayments?: PaymentMethod[];
   logoUri?: string;
   minVersion?: string;
   updateUrl?: string;

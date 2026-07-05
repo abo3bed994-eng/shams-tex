@@ -3,13 +3,26 @@ import { Alert, Pressable, Switch, Text, TextInput, View } from "react-native";
 import Icon from "@/components/Icon";
 import GoldButton from "@/components/GoldButton";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
-import { ShippingProviderConfig, ShippingProviderId, SHIPPING_PROVIDER_DEFAULTS } from "@/context/AppContext";
+import { PaymentMethod, PAYMENT_METHOD_LABELS, ShippingProviderConfig, ShippingProviderId, SHIPPING_PROVIDER_DEFAULTS } from "@/context/AppContext";
 import { Card, SettingsScreen, useSettingsDraft } from "./_shared";
+
+const ALL_METHODS: PaymentMethod[] = ["cash", "bank_transfer", "ewallet", "instapay"];
 
 export default function ShippingSettings() {
   useAdminGuard("manage_settings");
   const { colors, bottomPad, draft, setDraft, saving, save } = useSettingsDraft();
   const current: ShippingProviderConfig[] = draft.shippingProviders ?? SHIPPING_PROVIDER_DEFAULTS;
+  const shippingAllowed: PaymentMethod[] =
+    draft.shippingAllowedPayments && draft.shippingAllowedPayments.length > 0
+      ? draft.shippingAllowedPayments
+      : [...ALL_METHODS];
+
+  const toggleShippingPayment = (m: PaymentMethod) => {
+    const next = shippingAllowed.includes(m)
+      ? shippingAllowed.filter((x) => x !== m)
+      : [...shippingAllowed, m];
+    setDraft((d) => ({ ...d, shippingAllowedPayments: next }));
+  };
 
   const updateProvider = (id: ShippingProviderId, patch: Partial<ShippingProviderConfig>) => {
     setDraft((d) => {
@@ -36,6 +49,39 @@ export default function ShippingSettings() {
 
   return (
     <SettingsScreen title="شركات الشحن" bottomPad={bottomPad} save={save} saving={saving}>
+      <Card title="💳 طرق الدفع المتاحة عند الشحن">
+        <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
+          تُطبَّق هذه الإعدادات على جميع شركات الشحن. اختر طريقة دفع واحدة على الأقل.
+        </Text>
+        <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+          {ALL_METHODS.map((m) => {
+            const on = shippingAllowed.includes(m);
+            return (
+              <Pressable
+                key={m}
+                onPress={() => toggleShippingPayment(m)}
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: on ? colors.gold : colors.border,
+                  backgroundColor: on ? colors.gold + "20" : colors.background,
+                }}
+              >
+                <Icon name={on ? "check-square" : "square"} size={14} color={on ? colors.gold : colors.mutedForeground} />
+                <Text style={{ color: on ? colors.gold : colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
+                  {PAYMENT_METHOD_LABELS[m]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
+
       <Card title="🚚 شركات الشحن">
         <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
           أضف/عدّل/احذف شركات الشحن المتاحة للعميل. ثمن الشحن لا يُحسب داخل التطبيق ويُتفق عليه خارجياً.

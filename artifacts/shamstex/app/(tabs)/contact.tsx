@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   contactLabel: {
-    fontSize: 11,
+    fontSize: 13,
   },
   contactNumber: {
     fontSize: 16,

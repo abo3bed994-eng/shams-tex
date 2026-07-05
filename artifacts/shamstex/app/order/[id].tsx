@@ -1634,7 +1634,7 @@ export default function OrderDetailScreen() {
                     gap: 10,
                   }}
                 >
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", gap: 10 }}>
                     <View style={[styles.colorSwatch, { backgroundColor: item.colorHex, borderColor: colors.border }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13, textAlign: "right" }}>
@@ -2631,7 +2631,7 @@ const styles = StyleSheet.create({
   },
   orderItemRight: {
     flexDirection: "row-reverse",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 10,
     flex: 1,
   },

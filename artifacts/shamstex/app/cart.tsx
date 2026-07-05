@@ -268,6 +268,10 @@ export default function CartScreen() {
       const allowed = b?.allowedPayments;
       if (allowed && allowed.length > 0 && !allowed.includes(pm.key)) return false;
     }
+    if (fulfillmentType === "shipping") {
+      const shippingAllowed = settings.shippingAllowedPayments;
+      if (shippingAllowed && shippingAllowed.length > 0 && !shippingAllowed.includes(pm.key)) return false;
+    }
     return true;
   });
 
